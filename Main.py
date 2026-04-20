@@ -7,17 +7,13 @@ from collections import deque
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# 🔌 CAMBIO 1: Reemplazo de sqlite3 por psycopg2
 import psycopg2
 import psycopg2.extras
 
-# 🔌 CAMBIO 2: URL de entorno (Railway)
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "levelone_produccion_segura_2026")
 
-# 🔌 CAMBIO 3: Conexión PostgreSQL + cursor tipo diccionario (para que row["campo"] funcione igual)
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = False
@@ -29,8 +25,6 @@ def get_cur(conn):
 def init_db():
     conn = get_db()
     cur = get_cur(conn)
-    
-    # 🔌 CAMBIO 4: Sintaxis PostgreSQL (SERIAL, FALSE, sin ALTER TABLE innecesarios)
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -56,7 +50,6 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
-    # 🔌 CAMBIO 5: ? → %s y separar execute() de fetchone() (OBLIGATORIO en psycopg2)
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role)
@@ -64,7 +57,7 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1'))
     conn.commit()
-    print("Sistema listo. Historial dual implementado.", flush=True)
+    print("✅ DB lista.", flush=True)
     conn.close()
 
 init_db()
@@ -89,6 +82,7 @@ def login():
 
 @app.route("/dashboard")
 def dashboard():
+    print("[DEBUG] Entrando a dashboard()", flush=True)
     if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db()
     cur = get_cur(conn)
@@ -107,7 +101,7 @@ def dashboard():
     else:
         cur.execute("SELECT * FROM cycles WHERE l5_user_id=%s OR id IN (SELECT cycle_id FROM cycle_levels WHERE user_id=%s)", (uid, uid))
         cycles = cur.fetchall()
-    
+        
     cycle_id = request.args.get("cycle_id", type=int)
     if not cycle_id and cycles: cycle_id = cycles[-1]["id"]
     
@@ -122,8 +116,7 @@ def dashboard():
         cl = cur.fetchone()
         if cl: cycle_level = cl["level"]; is_graduated_cycle = bool(cl["is_graduated"])
 
-    completed_count = 0; pending = None
-    pending_cbu = "No configurado"; pending_phone = "No configurado"
+    pending = None; pending_cbu = "No configurado"; pending_phone = "No configurado"
     confirmations = []; participants = []
 
     if active_cycle and level == 5:
@@ -139,25 +132,26 @@ def dashboard():
         elif step == 2 and cid:
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
-            if l1_row:
-                cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],))
-                row = cur.fetchone()
-            else: row = None
+            row = cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],)).fetchone() if l1_row else None
         else: 
             cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,))
             row = cur.fetchone()
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
 
-    if level != 5 and sticker != "ADMIN001" and role != "graduated":
-        try:
-            cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
-            l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
-            if l1_cycles:
-                ph2 = ','.join(['%s'] * len(l1_cycles))
-                cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status IN ('sent', 'confirmed') AND cycle_id IN ({ph2})", l1_cycles)
-                confirmations = cur.fetchall()
-        except: pass
+    # 🔴 CONFIRMACIONES (EXPLÍCITO PARA ADMIN Y L1-L4)
+    if sticker == 'ADMIN001':
+        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status, created_at FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
+        confirmations = cur.fetchall()
+        print(f"[DEBUG ADMIN] Confirmaciones encontradas: {len(confirmations)}", flush=True)
+        for c in confirmations: print(f"  -> {c['sticker_code']} | {c['buyer_name']}", flush=True)
+    elif level != 5 and role != "graduated":
+        cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
+        l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
+        if l1_cycles:
+            ph = ','.join(['%s']*len(l1_cycles))
+            cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status='sent' AND cycle_id IN ({ph})", l1_cycles)
+            confirmations = cur.fetchall()
 
     if level != 5 and sticker != "ADMIN001" and role != "graduated":
         try:
@@ -165,26 +159,18 @@ def dashboard():
             while queue:
                 curr = queue.popleft()
                 cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (curr,))
-                rows = cur.fetchall()
-                for r in rows:
+                for r in cur.fetchall():
                     cid = r["child_id"]
                     if cid and cid not in visited: visited.add(cid); desc_ids.append(cid); queue.append(cid)
-
             all_ids = [uid] + desc_ids
-            ph = ','.join(['%s'] * len(all_ids))
+            ph = ','.join(['%s']*len(all_ids))
             cur.execute(f"SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE id IN ({ph})", all_ids)
             participants = [dict(p) for p in cur.fetchall()]
-            
             sales_map = {}
-            try:
-                cur.execute(f"SELECT seller_id, COUNT(*) as cnt FROM stickers WHERE seller_id IN ({ph}) AND LOWER(status) = 'entregado' GROUP BY seller_id", all_ids)
-                cnt_rows = cur.fetchall()
-                sales_map = {r["seller_id"]: r["cnt"] for r in cnt_rows}
-            except: pass
-
+            cur.execute(f"SELECT seller_id, COUNT(*) as cnt FROM stickers WHERE seller_id IN ({ph}) AND status='entregado' GROUP BY seller_id", all_ids)
+            for r in cur.fetchall(): sales_map[r["seller_id"]] = r["cnt"]
             for p in participants:
-                raw = sales_map.get(p["id"], 0)
-                p["sales_done"] = 3 if (raw == 0 and p["current_level"] < 5) else raw
+                p["sales_done"] = 3 if (sales_map.get(p["id"], 0) == 0 and p["current_level"] < 5) else sales_map.get(p["id"], 0)
                 if active_cycle:
                     cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (p["id"], cycle_id))
                     cl = cur.fetchone()
@@ -194,175 +180,156 @@ def dashboard():
 
     my_sales_history = []
     income_history = []
-    try:
-        cur.execute("SELECT * FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
-        my_sales_history = [dict(s) for s in cur.fetchall()]
-        
-        if sticker == "ADMIN001":
-            cur.execute("SELECT * FROM stickers WHERE step=1 AND status IN ('confirmed', 'entregado') ORDER BY created_at DESC")
+    cur.execute("SELECT * FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
+    my_sales_history = [dict(s) for s in cur.fetchall()]
+    if sticker == "ADMIN001":
+        cur.execute("SELECT * FROM stickers WHERE step=1 AND status IN ('confirmed', 'entregado') ORDER BY created_at DESC")
+        income_history = [dict(r) for r in cur.fetchall()]
+    elif level == 5:
+        cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status='entregado' ORDER BY created_at DESC", (uid,))
+        income_history = [dict(r) for r in cur.fetchall()]
+    else:
+        cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
+        l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
+        if l1_cycles:
+            ph = ','.join(['%s']*len(l1_cycles))
+            cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status IN ('confirmed', 'entregado') AND cycle_id IN ({ph}) ORDER BY created_at DESC", l1_cycles)
             income_history = [dict(r) for r in cur.fetchall()]
-        elif level == 5:
-            cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status='entregado' ORDER BY created_at DESC", (uid,))
-            income_history = [dict(r) for r in cur.fetchall()]
-        else:
-            cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
-            l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
-            if l1_cycles:
-                ph = ','.join(['%s']*len(l1_cycles))
-                cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status IN ('confirmed', 'entregado') AND cycle_id IN ({ph}) ORDER BY created_at DESC", l1_cycles)
-                income_history = [dict(r) for r in cur.fetchall()]
-    except Exception as e: print(f"[ERROR HISTORIAL] {e}", flush=True)
 
     try: active_cycles_display = [c for c in cycles if not (c["completed_at"] and (datetime.now() - datetime.strptime(c["completed_at"], "%Y-%m-%d %H:%M:%S")).days > 30)]
     except: active_cycles_display = cycles
 
-    total_sales = len(my_sales_history)
-    my_sales_with_num = [{"sale": s, "num": total_sales - i} for i, s in enumerate(my_sales_history)]
-    total_income = len(income_history)
-    income_with_num = [{"sale": s, "num": total_income - i} for i, s in enumerate(income_history)]
-
     conn.close()
-    return render_template("dashboard.html", user=u, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=my_sales_with_num, income=income_with_num, completed_count=completed_count)
+    return render_template("dashboard.html", user=u, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)])
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
     if "user_id" not in session: return redirect("/login")
     conn = get_db(); cur = get_cur(conn)
     try:
-        cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
-        row_u = cur.fetchone()
-        if not row_u: conn.close(); return redirect("/dashboard")
-        u = dict(row_u)
-        
-        if u.get("current_level") != 5: flash("Solo Nivel 5 puede crear stickers."); conn.close(); return redirect("/dashboard")
-        
+        cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],)); row_u = cur.fetchone()
+        if not row_u or row_u["current_level"] != 5: flash("Solo Nivel 5 puede crear stickers."); conn.close(); return redirect("/dashboard")
         name = request.form.get("name","").strip(); phone = request.form.get("phone","").strip()
         email = request.form.get("email","").strip(); cbu = request.form.get("cbu","").strip()
         if not all([name, phone, email, cbu]): flash("Todos los campos son obligatorios."); conn.close(); return redirect("/dashboard")
 
-        cur.execute("SELECT id FROM cycles WHERE l5_user_id=%s AND status='active'", (u["id"],))
-        cycle = cur.fetchone()
-        
+        cur.execute("SELECT id FROM cycles WHERE l5_user_id=%s AND status='active'", (row_u["id"],)); cycle = cur.fetchone()
         if not cycle:
-            # 🔌 CAMBIO 6: RETURNING id en lugar de lastrowid
-            cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (u["id"],))
+            cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
             cycle_id = cur.fetchone()["id"]
-            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s, %s, %s) ON CONFLICT (user_id, cycle_id) DO NOTHING", (u["id"], cycle_id, u["current_level"]))
-            parent = u["id"]
+            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (row_u["id"], cycle_id, 5))
+            parent = row_u["id"]
             while True:
-                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
-                up = cur.fetchone()
+                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,)); up = cur.fetchone()
                 if not up: break
                 parent = up["parent_id"]
-                cur.execute("SELECT current_level FROM users WHERE id=%s", (parent,))
-                p_row = cur.fetchone()
-                lvl = p_row["current_level"] if p_row else 1
-                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s, %s, %s) ON CONFLICT (user_id, cycle_id) DO NOTHING", (parent, cycle_id, lvl))
-        else:
-            cycle_id = cycle["id"]
+                cur.execute("SELECT current_level FROM users WHERE id=%s", (parent,)); pr = cur.fetchone()
+                lvl = pr["current_level"] if pr else 1
+                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (parent, cycle_id, lvl))
+        else: cycle_id = cycle["id"]
 
-        cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status != 'entregado' LIMIT 1", (u["id"], cycle_id))
-        pending_check = cur.fetchone()
-        if pending_check: flash("Espera a completar el sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
-
-        cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (u["id"], cycle_id))
-        completed = cur.fetchone()["cnt"]
+        cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status != 'entregado' LIMIT 1", (row_u["id"], cycle_id))
+        if cur.fetchone(): flash("Espera a completar el sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
+        cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (row_u["id"], cycle_id)); completed = cur.fetchone()["cnt"]
         if completed >= 3: flash("Ciclo completado."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
 
-        code = "STK-" + str(uuid.uuid4())[:6].upper()
-        token, temp_pass = str(uuid.uuid4())[:12], "Temp-" + str(uuid.uuid4())[:8]
-        step = completed + 1
-        cur.execute('''INSERT INTO stickers (sticker_code, seller_id, cycle_id, buyer_name, buyer_phone, buyer_email, buyer_cbu, step, confirmation_token, temp_pass, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', (code, u["id"], cycle_id, name, phone, email, cbu, step, token, temp_pass, 'pending'))
-        cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256'), 'inactive'))
-        new_user_id = cur.fetchone()["id"]
-        if new_user_id:
-            cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s, %s) ON CONFLICT (parent_id, child_id) DO NOTHING", (u["id"], new_user_id))
-            
+        code = "STK-"+str(uuid.uuid4())[:6].upper(); temp_pass = "Temp-"+str(uuid.uuid4())[:8]
+        cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,step,confirmation_token,temp_pass,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', (code,row_u["id"],cycle_id,name,phone,email,cbu,completed+1,str(uuid.uuid4())[:12],temp_pass,'pending'))
+        cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
+        new_id = cur.fetchone()["id"]
+        if new_id: cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (row_u["id"], new_id))
         conn.commit(); flash("Sticker creado."); return redirect(url_for("dashboard", cycle_id=cycle_id))
     except Exception as e: conn.rollback(); print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True); flash(f"Error: {str(e)}")
     finally: conn.close()
     return redirect("/dashboard")
 
-@app.route("/enviar_acceso/<int:sticker_id>", methods=["POST"])
-def enviar_acceso(sticker_id):
-    conn = get_db(); cur = get_cur(conn)
-    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-    s = cur.fetchone()
-    if not s or s["status"] != "confirmed": flash("Pago no confirmado."); conn.close(); return redirect("/dashboard")
-    
-    cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
-    cycle_id, seller_id = s["cycle_id"], s["seller_id"]
-    cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (seller_id, cycle_id))
-    entregados = cur.fetchone()["cnt"]
-    if entregados == 3:  
-        print(f"[DEBUG] 3ra venta cycle_id={cycle_id}. Aplicando cascada global...", flush=True)
-        cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (seller_id,))
-        cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (seller_id, cycle_id))
-        
-        parent = seller_id
-        while True:
-            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
-            row = cur.fetchone()
-            if not row: break
-            parent = row["parent_id"]
-            cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cycle_id))
-            cl = cur.fetchone()
-            if cl:
-                new_lvl = max(1, cl["level"] - 1)
-                cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (new_lvl, new_lvl==1, parent, cycle_id))
-                cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (new_lvl, parent))
-                
-        cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cycle_id))
-        
-        cur.execute("SELECT id FROM users WHERE current_level=1 OR is_level1=1")
-        l1s = cur.fetchall()
-        for l1 in l1s:
-            l1_id = l1["id"]
-            l5_desc = []; q, vis = deque([l1_id]), set([l1_id])
-            while q:
-                c = q.popleft()
-                cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (c,))
-                children = cur.fetchall()
-                for ch in children:
-                    cid = ch["child_id"]
-                    if cid not in vis:
-                        vis.add(cid); q.append(cid)
-                        cur.execute("SELECT current_level FROM users WHERE id=%s", (cid,))
-                        lvl = cur.fetchone()
-                        if lvl and lvl["current_level"] == 5: l5_desc.append(cid)
-            cnt_81 = 0
-            for lid in l5_desc:
-                cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (lid,))
-                cnt = cur.fetchone()["cnt"]
-                if cnt >= 3: cnt_81 += 1
-            if cnt_81 >= 81:
-                cur.execute("UPDATE users SET role='graduated', graduated_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), l1_id))
-                print(f"L1 ID {l1_id} graduado! 81/81 L5s completados.", flush=True)
-        print(f"[DEBUG] Cascada global y verificacion 81 L5s aplicada.", flush=True)
-    conn.commit(); conn.close()
-    flash("Acceso enviado. Ciclo cerrado y niveles actualizados." if entregados == 3 else "Acceso enviado. Venta registrada.")
-    return redirect("/dashboard")
-
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
 def marcar_enviado(sticker_id):
     conn = get_db(); cur = get_cur(conn)
-    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-    s = cur.fetchone()
+    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
     if s and s["status"] == "pending": cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,))
     conn.commit(); conn.close(); return redirect("/dashboard")
 
 @app.route("/resolver_confirmacion/<int:sticker_id>/<action>", methods=["POST"])
 def resolver_confirmacion(sticker_id, action):
     conn = get_db(); cur = get_cur(conn)
-    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-    s = cur.fetchone()
+    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
     if s and s["status"] == "sent":
         if action == "confirm": cur.execute("UPDATE stickers SET status='confirmed', step=%s WHERE id=%s", (s["step"]+1, s["id"]))
         else: cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,))
     conn.commit(); conn.close(); return redirect("/dashboard")
 
+@app.route("/confirmar_paso3/<int:sticker_id>", methods=["POST"])
+def confirmar_paso3(sticker_id):
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
+    if s and s["step"] == 3 and s["status"] != "entregado":
+        cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
+        cid, sid = s["cycle_id"], s["seller_id"]
+        cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
+        entregados = cur.fetchone()["cnt"]
+        if entregados == 3:
+            cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (sid,))
+            cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (sid, cid))
+            parent = sid
+            while True:
+                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,)); row = cur.fetchone()
+                if not row: break
+                parent = row["parent_id"]
+                cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cid)); cl = cur.fetchone()
+                if cl:
+                    nl = max(1, cl["level"]-1)
+                    cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (nl, nl==1, parent, cid))
+                    cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (nl, parent))
+            cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
+        conn.commit(); flash("✅ Venta confirmada. Ciclo cerrado.")
+    else: flash("Estado incorrecto.")
+    conn.close(); return redirect("/dashboard")
+
+@app.route("/enviar_acceso/<int:sticker_id>", methods=["POST"])
+def enviar_acceso(sticker_id):
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
+    if not s or s["status"] != "confirmed": flash("Pago no confirmado."); conn.close(); return redirect("/dashboard")
+    cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
+    cycle_id, seller_id = s["cycle_id"], s["seller_id"]
+    cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (seller_id, cycle_id))
+    entregados = cur.fetchone()["cnt"]
+    if entregados == 3:  
+        cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (seller_id,))
+        cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (seller_id, cycle_id))
+        parent = seller_id
+        while True:
+            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,)); row = cur.fetchone()
+            if not row: break
+            parent = row["parent_id"]
+            cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cycle_id)); cl = cur.fetchone()
+            if cl:
+                new_lvl = max(1, cl["level"]-1)
+                cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (new_lvl, new_lvl==1, parent, cycle_id))
+                cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (new_lvl, parent))
+        cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cycle_id))
+        cur.execute("SELECT id FROM users WHERE current_level=1 OR is_level1=1")
+        l1s = cur.fetchall()
+        for l1 in l1s:
+            l1_id = l1["id"]; l5_desc = []; q, vis = deque([l1_id]), set([l1_id])
+            while q:
+                c = q.popleft()
+                cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (c,))
+                for ch in cur.fetchall():
+                    cid = ch["child_id"]
+                    if cid not in vis: vis.add(cid); q.append(cid)
+                    cur.execute("SELECT current_level FROM users WHERE id=%s", (cid,)); lvl = cur.fetchone()
+                    if lvl and lvl["current_level"] == 5: l5_desc.append(cid)
+            cnt_81 = sum(1 for lid in l5_desc if cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (lid,)).fetchone()["cnt"] >= 3)
+            if cnt_81 >= 81:
+                cur.execute("UPDATE users SET role='graduated', graduated_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), l1_id))
+        print(f"[DEBUG] Cascada y 81 L5s aplicada.", flush=True)
+    conn.commit(); conn.close()
+    flash("Acceso enviado. Ciclo cerrado." if entregados == 3 else "Acceso enviado.")
+    return redirect("/dashboard")
+
 @app.route("/logout")
 def logout(): session.clear(); return redirect("/ingresar")
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+if __name__ == "__main__": app.run(host="0.0.0.0", port=5000, debug=False)
