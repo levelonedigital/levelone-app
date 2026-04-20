@@ -261,12 +261,14 @@ def marcar_enviado(sticker_id):
 def resolver_confirmacion(sticker_id, action):
     conn = get_db(); cur = get_cur(conn)
     try:
-        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
+        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
+        s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm":
-                # 🔧 FIX: Avanzar step y dejar status='sent' para el siguiente destinatario
+                # 🔑 FIX: Avanzar step y dejar status='sent' para el siguiente destinatario
                 new_step = s["step"] + 1
                 cur.execute("UPDATE stickers SET status='sent', step=%s WHERE id=%s", (new_step, s["id"]))
+                print(f"[DEBUG] Sticker {sticker_id} confirmado. Step: {new_step}, Status: sent", flush=True)
             else:
                 cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,))
         conn.commit()
