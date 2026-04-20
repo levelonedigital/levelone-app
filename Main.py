@@ -124,6 +124,7 @@ def dashboard():
         pending_row = cur.fetchone()
         pending = dict(pending_row) if pending_row else None
     
+    # 🔧 FIX: Bloque de CBU separado línea por línea para evitar error
     if pending:
         step = pending["step"]; cid = pending["cycle_id"] if pending["cycle_id"] else cycle_id
         if step == 1: 
@@ -132,7 +133,11 @@ def dashboard():
         elif step == 2 and cid:
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
-            row = cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],)).fetchone() if l1_row else None
+            if l1_row:
+                cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],))
+                row = cur.fetchone()
+            else:
+                row = None
         else: 
             cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,))
             row = cur.fetchone()
@@ -321,7 +326,13 @@ def enviar_acceso(sticker_id):
                     if cid not in vis: vis.add(cid); q.append(cid)
                     cur.execute("SELECT current_level FROM users WHERE id=%s", (cid,)); lvl = cur.fetchone()
                     if lvl and lvl["current_level"] == 5: l5_desc.append(cid)
-            cnt_81 = sum(1 for lid in l5_desc if cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (lid,)).fetchone()["cnt"] >= 3)
+            # 🔧 FIX: Loop separado para evitar encadenar execute/fetchone
+            cnt_81 = 0
+            for lid in l5_desc:
+                cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (lid,))
+                res = cur.fetchone()
+                if res and res["cnt"] >= 3: cnt_81 += 1
+            
             if cnt_81 >= 81:
                 cur.execute("UPDATE users SET role='graduated', graduated_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), l1_id))
         print(f"[DEBUG] Cascada y 81 L5s aplicada.", flush=True)
