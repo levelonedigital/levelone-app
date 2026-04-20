@@ -278,21 +278,45 @@ def enviar_datos_email(sticker_id):
             app_url = request.host_url.rstrip('/') + "/ingresar"
 
             try:
-                params = {
+               params = {
                     "from": "levelONE <onboarding@resend.dev>",
                     "to": [buyer_email],
                     "subject": f"🎉 ¡Tu acceso a levelONE está listo! | {sticker_code}",
                     "html": f"""
-                    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f8f9fa; border-radius: 12px;">
-                        <h2 style="color: #111; margin-bottom: 8px;">¡Bienvenido a levelONE! 🌟</h2>
-                        <p style="color: #444;">Hola <strong>{buyer_name}</strong>,</p>
-                        <p style="color: #444;">Tu sticker ha sido activado. Usá estos datos para ingresar:</p>
-                        <div style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
-                            <p style="margin: 4px 0;"><strong>🔑 Sticker ID:</strong> <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{sticker_code}</code></p>
-                            <p style="margin: 4px 0;"><strong>🔒 Contraseña temporal:</strong> <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{temp_pass}</code></p>
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 520px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px;">
+                        <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.95); border-radius: 12px; margin-bottom: 16px;">
+                            <h1 style="margin: 0; color: #667eea; font-size: 24px; font-weight: 700;">🌟 levelONE</h1>
+                            <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">Plataforma de Stickers Digitales</p>
                         </div>
-                        <a href="{app_url}" style="display: inline-block; background: #0d6efd; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: 500;">Ingresar a mi cuenta →</a>
-                        <p style="color: #64748b; font-size: 12px; margin-top: 20px;">Por seguridad, cambiá tu contraseña en tu primer inicio de sesión.</p>
+                        
+                        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                            <h2 style="color: #333; margin: 0 0 12px 0; font-size: 20px;">¡Bienvenido, {buyer_name}! 🎉</h2>
+                            <p style="color: #555; margin: 8px 0; line-height: 1.5;">Tu sticker <strong>{sticker_code}</strong> ha sido activado.</p>
+                            
+                            <div style="background: #f8f9ff; border-left: 4px solid #667eea; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                                <p style="margin: 0 0 8px 0; color: #333; font-weight: 600;">🔐 Tus datos de acceso (permanentes):</p>
+                                <p style="margin: 4px 0; color: #555;"><strong>Sticker ID:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{sticker_code}</code></p>
+                                <p style="margin: 4px 0 0 0; color: #555;"><strong>Contraseña:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{temp_pass}</code></p>
+                            </div>
+                            
+                            <div style="text-align: center; margin: 24px 0 16px 0;">
+                                <a href="{request.host_url.rstrip('/')}/ingresar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">🚀 Ingresar a mi cuenta</a>
+                            </div>
+                            
+                            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 8px; margin-top: 20px;">
+                                <p style="margin: 0 0 8px 0; color: #856404; font-size: 13px; line-height: 1.4;">
+                                    ⏳ <strong>Plazo de actividad:</strong> Tenés 7 días desde la activación para completar tus 3 ventas. Pasado ese plazo, el acceso se cancela automáticamente y no se realizan reintegros.
+                                </p>
+                                <p style="margin: 0; color: #856404; font-size: 13px;">
+                                    📖 <a href="https://levelone.uno/terminos" style="color: #856404; text-decoration: underline;">Leer Términos y Condiciones completos</a>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center; padding: 16px; color: rgba(255,255,255,0.9); font-size: 12px;">
+                            <p style="margin: 0;">© 2026 levelONE. Todos los derechos reservados.</p>
+                            <p style="margin: 4px 0 0 0; opacity: 0.8;">Si no solicitaste este acceso, contactá a quien te vendió el sticker.</p>
+                        </div>
                     </div>
                     """
                 }
