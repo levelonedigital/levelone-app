@@ -115,23 +115,24 @@ def dashboard():
         cl = cur.fetchone()
         if cl: cycle_level = cl["level"]; is_graduated_cycle = bool(cl["is_graduated"])
 
-    pending = None; pending_cbu = "No configurado"; pending_phone = "No configurado"
-    confirmations = []; participants = []
-
-    # 🔵 PENDING para L5
-    if active_cycle and level == 5:
-        cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, cycle_id))
-        pending_row = cur.fetchone()
+    # 🔵 PENDING para L5 - FIX: Buscar siempre por seller_id si es Nivel 5
+    pending = None
+    if level == 5:
+        if active_cycle:
+            cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
+            pending_row = cur.fetchone()
+        else:
+            cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid,))
+            pending_row = cur.fetchone()
         pending = dict(pending_row) if pending_row else None
-    
-    # 🔵 CBU según el paso (Admin → L1 del ciclo → Seller)
+
+    pending_cbu = "No configurado"; pending_phone = "No configurado"
     if pending:
-        step = pending["step"]; cid = pending["cycle_id"] if pending["cycle_id"] else cycle_id
+        step = pending["step"]; cid = pending["cycle_id"] if pending["cycle_id"] else (active_cycle["id"] if active_cycle else None)
         if step == 1: 
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
         elif step == 2 and cid:
-            # 🔑 L1 del CICLO actual (no del nivel global)
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
             if l1_row:
@@ -146,11 +147,11 @@ def dashboard():
         pending_phone = pending["buyer_phone"] or "No configurado"
 
     # 🔴 CONFIRMACIONES: Admin ve Paso 1, L1 del ciclo ve Paso 2
+    confirmations = []
     if sticker == 'ADMIN001':
-        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status, created_at FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
+        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-        # 🔑 L1 ve solo los stickers de los ciclos donde él es nivel 1
         cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
         l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
         if l1_cycles:
@@ -159,6 +160,7 @@ def dashboard():
             confirmations = cur.fetchall()
 
     # 🌐 RED DE DESCENDIENTES
+    participants = []
     if level != 5 and sticker != "ADMIN001" and role != "graduated":
         try:
             desc_ids = []; queue, visited = deque([uid]), set([uid])
@@ -261,14 +263,12 @@ def marcar_enviado(sticker_id):
 def resolver_confirmacion(sticker_id, action):
     conn = get_db(); cur = get_cur(conn)
     try:
-        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-        s = cur.fetchone()
+        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm":
-                # 🔑 FIX: Avanzar step y dejar status='sent' para el siguiente destinatario
+                # 🔧 FIX: Avanzar step y dejar status='sent' para el siguiente destinatario
                 new_step = s["step"] + 1
                 cur.execute("UPDATE stickers SET status='sent', step=%s WHERE id=%s", (new_step, s["id"]))
-                print(f"[DEBUG] Sticker {sticker_id} confirmado. Step: {new_step}, Status: sent", flush=True)
             else:
                 cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,))
         conn.commit()
@@ -307,7 +307,6 @@ def confirmar_paso3(sticker_id):
 
 @app.route("/enviar_acceso/<int:sticker_id>", methods=["POST"])
 def enviar_acceso(sticker_id):
-    # Esta ruta se mantiene para compatibilidad, pero el flujo principal usa confirmar_paso3
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
