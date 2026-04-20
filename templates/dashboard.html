@@ -47,11 +47,14 @@
             {% endif %}
 
           {% elif pending.step == 2 %}
-            {% if pending.status == 'sent' %}
+            {% if pending.status in ['sent', 'pending'] %}
               <div class="alert alert-warning">⏳ Esperando confirmación del Nivel 1 de este ciclo...</div>
             {% elif pending.status == 'confirmed' %}
               <div class="alert alert-success">✅ Pago confirmado. Preparando Paso 3...</div>
               <meta http-equiv="refresh" content="2">
+            {% else %}
+              <div class="alert alert-secondary">⏳ Sincronizando estado...</div>
+              <meta http-equiv="refresh" content="3">
             {% endif %}
 
           {% elif pending.step == 3 %}
