@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container mt-4">
+  <!-- 🔔 Mensajes Flash -->
   {% with messages = get_flashed_messages() %}
   {% if messages %}
     {% for msg in messages %}
-      <div class="alert alert-info alert-dismissible fade show">{{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+      <div class="alert alert-info alert-dismissible fade show">
+        {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
     {% endfor %}
   {% endif %}{% endwith %}
 
+  <!-- 👤 Encabezado & Badges -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>Dashboard: {{ user.sticker_id }}</h3>
     <a href="/logout" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
@@ -16,46 +20,77 @@
     <div class="col-md-3"><span class="badge bg-primary fs-6">Nivel Global: {{ user.current_level }}</span></div>
     {% if active_cycle %}
     <div class="col-md-3"><span class="badge bg-info fs-6">🌐 Ciclo #{{ active_cycle.id }} | Nivel aquí: {{ cycle_level }}</span></div>
-    {% if is_graduated_cycle %}<div class="col-md-3"><span class="badge bg-success fs-6">🎓 Graduado</span></div>{% endif %}
+    {% if is_graduated_cycle %}
+    <div class="col-md-3"><span class="badge bg-success fs-6">🎓 Graduado</span></div>
+    {% endif %}
     {% endif %}
   </div>
 
+  <!-- 🔄 Selector de Ciclo (L2-L4 / Admin / Graduados) -->
   {% if cycles and user.current_level != 5 %}
   <form action="/dashboard" method="get" class="mb-3">
     <select name="cycle_id" class="form-select" onchange="this.form.submit()">
-      {% for c in cycles %}<option value="{{ c.id }}" {% if active_cycle and c.id == active_cycle.id %}selected{% endif %}>Ciclo #{{ c.id }} ({{ c.status }})</option>{% endfor %}
+      {% for c in cycles %}
+        <option value="{{ c.id }}" {% if active_cycle and c.id == active_cycle.id %}selected{% endif %}>
+          Ciclo #{{ c.id }} ({{ c.status }})
+        </option>
+      {% endfor %}
     </select>
-  </form>{% endif %}
+  </form>
+  {% endif %}
 
+  <!-- 🟦 L5: FLUJO EXACTO DE 3 PASOS (Corregido) -->
   {% if user.current_level == 5 %}
     {% if pending %}
       <div class="card mb-4 border-{{ 'warning' if pending.status == 'sent' else 'success' if pending.status == 'confirmed' else 'primary' }}">
         <div class="card-header bg-dark text-white">📦 Sticker en Curso: <code>{{ pending.sticker_code }}</code> | Paso {{ pending.step }}/3</div>
         <div class="card-body">
           <p><strong>Comprador:</strong> {{ pending.buyer_name }} | <strong>CBU destino:</strong> <code>{{ pending_cbu }}</code></p>
-          {% if pending.status == 'pending' %}
-            <div class="alert alert-info">🔹 Paso 1/3: El comprador debe transferir.</div>
-            <form action="/marcar_enviado/{{ pending.id }}" method="POST"><button type="submit" class="btn btn-primary w-100 fw-bold">✅ Confirmar que el pago fue realizado</button></form>
-          {% elif pending.status == 'sent' %}
-            <div class="alert alert-warning">⏳ Paso 2/3: Esperando confirmación del destinatario...</div>
-          {% elif pending.status == 'confirmed' %}
-            <div class="alert alert-success">✅ Paso 3/3: ¡Pago confirmado! Envíale los datos de acceso.</div>
-            <form action="/enviar_acceso/{{ pending.id }}" method="POST"><button type="submit" class="btn btn-success w-100 fw-bold">📤 Enviar Sticker + Contraseña Temporal</button></form>
+
+          {% if pending.step == 1 and pending.status == 'pending' %}
+            <div class="alert alert-info">🔹 Paso 1/3: El comprador debe transferir al Administrador.</div>
+            <form action="/marcar_enviado/{{ pending.id }}" method="POST">
+              <button type="submit" class="btn btn-primary w-100 fw-bold">✅ Confirmar que el pago fue realizado</button>
+            </form>
+          {% elif pending.step == 1 and pending.status == 'sent' %}
+            <div class="alert alert-warning">⏳ Esperando confirmación del Administrador...</div>
+          {% elif pending.step == 2 and pending.status == 'sent' %}
+            <div class="alert alert-warning">⏳ Esperando confirmación del Nivel 1...</div>
+          {% elif pending.step == 2 and pending.status == 'confirmed' %}
+            <div class="alert alert-success">✅ Paso 2 confirmado. Avanzando a Paso 3.</div>
+          {% elif pending.step == 3 %}
+            <div class="alert alert-success">🔹 Paso 3/3: El comprador debe transferirte a TU CBU.</div>
+            {% if pending.status != 'entregado' %}
+              <form action="/confirmar_paso3/{{ pending.id }}" method="POST">
+                <button type="submit" class="btn btn-success w-100 fw-bold">✅ Confirmar que recibí el pago</button>
+              </form>
+            {% else %}
+              <span class="badge bg-success">✅ Venta entregada. Ciclo completado.</span>
+            {% endif %}
+          {% else %}
+            <div class="alert alert-secondary">⏳ Sincronizando estado...</div>
           {% endif %}
         </div>
       </div>
     {% else %}
-      <div class="card mb-4 border-primary"><div class="card-header bg-primary text-white">🛒 Crear Nuevo Sticker</div><div class="card-body">
-        <form action="/crear_sticker" method="POST"><div class="row g-2">
-          <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Nombre comprador" required></div>
-          <div class="col-md-3"><input type="text" name="phone" class="form-control" placeholder="Teléfono (+549...)" required></div>
-          <div class="col-md-3"><input type="email" name="email" class="form-control" placeholder="Email" required></div>
-          <div class="col-md-3"><input type="text" name="cbu" class="form-control" placeholder="CBU/Alias comprador" required></div>
-          <div class="col-12"><button type="submit" class="btn btn-success w-100 fw-bold">Generar Sticker</button></div>
-        </div></form></div></div>
+      <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">🛒 Crear Nuevo Sticker</div>
+        <div class="card-body">
+          <form action="/crear_sticker" method="POST">
+            <div class="row g-2">
+              <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Nombre comprador" required></div>
+              <div class="col-md-3"><input type="text" name="phone" class="form-control" placeholder="Teléfono (+549...)" required></div>
+              <div class="col-md-3"><input type="email" name="email" class="form-control" placeholder="Email" required></div>
+              <div class="col-md-3"><input type="text" name="cbu" class="form-control" placeholder="CBU/Alias comprador" required></div>
+              <div class="col-12"><button type="submit" class="btn btn-success w-100 fw-bold">Generar Sticker</button></div>
+            </div>
+          </form>
+        </div>
+      </div>
     {% endif %}
   {% endif %}
 
+  <!-- 🟡 Admin: Pendientes Paso 1 -->
   {% if user.sticker_id == 'ADMIN001' %}
   <h4 class="mt-4">🟡 Pagos Pendientes - Paso 1</h4>
   {% if confirmations %}
@@ -63,7 +98,9 @@
     <div class="card mb-2 border-danger">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div><strong>{{ c.buyer_name }}</strong> | Sticker: {{ c.sticker_code }} | CBU: <code>{{ c.buyer_cbu }}</code></div>
-        <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST"><button class="btn btn-danger btn-sm fw-bold">✅ Recibí</button></form>
+        <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST">
+          <button class="btn btn-danger btn-sm fw-bold">✅ Recibí</button>
+        </form>
       </div>
     </div>
     {% endfor %}
@@ -72,14 +109,17 @@
   {% endif %}
   {% endif %}
 
+  <!-- 🔴 L1/L2/L3/L4: Pendientes Paso 2 -->
   {% if user.current_level != 5 and user.sticker_id != 'ADMIN001' and user.role != 'graduated' %}
-  <h4 class="mt-4">🔴 Pagos Pendientes - Paso 2</h4>
+  <h4 class="mt-4">🔴 Pagos Pendientes - Paso 2 (Nivel 1 del ciclo)</h4>
   {% if confirmations %}
     {% for c in confirmations %}
     <div class="card mb-2 border-danger">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div><strong>{{ c.buyer_name }}</strong> | Sticker: {{ c.sticker_code }} | Ciclo #{{ c.cycle_id }} | CBU: <code>{{ c.buyer_cbu }}</code></div>
-        <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST"><button class="btn btn-danger btn-sm fw-bold">✅ Recibí</button></form>
+        <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST">
+          <button class="btn btn-danger btn-sm fw-bold">✅ Recibí</button>
+        </form>
       </div>
     </div>
     {% endfor %}
@@ -88,12 +128,131 @@
   {% endif %}
   {% endif %}
 
+  <!-- 🌐 Tabla de Red -->
   {% if participants %}
   <h4 class="mt-4">🌐 Estado de tu Red</h4>
-  <div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Ventas</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td>{{ p.sticker_id }}</td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-info">{{ p.level }}</span></td><td>{% if p.sales_done >= 3 %}<span class="badge bg-success">✅</span>{% else %}<span class="badge bg-warning">{{ p.sales_done }}/3</span>{% endif %}</td><td>{% if p.phone %}<a href="tel:{{ p.phone }}" class="btn btn-sm btn-outline-primary">📞</a><a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}" target="_blank" class="btn btn-sm btn-outline-success">💬</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-
-  <div class="row mt-4">
-    <div class="col-12"><div class="card mb-3"><div class="card-header bg-primary text-white">📜 Historial de Ventas</div><div class="card-body p-0 table-responsive"><table class="table table-sm table-hover mb-0"><thead class="table-light"><tr><th>#</th><th>Sticker</th><th>Comprador</th><th>Tel</th><th>Email</th><th>CBU</th><th>Pass</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>{% if my_sales %}{% for item in my_sales %}<tr><td>{{ item.num }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td>{{ item.sale.buyer_phone }}</td><td>{{ item.sale.buyer_email }}</td><td>{{ item.sale.buyer_cbu }}</td><td><code>{{ item.sale.temp_pass or '-' }}</code></td><td>{% if item.sale.status == 'pending' %}<span class="badge bg-warning">Pendiente</span>{% elif item.sale.status == 'sent' %}<span class="badge bg-info">Enviado</span>{% elif item.sale.status == 'confirmed' %}<span class="badge bg-primary">Confirmado</span>{% else %}<span class="badge bg-success">Entregado</span>{% endif %}</td><td>{{ item.sale.created_at.strftime('%Y-%m-%d %H:%M') if item.sale.created_at else '-' }}</td></tr>{% endfor %}{% else %}<tr><td colspan="9" class="text-center text-muted">Sin ventas</td></tr>{% endif %}</tbody></table></div></div></div>
-    <div class="col-12"><div class="card mb-3"><div class="card-header bg-success text-white">💰 Ingresos Confirmados</div><div class="card-body p-0"><table class="table table-sm table-hover mb-0"><thead class="table-light"><tr><th>#</th><th>De quién</th><th>Paso</th><th>Fecha</th></tr></thead><tbody>{% if income %}{% for item in income %}<tr><td>{{ item.num }}</td><td>{{ item.sale.buyer_name }}</td><td><span class="badge bg-dark">Paso {{ item.sale.step }}</span></td><td>{{ item.sale.created_at.strftime('%Y-%m-%d %H:%M') if item.sale.created_at else '-' }}</td></tr>{% endfor %}{% else %}<tr><td colspan="4" class="text-center text-muted">Sin pagos</td></tr>{% endif %}</tbody></table></div></div></div>
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>Sticker</th>
+          <th>Nombre</th>
+          <th>Teléfono</th>
+          <th>Nivel en Ciclo</th>
+          <th>Ventas (3/3)</th>
+          <th>Contacto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in participants %}
+        <tr>
+          <td>{{ p.sticker_id }}</td>
+          <td>{{ p.full_name }}</td>
+          <td>{{ p.phone }}</td>
+          <td><span class="badge bg-info">{{ p.level }}</span></td>
+          <td>
+            {% if p.sales_done >= 3 %}
+              <span class="badge bg-success">✅ Completado</span>
+            {% else %}
+              <span class="badge bg-warning">{{ p.sales_done }}/3</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if p.phone %}
+              <a href="tel:{{ p.phone }}" class="btn btn-sm btn-outline-primary">📞 Llamar</a>
+              <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}" target="_blank" class="btn btn-sm btn-outline-success">💬 WhatsApp</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-</div>{% endblock %}
+  {% endif %}
+
+  <!-- 📊 HISTORIAL DUAL (Ancho completo, apilados) -->
+  <div class="row mt-4">
+    <!-- 1️⃣ Historial de Ventas (Full width + Pass Temporal) -->
+    <div class="col-12">
+      <div class="card mb-3">
+        <div class="card-header bg-primary text-white">📜 Historial de Ventas</div>
+        <div class="card-body p-0 table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>Sticker</th>
+                <th>Comprador</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>CBU</th>
+                <th>Pass Temporal</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if my_sales %}
+                {% for item in my_sales %}
+                <tr>
+                  <td>{{ item.num }}</td>
+                  <td><code>{{ item.sale.sticker_code }}</code></td>
+                  <td>{{ item.sale.buyer_name }}</td>
+                  <td>{{ item.sale.buyer_phone }}</td>
+                  <td>{{ item.sale.buyer_email }}</td>
+                  <td>{{ item.sale.buyer_cbu }}</td>
+                  <td><code>{{ item.sale.temp_pass or '-' }}</code></td>
+                  <td>
+                    {% if item.sale.status == 'pending' %} <span class="badge bg-warning">Pendiente</span>
+                    {% elif item.sale.status == 'sent' %} <span class="badge bg-info">Enviado</span>
+                    {% elif item.sale.status == 'confirmed' %} <span class="badge bg-primary">Confirmado</span>
+                    {% else %} <span class="badge bg-success">Entregado</span> {% endif %}
+                  </td>
+                  <td>{{ item.sale.created_at.strftime('%Y-%m-%d %H:%M') if item.sale.created_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="9" class="text-center text-muted">Sin ventas registradas</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2️⃣ Ingresos Confirmados (Full width) -->
+    <div class="col-12">
+      <div class="card mb-3">
+        <div class="card-header bg-success text-white">💰 Ingresos Confirmados</div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>De quién</th>
+                <th>Paso</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if income %}
+                {% for item in income %}
+                <tr>
+                  <td>{{ item.num }}</td>
+                  <td>{{ item.sale.buyer_name }}</td>
+                  <td><span class="badge bg-dark">Paso {{ item.sale.step }}</span></td>
+                  <td>{{ item.sale.created_at.strftime('%Y-%m-%d %H:%M') if item.sale.created_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="4" class="text-center text-muted">Sin pagos recibidos aún</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
