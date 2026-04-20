@@ -11,7 +11,7 @@ import psycopg2
 import psycopg2.extras
 import resend
 
-# 🔑 Configurar Resend (la clave real va en Railway Variables como RESEND_API_KEY)
+# 🔑 Resend API Key (configurá esta variable en Railway: RESEND_API_KEY)
 resend.api_key = os.environ.get("RESEND_API_KEY")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -67,7 +67,8 @@ def init_db():
 init_db()
 
 @app.route("/")
-def index(): return redirect(url_for("login"))
+def index():
+    return redirect(url_for("login"))
 
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
@@ -263,14 +264,12 @@ def resolver_confirmacion(sticker_id, action):
     finally: cur.close(); conn.close()
     return redirect("/dashboard")
 
-# 🔹 L5 envía datos por email CON RESEND (después de que se confirmó el pago)
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
 def enviar_datos_email(sticker_id):
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "confirmed":
-            # 🔹 1. Enviar email con Resend
             buyer_email = s["buyer_email"]
             temp_pass = s["temp_pass"]
             sticker_code = s["sticker_code"]
@@ -278,7 +277,7 @@ def enviar_datos_email(sticker_id):
             app_url = request.host_url.rstrip('/') + "/ingresar"
 
             try:
-               params = {
+                params = {
                     "from": "levelONE <onboarding@resend.dev>",
                     "to": [buyer_email],
                     "subject": f"🎉 ¡Tu acceso a levelONE está listo! | {sticker_code}",
@@ -300,7 +299,7 @@ def enviar_datos_email(sticker_id):
                             </div>
                             
                             <div style="text-align: center; margin: 24px 0 16px 0;">
-                                <a href="{request.host_url.rstrip('/')}/ingresar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">🚀 Ingresar a mi cuenta</a>
+                                <a href="{app_url}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">🚀 Ingresar a mi cuenta</a>
                             </div>
                             
                             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 8px; margin-top: 20px;">
@@ -326,7 +325,6 @@ def enviar_datos_email(sticker_id):
                 print(f"[RESEND] ❌ Error: {e}", flush=True)
                 flash("⚠️ El email no pudo enviarse, pero el acceso está activado.")
 
-            # 🔹 2. Marcar entregado + Lógica de ciclo (EXISTENTE, NO TOCAR)
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
@@ -352,7 +350,9 @@ def enviar_datos_email(sticker_id):
     return redirect("/dashboard")
 
 @app.route("/logout")
-def logout(): session.clear(); return redirect("/ingresar")
+def logout():
+    session.clear()
+    return redirect("/ingresar")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
