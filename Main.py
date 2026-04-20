@@ -9,6 +9,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import psycopg2
 import psycopg2.extras
+import resend
+import os
+
+resend.api_key = os.environ.get("re_HRvVQtSW_2Z62Dtoi95XVgF8S7pxsbY6S")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
