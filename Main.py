@@ -115,7 +115,6 @@ def dashboard():
         cl = cur.fetchone()
         if cl: cycle_level = cl["level"]; is_graduated_cycle = bool(cl["is_graduated"])
 
-    # 🔵 PENDING para L5 - FIX: Buscar siempre por seller_id si es Nivel 5
     pending = None
     if level == 5:
         if active_cycle:
@@ -146,7 +145,6 @@ def dashboard():
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
 
-    # 🔴 CONFIRMACIONES: Admin ve Paso 1, L1 del ciclo ve Paso 2
     confirmations = []
     if sticker == 'ADMIN001':
         cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
@@ -159,7 +157,6 @@ def dashboard():
             cur.execute(f"SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=2 AND status='sent' AND cycle_id IN ({ph})", l1_cycles)
             confirmations = cur.fetchall()
 
-    # 🌐 RED DE DESCENDIENTES
     participants = []
     if level != 5 and sticker != "ADMIN001" and role != "graduated":
         try:
@@ -186,7 +183,6 @@ def dashboard():
                 else: p["level"] = p["current_level"]
         except: pass
 
-    # 📊 HISTORIAL
     my_sales_history = []
     income_history = []
     cur.execute("SELECT * FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
@@ -266,7 +262,6 @@ def resolver_confirmacion(sticker_id, action):
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm":
-                # 🔧 FIX: Avanzar step y dejar status='sent' para el siguiente destinatario
                 new_step = s["step"] + 1
                 cur.execute("UPDATE stickers SET status='sent', step=%s WHERE id=%s", (new_step, s["id"]))
             else:
@@ -319,4 +314,5 @@ def enviar_acceso(sticker_id):
 @app.route("/logout")
 def logout(): session.clear(); return redirect("/ingresar")
 
-if __name__ == "__main__": app.run(host="0.0.0.0", port=5000, debug=False)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)  # ← 🔑 ESTA LÍNEA ES LA QUE FALTABA
