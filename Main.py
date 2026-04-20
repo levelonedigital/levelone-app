@@ -130,24 +130,20 @@ def dashboard():
             is_graduated_cycle = bool(cl["is_graduated"])
 
     pending = None
-    if level == 5:
-        if active_cycle:
-            cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
-            pending_row = cur.fetchone()
-        else:
-            cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid,))
-            pending_row = cur.fetchone()
+    if level == 5 and active_cycle:
+        cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
+        pending_row = cur.fetchone()
         pending = dict(pending_row) if pending_row else None
 
     pending_cbu = "No configurado"
     pending_phone = "No configurado"
     if pending:
         step = pending["step"]
-        cid = pending["cycle_id"] if pending["cycle_id"] else (active_cycle["id"] if active_cycle else None)
-        if step == 1: 
+        cid = pending["cycle_id"] or active_cycle["id"]
+        if step == 1:
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
-        elif step == 2 and cid:
+        elif step == 2:
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
             if l1_row:
@@ -155,7 +151,7 @@ def dashboard():
                 row = cur.fetchone()
             else:
                 row = None
-        else: 
+        else:
             cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,))
             row = cur.fetchone()
         pending_cbu = row["cbu_alias"] if row else "No configurado"
@@ -169,8 +165,9 @@ def dashboard():
         cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
         l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
         if l1_cycles:
-            ph = ','.join(['%s']*len(l1_cycles))
-            cur.execute(f"SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=2 AND status='sent' AND cycle_id IN ({ph})", l1_cycles)
+            ph = ','.join(['%s'] * len(l1_cycles))
+            query = f"SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=2 AND status='sent' AND cycle_id IN ({ph})"
+            cur.execute(query, l1_cycles)
             confirmations = cur.fetchall()
 
     participants = []
@@ -188,7 +185,7 @@ def dashboard():
                         desc_ids.append(cid)
                         queue.append(cid)
             all_ids = [uid] + desc_ids
-            ph = ','.join(['%s']*len(all_ids))
+            ph = ','.join(['%s'] * len(all_ids))
             cur.execute(f"SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE id IN ({ph})", all_ids)
             participants = [dict(p) for p in cur.fetchall()]
             sales_map = {}
@@ -220,7 +217,7 @@ def dashboard():
         cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
         l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
         if l1_cycles:
-            ph = ','.join(['%s']*len(l1_cycles))
+            ph = ','.join(['%s'] * len(l1_cycles))
             cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status IN ('confirmed', 'entregado') AND cycle_id IN ({ph}) ORDER BY created_at DESC", l1_cycles)
             income_history = [dict(r) for r in cur.fetchall()]
 
