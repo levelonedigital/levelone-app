@@ -10,9 +10,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import psycopg2.extras
 import resend
-import os
 
-resend.api_key = os.environ.get("re_HRvVQtSW_2Z62Dtoi95XVgF8S7pxsbY6S")
+# 🔑 Configurar Resend (la clave real va en Railway Variables como RESEND_API_KEY)
+resend.api_key = os.environ.get("RESEND_API_KEY")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
@@ -110,23 +110,19 @@ def dashboard():
         cl = cur.fetchone()
         if cl: cycle_level = cl["level"]; is_graduated_cycle = bool(cl["is_graduated"])
 
-    # 🔵 PENDING: Buscar sticker pendiente del L5 en el ciclo activo
     pending = None
     if level == 5 and active_cycle:
         cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
         pending_row = cur.fetchone()
         pending = dict(pending_row) if pending_row else None
 
-    # 🔵 CBU DESTINO según el N° de sticker (step)
     pending_cbu = "No configurado"; pending_phone = "No configurado"
     if pending:
         step = pending["step"]; cid = pending["cycle_id"] or active_cycle["id"]
         if step == 1:
-            # 1er sticker → CBU de ADMIN
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
         elif step == 2:
-            # 2do sticker → CBU del Nivel 1 de ESTE ciclo
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
             if l1_row:
@@ -135,7 +131,6 @@ def dashboard():
             else:
                 row = None
         elif step == 3:
-            # 3er sticker → CBU del mismo vendedor (L5)
             cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,))
             row = cur.fetchone()
         else:
@@ -143,14 +138,11 @@ def dashboard():
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
 
-    # 🔴 CONFIRMACIONES: Quién ve el botón "✅ Recibí" según step
     confirmations = []
     if sticker == 'ADMIN001':
-        # Admin ve confirmaciones de 1er sticker (step=1)
         cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-        # Usuarios Nivel 1-4 ven confirmaciones de 2do sticker (step=2) SOLO de ciclos donde ellos son Nivel 1
         cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
         l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
         if l1_cycles:
@@ -158,12 +150,10 @@ def dashboard():
             cur.execute(f"SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=2 AND status='sent' AND cycle_id IN ({ph})", l1_cycles)
             confirmations = cur.fetchall()
     elif level == 5 and role == 'seller':
-        # L5 ve confirmaciones de 3er sticker (step=3) de SUS PROPIOS stickers
         if active_cycle:
             cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE seller_id=%s AND cycle_id=%s AND step=3 AND status='sent'", (uid, active_cycle["id"]))
             confirmations = cur.fetchall()
 
-    # 🌐 RED DE DESCENDIENTES (para vista de red)
     participants = []
     if level != 5 and sticker != "ADMIN001" and role != "graduated":
         try:
@@ -190,7 +180,6 @@ def dashboard():
                 else: p["level"] = p["current_level"]
         except: pass
 
-    # 📊 HISTORIAL
     my_sales_history = []; income_history = []
     cur.execute("SELECT * FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
     my_sales_history = [dict(s) for s in cur.fetchall()]
@@ -251,7 +240,6 @@ def crear_sticker():
     finally: conn.close()
     return redirect("/dashboard")
 
-# 🔹 L5 marca que el comprador transfirió (Paso inicial de cualquier sticker)
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
 def marcar_enviado(sticker_id):
     conn = get_db(); cur = get_cur(conn)
@@ -260,7 +248,6 @@ def marcar_enviado(sticker_id):
         cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,))
     conn.commit(); conn.close(); return redirect("/dashboard")
 
-# 🔹 CONFIRMACIÓN DE PAGO: Admin/L1/L5 confirman según el step del sticker
 @app.route("/resolver_confirmacion/<int:sticker_id>/<action>", methods=["POST"])
 def resolver_confirmacion(sticker_id, action):
     conn = get_db(); cur = get_cur(conn)
@@ -268,7 +255,6 @@ def resolver_confirmacion(sticker_id, action):
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm":
-                # Confirmar pago → cambiar a 'confirmed' para que L5 vea botón de enviar email
                 cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,))
             else:
                 cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,))
@@ -277,24 +263,53 @@ def resolver_confirmacion(sticker_id, action):
     finally: cur.close(); conn.close()
     return redirect("/dashboard")
 
-# 🔹 L5 envía datos por email (después de que se confirmó el pago)
+# 🔹 L5 envía datos por email CON RESEND (después de que se confirmó el pago)
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
 def enviar_datos_email(sticker_id):
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "confirmed":
-            # Marcar como entregado
+            # 🔹 1. Enviar email con Resend
+            buyer_email = s["buyer_email"]
+            temp_pass = s["temp_pass"]
+            sticker_code = s["sticker_code"]
+            buyer_name = s["buyer_name"]
+            app_url = request.host_url.rstrip('/') + "/ingresar"
+
+            try:
+                params = {
+                    "from": "levelONE <onboarding@resend.dev>",
+                    "to": [buyer_email],
+                    "subject": f"🎉 ¡Tu acceso a levelONE está listo! | {sticker_code}",
+                    "html": f"""
+                    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f8f9fa; border-radius: 12px;">
+                        <h2 style="color: #111; margin-bottom: 8px;">¡Bienvenido a levelONE! 🌟</h2>
+                        <p style="color: #444;">Hola <strong>{buyer_name}</strong>,</p>
+                        <p style="color: #444;">Tu sticker ha sido activado. Usá estos datos para ingresar:</p>
+                        <div style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
+                            <p style="margin: 4px 0;"><strong>🔑 Sticker ID:</strong> <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{sticker_code}</code></p>
+                            <p style="margin: 4px 0;"><strong>🔒 Contraseña temporal:</strong> <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">{temp_pass}</code></p>
+                        </div>
+                        <a href="{app_url}" style="display: inline-block; background: #0d6efd; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: 500;">Ingresar a mi cuenta →</a>
+                        <p style="color: #64748b; font-size: 12px; margin-top: 20px;">Por seguridad, cambiá tu contraseña en tu primer inicio de sesión.</p>
+                    </div>
+                    """
+                }
+                r = resend.Emails.send(params)
+                print(f"[RESEND] ✅ Email enviado a {buyer_email}. ID: {r.get('id')}", flush=True)
+            except Exception as e:
+                print(f"[RESEND] ❌ Error: {e}", flush=True)
+                flash("⚠️ El email no pudo enviarse, pero el acceso está activado.")
+
+            # 🔹 2. Marcar entregado + Lógica de ciclo (EXISTENTE, NO TOCAR)
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
-            # Verificar si completó 3 ventas en este ciclo
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
             entregados = cur.fetchone()["cnt"]
             if entregados == 3:
-                # Bajar nivel del vendedor de L5 a L4
                 cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (sid,))
                 cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (sid, cid))
-                # Cascada: padres bajan un nivel en este ciclo
                 parent = sid
                 while True:
                     cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,)); row = cur.fetchone()
@@ -305,9 +320,8 @@ def enviar_datos_email(sticker_id):
                         nl = max(1, cl["level"]-1)
                         cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (nl, nl==1, parent, cid))
                         cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (nl, parent))
-                # Completar ciclo
                 cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
-            conn.commit(); flash("✅ Datos enviados. Venta completada.")
+            conn.commit(); flash("✅ Email enviado. Venta completada.")
         else:
             flash("Estado incorrecto para enviar datos.")
     finally: cur.close(); conn.close()
