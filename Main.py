@@ -359,4 +359,45 @@ def confirmar_paso3(sticker_id):
                     if not row:
                         break
                     parent = row["parent_id"]
-                    cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent,
+                    cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cid))
+                    cl = cur.fetchone()
+                    if cl:
+                        nl = max(1, cl["level"]-1)
+                        cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (nl, nl==1, parent, cid))
+                        cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (nl, parent))
+                cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
+            conn.commit()
+            flash("✅ Venta confirmada. Ciclo cerrado.")
+        else:
+            flash("Estado incorrecto.")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect("/dashboard")
+
+@app.route("/enviar_acceso/<int:sticker_id>", methods=["POST"])
+def enviar_acceso(sticker_id):
+    conn = get_db()
+    cur = get_cur(conn)
+    try:
+        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
+        s = cur.fetchone()
+        if not s or s["status"] != "confirmed":
+            flash("Pago no confirmado.")
+            conn.close()
+            return redirect("/dashboard")
+        cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
+        conn.commit()
+        flash("Acceso enviado.")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect("/dashboard")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/ingresar")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)
