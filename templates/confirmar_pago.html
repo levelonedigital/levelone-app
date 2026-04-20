@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-6 text-center py-5">
+    {% if success %}
+    <h2 class="text-success mb-3">✅ Pago Confirmado</h2>
+    <p>El sticker <code>{{ code }}</code> ha avanzado de paso. El comprador ya puede ingresar.</p>
+    <a href="/dashboard" class="btn btn-primary mt-3">Ir al Panel</a>
+    {% else %}
+    <h2 class="text-danger">❌ Error de Confirmación</h2>
+    <p>El link es inválido o ya fue utilizado.</p>
+    {% endif %}
+</div></div>
+{% endblock %}
