@@ -339,6 +339,38 @@ def resolver_confirmacion(sticker_id, action):
         conn.close()
     return redirect("/dashboard")
 
+# --- NUEVA FUNCIÓN: CAMBIAR CBU DE ADMIN ---
+@app.route("/admin/cambiar_cbu", methods=["POST"])
+def admin_cambiar_cbu():
+    if "user_id" not in session:
+        return redirect("/ingresar")
+    conn = get_db()
+    cur = get_cur(conn)
+    try:
+        cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
+        row = cur.fetchone()
+        if not row or row["sticker_id"] != "ADMIN001":
+            flash("⛔ Acceso denegado. Solo ADMIN001 puede modificar el CBU.")
+            conn.close()
+            return redirect("/dashboard")
+        
+        nuevo_cbu = request.form.get("nuevo_cbu", "").strip()
+        if not nuevo_cbu:
+            flash("⚠️ El campo CBU no puede estar vacío.")
+            conn.close()
+            return redirect("/dashboard")
+            
+        cur.execute("UPDATE users SET cbu_alias=%s WHERE sticker_id='ADMIN001'", (nuevo_cbu,))
+        conn.commit()
+        flash("✅ CBU administrativo actualizado correctamente. Ya se refleja en nuevas ventas.")
+    except Exception as e:
+        conn.rollback()
+        flash(f"❌ Error al guardar: {str(e)}")
+    finally:
+        conn.close()
+    return redirect("/dashboard")
+# -------------------------------------------
+
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
 def enviar_datos_email(sticker_id):
     conn = get_db()
