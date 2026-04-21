@@ -15,7 +15,25 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
+        
+        /* Marca de agua repetida en patrón */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://levelone.uno/static/Logo.png');
+            background-repeat: repeat;
+            background-size: 300px;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
         .main-content { flex: 1; }
         .navbar { box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .navbar-brand img { height: 42px; width: auto; object-fit: contain; }
@@ -26,20 +44,6 @@
             margin-top: auto;
         }
         .footer p { margin: 0; color: #6c757d; font-size: 0.85rem; }
-        
-        /* Marca de agua global */
-        .watermark {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg);
-            width: 400px;
-            height: auto;
-            opacity: 0.05;
-            pointer-events: none;
-            z-index: 0;
-            user-select: none;
-        }
         
         /* Asegurar que el contenido esté por encima del watermark */
         .main-content, .navbar, .footer {
@@ -58,9 +62,6 @@
             </a>
         </div>
     </nav>
-
-    <!-- Marca de agua -->
-    <img src="https://levelone.uno/static/Logo.png" alt="" class="watermark">
 
     <!-- Contenido principal -->
     <main class="main-content py-4">
