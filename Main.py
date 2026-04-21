@@ -376,6 +376,13 @@ def enviar_datos_email(sticker_id):
                         <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
                             <h2 style="color: #333; margin: 0 0 12px 0; font-size: 20px;">¡Bienvenido, {buyer_name}! 🎉</h2>
                             <p style="color: #555; margin: 8px 0; line-height: 1.5;">Tu sticker <strong>{sticker_code}</strong> ha sido activado.</p>
+                            <div style="background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
+                                <img src="https://levelone.uno/static/sticker.jpg" alt="Sticker levelONE" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                <p style="margin: 16px 0 0 0; color: #444; font-size: 14px; line-height: 1.6;">
+                                    🎫 <strong>Este es el sticker que compraste.</strong><br>
+                                    El que te habilita para ingresar a la plataforma y poder generar tus ventas.
+                                </p>
+                            </div>
                             <div style="background: #f8f9ff; border-left: 4px solid #667eea; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
                                 <p style="margin: 0 0 8px 0; color: #333; font-weight: 600;">🔐 Tus datos de acceso (permanentes):</p>
                                 <p style="margin: 4px 0; color: #555;"><strong>Sticker ID:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{sticker_code}</code></p>
