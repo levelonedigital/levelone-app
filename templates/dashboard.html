@@ -1,273 +1,252 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-  <!-- Mensajes Flash -->
-  {% with messages = get_flashed_messages() %}
-  {% if messages %}
-    {% for msg in messages %}
-      <div class="alert alert-info alert-dismissible fade show shadow-sm">{{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-    {% endfor %}
-  {% endif %}{% endwith %}
 
-  <!-- Encabezado -->
-  <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-    <h4 class="mb-0 fw-bold text-dark">Dashboard: <span class="text-primary">{{ user.sticker_id }}</span></h4>
-    <a href="/logout" class="btn btn-outline-secondary btn-sm fw-medium">Cerrar Sesión</a>
-  </div>
-  
-  <!-- Badges de Estado -->
-  <div class="row mb-3 g-2">
-    <div class="col-auto"><span class="badge bg-primary fs-6 px-3 py-2">Nivel Global: {{ user.current_level }}</span></div>
-    {% if active_cycle %}
-    <div class="col-auto"><span class="badge bg-info fs-6 px-3 py-2">🌐 Ciclo #{{ active_cycle.id }} | Nivel: {{ cycle_level }}</span></div>
-    {% if is_graduated_cycle %}<div class="col-auto"><span class="badge bg-success fs-6 px-3 py-2">🎓 Graduado</span></div>{% endif %}
-    {% endif %}
-  </div>
-
-  <!-- ⚙️ CONFIGURAR CBU ADMINISTRATIVO (NUEVO BLOQUE) -->
-  {% if user.sticker_id == 'ADMIN001' %}
-  <div class="card mb-4 border-primary shadow-sm">
-    <div class="card-header bg-primary text-white fw-bold">💳 Configurar CBU para 1° Venta</div>
-    <div class="card-body">
-      <form action="/admin/cambiar_cbu" method="POST" class="row g-2 align-items-end">
-        <div class="col-md-8">
-          <input type="text" name="nuevo_cbu" class="form-control" placeholder="Ingresá el nuevo CBU o Alias" required value="{{ user.cbu_alias }}">
-        </div>
-        <div class="col-md-4">
-          <button type="submit" class="btn btn-success w-100 fw-bold py-2">💾 Guardar y Aplicar</button>
-        </div>
-      </form>
-      <small class="text-muted mt-2 d-block">Este CBU se mostrará automáticamente a los nuevos compradores en su 1° paso.</small>
+<div class="row justify-content-center">
+  <div class="col-12">
+    
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h4 class="mb-1 fw-bold">Dashboard</h4>
+        <p class="mb-0 text-muted small">Gestiona tu ciclo y red de referidos</p>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="badge bg-primary rounded-pill px-3 py-2">Nivel: {{ user.current_level }}</span>
+        <a href="/logout" class="btn btn-outline-secondary btn-sm px-3">Salir</a>
+      </div>
     </div>
-  </div>
-  {% endif %}
-  <!-- FIN CONFIGURAR CBU -->
 
-  <!-- Selector de Ciclo -->
-  {% if cycles and user.current_level != 5 %}
-  <form action="/dashboard" method="get" class="mb-4">
-    <select name="cycle_id" class="form-select" onchange="this.form.submit()">
-      {% for c in cycles %}
-      <option value="{{ c.id }}" {% if active_cycle and c.id == active_cycle.id %}selected{% endif %}>Ciclo #{{ c.id }} ({{ c.status }})</option>
-      {% endfor %}
-    </select>
-  </form>
-  {% endif %}
-
-  <!-- 🟦 L5: STICKER ACTIVO O CREAR NUEVO -->
-  {% if user.current_level == 5 %}
-    {% if pending %}
-      <div class="card mb-4 border-{{ 'warning' if pending.status == 'sent' else 'success' if pending.status == 'confirmed' else 'primary' }} shadow-sm">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-          <span>📦 Sticker: <code class="bg-transparent border-0">{{ pending.sticker_code }}</code></span>
-          <span class="badge bg-light text-dark">Paso {{ pending.step }}/3</span>
+    <!-- Mensajes Flash -->
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="alert alert-info shadow-sm py-2 small d-flex align-items-center mb-3">
+          <span class="me-2">ℹ️</span> {{ msg }}
         </div>
-        <div class="card-body">
-          <div class="row mb-3">
-            <div class="col-md-6"><strong>Comprador:</strong> {{ pending.buyer_name }}</div>
-            <div class="col-md-6"><strong>Teléfono:</strong> {{ pending.buyer_phone }}</div>
+      {% endfor %}
+    {% endif %}{% endwith %}
+
+    <!-- ⚙️ CONFIGURAR CBU ADMINISTRATIVO (Solo Admin) -->
+    {% if user.sticker_id == 'ADMIN001' %}
+    <div class="card border-primary shadow-none mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>⚙️ Configuración de Administración</span>
+      </div>
+      <div class="card-body">
+        <form action="/admin/cambiar_cbu" method="POST" class="row g-3 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label text-muted small fw-bold">CBU DESTINO (1° VENTA)</label>
+            <input type="text" name="nuevo_cbu" class="form-control form-control-lg" placeholder="Alias o CBU" required value="{{ user.cbu_alias }}">
           </div>
+          <div class="col-md-4">
+            <button type="submit" class="btn btn-success w-100 py-2 fw-bold">💾 Actualizar CBU</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
-          {% if pending.step == 1 %}
-            <div class="alert alert-light border mb-3">
-              <strong>CBU destino:</strong> <code class="fs-5">{{ pending_cbu }}</code>
-              <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText('{{ pending_cbu }}'); this.innerHTML='✅ Copiado'; setTimeout(()=>this.innerHTML='📋 Copiar', 2000)">📋 Copiar</button>
-            </div>
-            {% if pending.status == 'pending' %}
-              <form action="/marcar_enviado/{{ pending.id }}" method="POST">
-                <button type="submit" class="btn btn-primary w-100 fw-bold py-2">✅ Confirmar que el pago fue realizado</button>
-              </form>
-            {% elif pending.status == 'sent' %}
-              <div class="text-center text-warning fw-semibold py-2">⏳ Esperando confirmación del Administrador...</div>
-            {% elif pending.status == 'confirmed' %}
-              <form action="/enviar_datos_email/{{ pending.id }}" method="POST">
-                <button type="submit" class="btn btn-info w-100 fw-bold py-2">📤 Enviar datos de acceso por email</button>
-              </form>
-            {% endif %}
-
-          {% elif pending.step == 2 %}
-            <div class="alert alert-light border mb-3">
-              <strong>CBU destino:</strong> <code class="fs-5">{{ pending_cbu }}</code>
-              <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText('{{ pending_cbu }}'); this.innerHTML='✅ Copiado'; setTimeout(()=>this.innerHTML='📋 Copiar', 2000)">📋 Copiar</button>
-            </div>
-            {% if pending.status == 'pending' %}
-              <form action="/marcar_enviado/{{ pending.id }}" method="POST">
-                <button type="submit" class="btn btn-primary w-100 fw-bold py-2">✅ Confirmar que el pago fue realizado</button>
-              </form>
-            {% elif pending.status == 'sent' %}
-              <div class="text-center text-warning fw-semibold py-2">⏳ Esperando confirmación del Nivel 1...</div>
-            {% elif pending.status == 'confirmed' %}
-              <form action="/enviar_datos_email/{{ pending.id }}" method="POST">
-                <button type="submit" class="btn btn-info w-100 fw-bold py-2">📤 Enviar datos de acceso por email</button>
-              </form>
-            {% endif %}
-
-          {% elif pending.step == 3 %}
-            <div class="alert alert-light border mb-3">
-              <strong>CBU destino:</strong> <code class="fs-5">{{ pending_cbu }}</code>
-              <button class="btn btn-sm btn-outline-secondary ms-2" onclick="navigator.clipboard.writeText('{{ pending_cbu }}'); this.innerHTML='✅ Copiado'; setTimeout(()=>this.innerHTML='📋 Copiar', 2000)">📋 Copiar</button>
-            </div>
-            {% if pending.status == 'pending' %}
-              <form action="/marcar_enviado/{{ pending.id }}" method="POST">
-                <button type="submit" class="btn btn-primary w-100 fw-bold py-2">✅ Confirmar que el pago fue realizado</button>
-              </form>
-            {% elif pending.status == 'sent' %}
-              <div class="text-center text-warning fw-semibold py-2 mb-2">⏳ Esperando tu confirmación...</div>
-              <form action="/resolver_confirmacion/{{ pending.id }}/confirm" method="POST">
-                <button type="submit" class="btn btn-warning w-100 fw-bold py-2">✅ Yo recibí el pago</button>
-              </form>
-            {% elif pending.status == 'confirmed' %}
-              <form action="/enviar_datos_email/{{ pending.id }}" method="POST">
-                <button type="submit" class="btn btn-info w-100 fw-bold py-2">📤 Enviar datos de acceso por email</button>
-              </form>
-            {% endif %}
-          {% endif %}
+    <!-- 🟦 STICKER ACTIVO O CREAR NUEVO (Nivel 5) -->
+    {% if user.current_level == 5 %}
+    <div class="row g-4">
+      <!-- Columna Izquierda: Crear Sticker -->
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header">🛒 Nuevo Vendedor</div>
+          <div class="card-body">
+            <form action="/crear_sticker" method="POST">
+              <div class="mb-3">
+                <label class="form-label small text-muted">Nombre</label>
+                <input type="text" name="name" class="form-control" required placeholder="Nombre completo">
+              </div>
+              <div class="mb-3">
+                <label class="form-label small text-muted">Teléfono</label>
+                <input type="text" name="phone" class="form-control" required placeholder="+54 9 11...">
+              </div>
+              <div class="mb-3">
+                <label class="form-label small text-muted">Email</label>
+                <input type="email" name="email" class="form-control" required placeholder="ejemplo@email.com">
+              </div>
+              <div class="mb-3">
+                <label class="form-label small text-muted">CBU del comprador</label>
+                <input type="text" name="cbu" class="form-control" required placeholder="Alias o CBU">
+              </div>
+              <button type="submit" class="btn btn-primary w-100 mt-2">Generar Sticker</button>
+            </form>
+          </div>
         </div>
       </div>
-    {% else %}
-      <div class="card mb-4 border-primary shadow-sm">
-        <div class="card-header bg-primary text-white fw-bold">🛒 Crear Nuevo Sticker</div>
-        <div class="card-body">
-          <form action="/crear_sticker" method="POST">
-            <div class="row g-2">
-              <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Nombre comprador" required></div>
-              <div class="col-md-3"><input type="text" name="phone" class="form-control" placeholder="Teléfono (+549...)" required></div>
-              <div class="col-md-3"><input type="email" name="email" class="form-control" placeholder="Email" required></div>
-              <div class="col-md-3"><input type="text" name="cbu" class="form-control" placeholder="CBU/Alias comprador" required></div>
-              <div class="col-12"><button type="submit" class="btn btn-success w-100 fw-bold py-2">Generar Sticker</button></div>
+
+      <!-- Columna Derecha: Gestión de Sticker Activo -->
+      <div class="col-lg-8">
+        {% if pending %}
+          <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>📦 Sticker Activo: <code class="ms-2">{{ pending.sticker_code }}</code></span>
+              <span class="badge bg-info">Paso {{ pending.step }}/3</span>
             </div>
+            <div class="card-body">
+              <div class="row mb-4">
+                <div class="col-md-6 mb-2"><small class="text-muted d-block">Comprador</small> <strong>{{ pending.buyer_name }}</strong></div>
+                <div class="col-md-6 mb-2"><small class="text-muted d-block">Teléfono</small> <strong>{{ pending.buyer_phone }}</strong></div>
+              </div>
+
+              <div class="p-3 mb-3 border rounded-3" style="background: #1C1E23;">
+                <small class="text-muted d-block mb-1">CBU Destino para transferencia:</small>
+                <div class="d-flex justify-content-between align-items-center">
+                  <code class="fs-5 text-white">{{ pending_cbu }}</code>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('{{ pending_cbu }}'); this.innerHTML='✅'; setTimeout(()=>this.innerHTML='📋', 2000)">📋 Copiar</button>
+                </div>
+              </div>
+
+              {% if pending.status == 'pending' %}
+                <form action="/marcar_enviado/{{ pending.id }}" method="POST">
+                  <button type="submit" class="btn btn-primary w-100 py-2">✅ Ya pagaron (Enviar a revisión)</button>
+                </form>
+              {% elif pending.status == 'sent' %}
+                <div class="alert alert-warning text-center py-2 mb-0">⏳ Esperando confirmación...</div>
+              {% elif pending.status == 'confirmed' %}
+                <form action="/enviar_datos_email/{{ pending.id }}" method="POST">
+                  <button type="submit" class="btn btn-success w-100 py-2">📤 Entregar Acceso (Finalizar)</button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="card h-100 d-flex align-items-center justify-content-center text-center p-5" style="border-style: dashed; background: transparent;">
+            <div>
+              <h5 class="text-muted">Sin sticker activo</h5>
+              <p class="small text-muted">Crea un nuevo sticker para comenzar el ciclo.</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 🟡 ADMIN: Confirmaciones -->
+    {% if user.sticker_id == 'ADMIN001' and confirmations %}
+    <div class="mt-4">
+      <h6 class="text-uppercase text-muted small fw-bold mb-3 ls-1">🟡 Pagos Pendientes de Confirmación</h6>
+      {% for c in confirmations %}
+      <div class="card mb-2">
+        <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
+          <div>
+            <strong>{{ c.buyer_name }}</strong> <span class="text-muted small ms-2">({{ c.sticker_code }})</span>
+            <div class="small text-muted">{{ c.buyer_cbu }}</div>
+          </div>
+          <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST">
+            <button class="btn btn-sm btn-primary px-3">Confirmar Pago</button>
           </form>
         </div>
       </div>
+      {% endfor %}
+    </div>
     {% endif %}
-  {% endif %}
 
-  <!-- 🟡 ADMIN: Confirmaciones Paso 1 -->
-  {% if user.sticker_id == 'ADMIN001' %}
-  <h5 class="mt-4 mb-3 fw-bold border-bottom pb-2">🟡 Pagos Pendientes - 1° Venta</h5>
-  {% if confirmations %}
-    {% for c in confirmations %}
-    <div class="card mb-2 border-danger shadow-sm"><div class="card-body d-flex justify-content-between align-items-center py-2">
-      <div class="small"><strong>{{ c.buyer_name }}</strong> | {{ c.sticker_code }} | <code>{{ c.buyer_cbu }}</code></div>
-      <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST"><button class="btn btn-danger btn-sm fw-bold px-3">✅ Recibí</button></form>
-    </div></div>
-    {% endfor %}
-  {% else %}<p class="text-muted small">Sin pagos pendientes.</p>{% endif %}
-  {% endif %}
-
-  <!-- 🔴 L1 DEL CICLO: Confirmaciones Paso 2 -->
-  {% if user.current_level != 5 and user.sticker_id != 'ADMIN001' and user.role != 'graduated' %}
-  <h5 class="mt-4 mb-3 fw-bold border-bottom pb-2">🔴 Pagos Pendientes - 2° Venta (Nivel 1)</h5>
-  {% if confirmations %}
-    {% for c in confirmations %}
-    <div class="card mb-2 border-danger shadow-sm"><div class="card-body d-flex justify-content-between align-items-center py-2">
-      <div class="small"><strong>{{ c.buyer_name }}</strong> | {{ c.sticker_code }} | Ciclo #{{ c.cycle_id }}</div>
-      <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST"><button class="btn btn-danger btn-sm fw-bold px-3">✅ Recibí</button></form>
-    </div></div>
-    {% endfor %}
-  {% else %}<p class="text-muted small">Sin pagos pendientes.</p>{% endif %}
-  {% endif %}
-
-  <!-- 🌐 RED DE DESCENDIENTES -->
-  {% if participants %}
-  <h5 class="mt-4 mb-3 fw-bold border-bottom pb-2">🌐 Estado de tu Red</h5>
-  <div class="table-responsive rounded-3 shadow-sm border">
-    <table class="table table-hover mb-0 align-middle">
-      <thead class="bg-light"><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Ventas</th><th>Contacto</th></tr></thead>
-      <tbody>
-        {% for p in participants %}
-        <tr>
-          <td><code>{{ p.sticker_id }}</code></td>
-          <td>{{ p.full_name }}</td>
-          <td>{{ p.phone }}</td>
-          <td><span class="badge bg-info">{{ p.level }}</span></td>
-          <td>{% if p.sales_done >= 3 %}<span class="badge bg-success">✅</span>{% else %}<span class="badge bg-warning">{{ p.sales_done }}/3</span>{% endif %}</td>
-          <td>
-            {% if p.phone %}
-            <a href="tel:{{ p.phone }}" class="btn btn-sm btn-outline-primary px-2">📞</a>
-            <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}" target="_blank" class="btn btn-sm btn-outline-success px-2">💬</a>
-            {% endif %}
-          </td>
-        </tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>{% endif %}
-
-  <!-- 📊 HISTORIAL -->
-  <div class="row mt-4 g-3">
-    <div class="col-12">
-      <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white fw-bold">📜 Historial de Ventas</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th class="px-3">#</th>
-                  <th>Sticker</th>
-                  <th>Pass</th>
-                  <th>Comprador</th>
-                  <th>Tel</th>
-                  <th>Email</th>
-                  <th>CBU</th>
-                  <th>Estado</th>
-                  <th class="px-3">Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% if my_sales %}
-                {% for item in my_sales %}
-                <tr>
-                  <td class="px-3">{{ item.num }}</td>
-                  <td><code>{{ item.sale.sticker_code }}</code></td>
-                  <td><code class="text-muted">{{ item.sale.temp_pass or '-' }}</code></td>
-                  <td>{{ item.sale.buyer_name }}</td>
-                  <td>{{ item.sale.buyer_phone }}</td>
-                  <td>{{ item.sale.buyer_email }}</td>
-                  <td>{{ item.sale.buyer_cbu }}</td>
-                  <td>
-                    {% if item.sale.status == 'pending' %}<span class="badge bg-warning">Pendiente</span>
-                    {% elif item.sale.status == 'sent' %}<span class="badge bg-info">Enviado</span>
-                    {% elif item.sale.status == 'confirmed' %}<span class="badge bg-primary">Confirmado</span>
-                    {% else %}<span class="badge bg-success">Entregado</span>{% endif %}
-                  </td>
-                  <td class="px-3 small text-muted">{{ item.sale.created_at.strftime('%Y-%m-%d %H:%M') if item.sale.created_at else '-' }}</td>
-                </tr>{% endfor %}
-                {% else %}
-                <tr><td colspan="9" class="text-center text-muted py-3">Sin ventas registradas</td></tr>
-                {% endif %}
-              </tbody>
-            </table>
+    <!-- 🔴 L1: Confirmaciones -->
+    {% if user.current_level != 5 and user.sticker_id != 'ADMIN001' and confirmations %}
+    <div class="mt-4">
+      <h6 class="text-uppercase text-muted small fw-bold mb-3 ls-1">🔴 Pagos de tu Red (Nivel 1)</h6>
+      {% for c in confirmations %}
+      <div class="card mb-2">
+        <div class="card-body d-flex justify-content-between align-items-center py-2 px-3">
+          <div>
+            <strong>{{ c.buyer_name }}</strong> <span class="text-muted small ms-2">({{ c.sticker_code }})</span>
+            <div class="small text-muted">Ciclo #{{ c.cycle_id }}</div>
           </div>
+          <form action="/resolver_confirmacion/{{ c.id }}/confirm" method="POST">
+            <button class="btn btn-sm btn-primary px-3">Confirmar Pago</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 🌐 TABLA DE PARTICIPANTES -->
+    {% if participants %}
+    <div class="mt-4">
+      <h6 class="text-uppercase text-muted small fw-bold mb-3 ls-1">🌐 Estado de la Red</h6>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Sticker</th>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+              <th>Nivel</th>
+              <th>Progreso</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in participants %}
+            <tr>
+              <td><code>{{ p.sticker_id }}</code></td>
+              <td class="fw-bold text-white">{{ p.full_name }}</td>
+              <td>{{ p.phone }}</td>
+              <td><span class="badge bg-info">{{ p.level }}</span></td>
+              <td>
+                {% if p.sales_done >= 3 %}<span class="badge bg-success">Completado</span>
+                {% else %}<span class="badge bg-warning">{{ p.sales_done }}/3</span>{% endif %}
+              </td>
+              <td class="text-end">
+                {% if p.phone %}
+                <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}" target="_blank" class="btn btn-sm btn-outline-success px-2">💬</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 📊 HISTORIALES -->
+    <div class="row mt-4 g-4">
+      <!-- Historial Ventas -->
+      <div class="col-12">
+        <h6 class="text-uppercase text-muted small fw-bold mb-3 ls-1">📜 Historial de Ventas</h6>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Sticker</th>
+                <th>Comprador</th>
+                <th>Email</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if my_sales %}
+              {% for item in my_sales %}
+              <tr>
+                <td>{{ item.num }}</td>
+                <td><code>{{ item.sale.sticker_code }}</code></td>
+                <td>{{ item.sale.buyer_name }}</td>
+                <td class="text-muted small">{{ item.sale.buyer_email }}</td>
+                <td>
+                  {% if item.sale.status == 'pending' %}<span class="badge bg-warning">Pendiente</span>
+                  {% elif item.sale.status == 'sent' %}<span class="badge bg-info">Enviado</span>
+                  {% elif item.sale.status == 'confirmed' %}<span class="badge bg-primary">Confirmado</span>
+                  {% else %}<span class="badge bg-success">Entregado</span>{% endif %}
+                </td>
+                <td class="text-muted small">{{ item.sale.created_at.strftime('%d/%m %H:%M') if item.sale.created_at else '-' }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-3">No hay registros aún.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <div class="col-12">
-      <div class="card shadow-sm">
-        <div class="card-header bg-success text-white fw-bold">💰 Ingresos Confirmados</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-              <thead class="table-light"><tr><th class="px-3">#</th><th>De quién</th><th>Venta #</th><th class="px-3">Fecha</th></tr></thead>
-              <tbody>
-                {% if income %}
-                {% for item in income %}
-                <tr>
-                  <td class="px-3">{{ item.num }}</td>
-                  <td>{{ item.sale.buyer_name }}</td>
-                  <td><span class="badge bg-dark">#{{ item.sale.step }}</span></td>
-                  <td class="px-3 small text-muted">{{ item.sale.created_at.strftime('%Y-%m-%d %H:%M') if item.sale.created_at else '-' }}</td>
-                </tr>{% endfor %}
-                {% else %}
-                <tr><td colspan="4" class="text-center text-muted py-3">Sin pagos registrados</td></tr>
-                {% endif %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 {% endblock %}
