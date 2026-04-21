@@ -1,73 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-  /* Ocultar navbar solo en la página de login para un diseño más limpio */
-  .navbar { display: none !important; }
-  
-  .login-wrapper {
-    min-height: 80vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 0;
-  }
-  
-  .login-logo {
-    max-width: 200px;
-    height: auto;
-    margin-bottom: 1.5rem;
-    display: block;
-  }
-  
-  .login-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 16px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-    width: 100%;
-    max-width: 400px;
-  }
-  
-  .login-card .form-control {
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
-  }
-  
-  .login-card .btn-primary {
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-  }
-</style>
-
-<div class="login-wrapper">
-  <!-- Logo centrado y grande -->
-  <img src="https://levelone.uno/static/Logo.png" alt="levelONE" class="login-logo">
-  
-  <div class="login-card">
-    <h4 class="mb-4 fw-bold text-center text-dark">Ingresar</h4>
-    
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      {% for msg in messages %}
-        <div class="alert alert-info py-2 small text-center mb-3">{{ msg }}</div>
-      {% endfor %}
-    {% endif %}{% endwith %}
-
-    <form method="POST" action="/ingresar">
-      <div class="mb-3">
-        <label class="form-label fw-medium text-muted small">Sticker ID</label>
-        <input type="text" name="sticker_id" class="form-control" placeholder="Ej: ADMIN001" required>
-      </div>
-      <div class="mb-4">
-        <label class="form-label fw-medium text-muted small">Contraseña</label>
-        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
-      </div>
-      <button type="submit" class="btn btn-primary w-100">Ingresar</button>
-    </form>
-  </div>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5 col-lg-4">
+            <div class="text-center mb-4">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="levelONE Logo" class="img-fluid mb-3" style="max-width: 220px;">
+                <p class="text-muted fw-medium">Plataforma de acceso para vendedores</p>
+            </div>
+            <div class="card p-4">
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                    <div class="alert alert-info py-2 small mb-3">{{ messages[0] }}</div>
+                    {% endif %}
+                {% endwith %}
+                <form method="post" action="/ingresar">
+                    <div class="mb-3">
+                        <label class="form-label fw-medium"><i class="bi bi-ticket-perforated me-1 text-primary"></i>Número de Sticker</label>
+                        <input type="text" name="sticker_id" class="form-control" placeholder="Ej: STK-A1B2C3" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-medium"><i class="bi bi-key me-1 text-primary"></i>Contraseña</label>
+                        <input type="password" name="password" class="form-control" placeholder="Ingresa tu contraseña temporal" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al Sistema
+                    </button>
+                </form>
+            </div>
+            <div class="text-center mt-3">
+                <small class="text-muted">¿Problemas para ingresar? Contactá a tu vendedor referente.</small>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
