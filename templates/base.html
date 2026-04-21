@@ -26,6 +26,26 @@
             margin-top: auto;
         }
         .footer p { margin: 0; color: #6c757d; font-size: 0.85rem; }
+        
+        /* Marca de agua global */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            width: 400px;
+            height: auto;
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 0;
+            user-select: none;
+        }
+        
+        /* Asegurar que el contenido esté por encima del watermark */
+        .main-content, .navbar, .footer {
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -38,6 +58,9 @@
             </a>
         </div>
     </nav>
+
+    <!-- Marca de agua -->
+    <img src="https://levelone.uno/static/Logo.png" alt="" class="watermark">
 
     <!-- Contenido principal -->
     <main class="main-content py-4">
