@@ -27,10 +27,311 @@
                     </button>
                 </form>
             </div>
-            <div class="text-center mt-3">
-                <small class="text-readable">¿Problemas para ingresar? Contactá a tu vendedor referente.</small>
+            
+            <!-- 🔹 BOTONES DE AYUDA (NUEVOS) -->
+            <div class="text-center mt-3 d-flex justify-content-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-guia">📖 Guía de Inicio</button>
+                <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-faq">❓ Preguntas Frecuentes</button>
+                <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-terminos">⚖️ Términos</button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- 🔹 MODAL: GUÍA DE INICIO -->
+<div class="modal fade" id="modal-guia" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📖 Guía de Inicio Rápido</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <h6>🎯 ¿En qué consiste?</h6>
+        <p><strong>levelONE</strong> es un sistema de ciclos de 5 niveles. Tu objetivo es simple: vender 3 stickers para avanzar un nivel.</p>
+        <p>Sin embargo, el sistema funciona en equipo: <strong>necesitás que todos los compradores y vendedores de tu ciclo vendan también sus stickers</strong>. Esto es fundamental para que el ciclo se complete y vos puedas avanzar. Tu meta final es llegar al <strong>Nivel 1</strong>, donde se consolidan tus ingresos recurrentes.</p>
+        
+        <h6 class="mt-4">💰 ¿Cómo recuperás tu inversión?</h6>
+        <ul>
+          <li><strong>1° Venta:</strong> El dinero va al <strong>Administrador</strong> (mantenimiento de plataforma).</li>
+          <li><strong>2° Venta:</strong> El dinero va al <strong>Usuario Nivel 1</strong> de tu ciclo.</li>
+          <li><strong>3° Venta:</strong> El dinero va <strong>a VOS</strong> ✅ (recuperás tu inversión inicial).</li>
+        </ul>
+        
+        <h6 class="mt-4">🔄 La Clave: El Seguimiento</h6>
+        <p>Para que vos avances de nivel, no basta con que tú vendas. <strong>Los participantes de tu ciclo también deben vender.</strong></p>
+        <ul>
+          <li>Tu tarea: Ayudar, guiar y hacer seguimiento constante.</li>
+          <li>El objetivo: Asegurarte de que ellos vendan sus 3 stickers lo más rápido posible.</li>
+          <li>El resultado: Cuando ellos venden, el ciclo avanza y vos te acercás más rápido a ser Nivel 1.</li>
+        </ul>
+        
+        <h6 class="mt-4">⏱️ Reglas Importantes</h6>
+        <ul>
+          <li>Tenés <strong>7 días</strong> para completar tus 3 ventas iniciales.</li>
+          <li>Tu éxito depende de tu capacidad de gestión y seguimiento.</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-frost" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🔹 MODAL: PREGUNTAS FRECUENTES -->
+<div class="modal fade" id="modal-faq" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">❓ Preguntas Frecuentes</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <h6>¿Qué es un sticker?</h6>
+        <p>Es tu credencial de acceso a la plataforma levelONE. Contiene tu ID único y contraseña temporal.</p>
+        
+        <h6 class="mt-3">¿Cómo recibo mis datos de acceso?</h6>
+        <p>Una vez que tu vendedor confirma tu pago, recibís un email con tu Sticker ID y contraseña. Revisá también la carpeta de Spam.</p>
+        
+        <h6 class="mt-3">¿Qué pasa si no vendo en 7 días?</h6>
+        <p>El acceso se cancela automáticamente sin reintegro, según los Términos y Condiciones.</p>
+        
+        <h6 class="mt-3">¿Cómo contacto a mi red?</h6>
+        <p>Desde el dashboard, en "Estado de la Red", tenés botones directos para llamar o enviar WhatsApp a cada participante.</p>
+        
+        <h6 class="mt-3">¿El sistema es automático?</h6>
+        <p>No. Tu éxito depende de tu gestión activa: ayudar, guiar y hacer seguimiento a las personas de tu ciclo.</p>
+        
+        <h6 class="mt-3">¿Puedo usar levelONE solo por los beneficios?</h6>
+        <p>Sí. La participación en el sistema de red es opcional. Podés usar el producto únicamente por sus beneficios asociados (capacitaciones, comunidad, etc.).</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-frost" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🔹 MODAL: TÉRMINOS Y CONDICIONES (TEXTO EXACTO DEL USUARIO) -->
+<div class="modal fade" id="modal-terminos" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📜 BASES Y CONDICIONES – LEVELONE</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}></button>
+      </div>
+      <div class="modal-body" style="font-size: 0.9rem; line-height: 1.6;">
+        
+        <strong>1. Naturaleza del servicio</strong>
+        <p>LevelONE es una plataforma digital que ofrece:</p>
+        <ul class="mb-2">
+          <li>Acceso a una comunidad privada de usuarios</li>
+          <li>Beneficios asociados a capacitaciones y contenidos</li>
+          <li>La posibilidad de participar en un sistema de actividad en red basado en la venta de productos</li>
+        </ul>
+        <p>La adquisición del sticker LevelONE constituye la compra de un producto con beneficios asociados, siendo el acceso a la plataforma una funcionalidad adicional.</p>
+        <hr>
+
+        <strong>2. Producto y beneficios incluidos</strong>
+        <p>Al adquirir el sticker LevelONE, el usuario obtiene:</p>
+        <ul class="mb-2">
+          <li>Acceso a una comunidad privada (por ejemplo, WhatsApp u otros medios definidos por la plataforma)</li>
+          <li>Acceso a capacitaciones en áreas como ventas, marketing y herramientas digitales, con un beneficio de hasta el 50% de descuento sobre el valor de las mismas</li>
+          <li>Acceso a contenidos, materiales o recursos que la plataforma pueda ofrecer</li>
+        </ul>
+        <p>Las capacitaciones podrán ser en modalidad presencial o virtual, y estarán sujetas a disponibilidad, organización, cantidad de participantes y condiciones específicas.</p>
+        <hr>
+
+        <strong>3. Condiciones de participación</strong>
+        <p>Para utilizar la plataforma, el usuario debe:</p>
+        <ul class="mb-2">
+          <li>Ser mayor de 18 años</li>
+          <li>Aceptar los presentes términos y condiciones</li>
+          <li>Comprender el funcionamiento del sistema</li>
+          <li>Actuar de manera activa si decide participar en la red</li>
+        </ul>
+        <hr>
+
+        <strong>4. Sistema de actividad en red (opcional)</strong>
+        <p>LevelONE ofrece la posibilidad opcional de participar en un sistema de actividad en red basado en la venta de stickers.</p>
+        <p>El usuario:</p>
+        <ul class="mb-2">
+          <li>No está obligado a participar en dicho sistema</li>
+          <li>Puede utilizar el producto únicamente por sus beneficios asociados</li>
+        </ul>
+        <p>La participación en el sistema implica actividad comercial y seguimiento de red.</p>
+        <hr>
+
+        <strong>5. Funcionamiento del sistema</strong>
+        <p>En caso de participar en la red:</p>
+        <ul class="mb-2">
+          <li>El usuario podrá avanzar por niveles mediante la venta de productos</li>
+          <li>El sistema se estructura en niveles (del 5 al 1)</li>
+          <li>El avance depende tanto de la actividad individual como de la red</li>
+        </ul>
+        <hr>
+
+        <strong>6. Flujo de pagos</strong>
+        <p>Los pagos dentro del sistema son realizados directamente entre usuarios.</p>
+        <p>Distribución:</p>
+        <ul class="mb-2">
+          <li>1° venta: destinada a mantenimiento y estructura</li>
+          <li>2° venta: destinada a un usuario en Nivel 1</li>
+          <li>3° venta: destinada al propio usuario</li>
+        </ul>
+        <p>La plataforma no actúa como intermediaria financiera ni retiene fondos.</p>
+        <hr>
+
+        <strong>7. Límite y graduación</strong>
+        <p>Los usuarios que alcanzan el Nivel 1 podrán recibir hasta un máximo de 81 pagos.</p>
+        <p>Al alcanzar dicho límite:</p>
+        <ul class="mb-2">
+          <li>Se considera completado el ciclo</li>
+          <li>El usuario es graduado</li>
+          <li>Finaliza su participación en ese ciclo</li>
+        </ul>
+        <hr>
+
+        <strong>8. Naturaleza de los ingresos</strong>
+        <p>El usuario reconoce que:</p>
+        <ul class="mb-2">
+          <li>No se trata de una inversión</li>
+          <li>No existen ingresos garantizados</li>
+          <li>Los resultados dependen de su actividad y la de su red</li>
+        </ul>
+        <hr>
+
+        <strong>9. Responsabilidad del usuario</strong>
+        <p>El usuario es responsable de:</p>
+        <ul class="mb-2">
+          <li>Su participación en el sistema</li>
+          <li>La gestión de su red</li>
+          <li>La coordinación de pagos con otros usuarios</li>
+          <li>Verificar las transacciones realizadas</li>
+        </ul>
+        <hr>
+
+        <strong>10. Plazos y cancelaciones</strong>
+        <ul class="mb-2">
+          <li>El usuario dispone de un plazo para realizar sus actividades iniciales dentro del sistema</li>
+          <li>En caso de no cumplir, la participación podrá ser cancelada</li>
+          <li>No se garantizan reintegros</li>
+          <li>Se anula su membership en LevelONE</li>
+        </ul>
+        <hr>
+
+        <strong>11. Capacitaciones</strong>
+        <p>Las capacitaciones:</p>
+        <ul class="mb-2">
+          <li>No son obligatorias</li>
+          <li>Se ofrecen como beneficio adicional</li>
+          <li>Están sujetas a disponibilidad</li>
+          <li>Pueden variar en contenido, modalidad y frecuencia</li>
+        </ul>
+        <p>El descuento ofrecido (hasta 50%) no constituye obligación permanente y puede ser modificado.</p>
+        <hr>
+
+        <strong>12. Comunidad</strong>
+        <p>El acceso a la comunidad:</p>
+        <ul class="mb-2">
+          <li>Es un beneficio incluido con la compra</li>
+          <li>Puede estar sujeto a normas de conducta</li>
+          <li>Puede ser restringido o cancelado ante incumplimientos</li>
+        </ul>
+        <hr>
+
+        <strong>13. Exclusión de responsabilidad</strong>
+        <p>La plataforma:</p>
+        <ul class="mb-2">
+          <li>No garantiza resultados económicos</li>
+          <li>No se responsabiliza por pérdidas o falta de ganancias</li>
+          <li>No interviene en conflictos entre usuarios</li>
+          <li>No asegura continuidad del sistema</li>
+        </ul>
+        <hr>
+
+        <strong>14. Declaración del usuario</strong>
+        <p>El usuario declara que:</p>
+        <ul class="mb-2">
+          <li>Comprende el funcionamiento del sistema</li>
+          <li>Acepta participar de forma voluntaria</li>
+          <li>Entiende los riesgos asociados</li>
+        </ul>
+        <hr>
+
+        <strong>⚖️ DESCARGO DE RESPONSABILIDAD</strong>
+        <p>LevelONE es una plataforma orientada a la comercialización de productos y acceso a beneficios formativos.</p>
+        <p>No constituye:</p>
+        <ul class="mb-2">
+          <li>Un sistema de inversión</li>
+          <li>Un esquema financiero</li>
+          <li>Una promesa de rentabilidad</li>
+          <li>Un sistema de ingresos pasivos garantizados</li>
+        </ul>
+        <p>La participación en el sistema de red es opcional y depende de la actividad del usuario.</p>
+        <p>Los resultados pueden variar significativamente y dependen de múltiples factores, incluyendo:</p>
+        <ul class="mb-2">
+          <li>Habilidades comerciales</li>
+          <li>Compromiso</li>
+          <li>Actividad de terceros</li>
+        </ul>
+        <p>La empresa no será responsable por pérdidas económicas, falta de resultados, ni conflictos entre usuarios.</p>
+        <p><strong>El usuario participa bajo su exclusiva responsabilidad.</strong></p>
+      </div>
+      <div class="modal-footer">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="check-terminos">
+          <label class="form-check-label" for="check-terminos">
+            ✅ He leído, comprendido y acepto los Términos y Condiciones de levelONE.
+          </label>
+        </div>
+        <button type="button" class="btn btn-frost" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}>Cerrar</button>
+        <button type="button" class="btn btn-primary" id="btn-aceptar-terminos" disabled>Aceptar y Continuar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Script para modal de términos -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Habilitar botón solo si checkbox está marcado
+  const check = document.getElementById('check-terminos');
+  const btn = document.getElementById('btn-aceptar-terminos');
+  if (check && btn) {
+    check.addEventListener('change', function() {
+      btn.disabled = !this.checked;
+    });
+  }
+  
+  // Acción de aceptar términos
+  if (btn) {
+    btn.addEventListener('click', function() {
+      fetch('/api/accept_terms', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          window.location.href = '/dashboard';
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo registrar la aceptación'));
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error de conexión. Intentá de nuevo.');
+      });
+    });
+  }
+  
+  // Si show_terms_modal es True, abrir modal automáticamente
+  {% if show_terms_modal %}
+  var modalTerms = new bootstrap.Modal(document.getElementById('modal-terminos'));
+  modalTerms.show();
+  {% endif %}
+});
+</script>
 {% endblock %}
