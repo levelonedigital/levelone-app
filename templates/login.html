@@ -1,36 +1,39 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 FIX SEGURO PARA BOOTSTRAP 5 (SIN ROMPER INTERACCIÓN) */
+  /* 🔹 MODALES BOOTSTRAP 5 - SIN CONFLICTOS */
   .modal-content {
     background-color: #16171C !important;
     border: 1px solid #272A2E !important;
     border-radius: 12px;
-    box-shadow: 0 12px 48px rgba(0,0,0,0.7);
   }
   .modal-header, .modal-footer {
-    background-color: #16171C !important;
     border-color: #272A2E !important;
+    background-color: #16171C !important;
   }
   .modal-title, .modal-body strong {
     color: #FFFFFF !important;
+    font-weight: 600;
   }
   .modal-body {
-    color: #E6E8EB !important;
-    line-height: 1.65;
+    color: #F3F4F6 !important; /* Letras más claras (gris muy claro) */
+    line-height: 1.7;
     font-size: 0.95rem;
-    max-height: 65vh;
-    overflow-y: auto;
   }
   .modal-dialog {
-    margin-top: 5rem; /* Evita que la barra fija tape el título */
+    margin-top: 5rem; /* Espacio debajo de la barra fija */
   }
-  .btn-close { filter: invert(1); opacity: 0.8; cursor: pointer; }
+  .btn-close { 
+    filter: invert(1); 
+    opacity: 0.8; 
+    cursor: pointer;
+    z-index: 1100; /* Asegura que el botón X esté por encima de todo */
+    position: relative;
+  }
   .btn-close:hover { opacity: 1; }
   #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
   .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
   .modal-body hr { border-color: #272A2E; margin: 15px 0; }
-  /* Scrollbar oscuro para que combine */
   .modal-body::-webkit-scrollbar { width: 8px; }
   .modal-body::-webkit-scrollbar-track { background: #16171C; }
   .modal-body::-webkit-scrollbar-thumb { background: #272A2E; border-radius: 4px; }
@@ -64,11 +67,16 @@
                 </form>
             </div>
             
-            <!-- 🔹 BOTONES DE AYUDA (NOMBRES EXACTOS) -->
+            <!-- 🔹 BOTONES DE AYUDA -->
             <div class="text-center mt-3 d-flex justify-content-center gap-2 flex-wrap">
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-guia">📖 Guía de Inicio</button>
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-faq">❓ Preguntas Frecuentes</button>
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-terminos">⚖️ Términos</button>
+            </div>
+
+            <!-- 🔹 TEXTO ORIGINAL QUE ESTABA ANTES -->
+            <div class="text-center mt-3">
+                <small class="text-readable">¿Problemas para ingresar? Contactá a tu vendedor referente.</small>
             </div>
         </div>
     </div>
