@@ -9,10 +9,10 @@
     <style>
         :root {
             --bg-canvas: #0B0C10;
-            --bg-glass: rgba(22, 23, 28, 0.65);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --text-main: #E6E8EB;
-            --text-sec: #A1A1AA; /* Más claro y legible */
+            --glass-bg: rgba(20, 21, 26, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #EDEEF0;
+            --text-sec: #9FA3AE;
             --accent: #5962F9;
         }
         body {
@@ -23,92 +23,112 @@
             display: flex;
             flex-direction: column;
         }
-        /* 🔹 TEXTOS MÁS VISIBLES */
+        /* 🔹 TEXTOS */
         .text-muted, .text-secondary { color: var(--text-sec) !important; }
-        .text-readable { color: #C4C7CE !important; } /* Un tono más claro para subtítulos pequeños */
+        .text-readable { color: #C4C7CE !important; }
+        .text-name { color: #F3F4F6 !important; font-weight: 600; } /* Nombres bien visibles */
 
-        /* 🔹 CARDS & TABLAS CON FONDO DIFUSO (Estilo Railway) */
-        .card, .table-responsive, .border {
-            background: var(--bg-glass) !important;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-glass) !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        /* 🔹 CARDS Y TABLAS CON FONDO ESMERILADO (CERO BLANCO) */
+        .card, .table-responsive {
+            background: var(--glass-bg) !important;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             border-radius: 12px;
             color: var(--text-main);
         }
         .card-header {
-            background: rgba(28, 30, 35, 0.5) !important;
-            border-bottom: 1px solid var(--border-glass) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-bottom: 1px solid var(--glass-border) !important;
             color: #fff;
             font-weight: 600;
         }
-        .table { color: var(--text-sec); }
+        .table { 
+            background: transparent !important; 
+            color: var(--text-sec) !important; 
+            margin-bottom: 0;
+        }
         .table thead th {
-            background: rgba(22, 23, 28, 0.4) !important;
-            color: #E6E8EB;
+            background: rgba(255, 255, 255, 0.06) !important;
+            backdrop-filter: blur(6px);
+            color: #E6E8EB !important;
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid var(--border-glass) !important;
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+            border-bottom: 1px solid var(--glass-border) !important;
         }
-        .table tbody tr { border-bottom: 1px solid var(--border-glass) !important; }
-        .table tbody td { vertical-align: middle; padding: 0.8rem; }
+        .table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04) !important; }
+        .table tbody td { vertical-align: middle; padding: 0.75rem; }
+        .table tbody tr:hover { background: rgba(255,255,255,0.03) !important; }
 
-        /* Inputs */
-        .form-control, .form-select {
-            background: rgba(11, 12, 16, 0.6) !important;
-            border: 1px solid var(--border-glass) !important;
-            color: #fff;
-            border-radius: 6px;
+        /* 🔹 BOTONES ESMERILADOS (FROSTED) */
+        .btn-frost {
+            background: rgba(255, 255, 255, 0.06) !important;
+            backdrop-filter: blur(6px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            color: #E6E8EB !important;
+            transition: all 0.2s;
         }
-        .form-control:focus, .form-select:focus {
-            background: rgba(11, 12, 16, 0.8) !important;
-            color: #fff;
-            border-color: var(--accent) !important;
-            box-shadow: 0 0 0 3px rgba(89, 98, 249, 0.2) !important;
+        .btn-frost:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            color: #fff !important;
         }
-        .form-control::placeholder { color: #6A6E7A; }
-
-        /* Botones */
         .btn-primary {
-            background: linear-gradient(135deg, #5962F9 0%, #7F56D9 100%);
-            border: none;
+            background: linear-gradient(135deg, rgba(89, 98, 249, 0.25) 0%, rgba(127, 86, 217, 0.25) 100%);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(89, 98, 249, 0.4);
             color: #fff;
             font-weight: 500;
             border-radius: 6px;
         }
-        .btn-outline-secondary {
-            color: var(--text-sec);
-            border-color: var(--border-glass);
-            background: transparent;
+        .btn-primary:hover { background: linear-gradient(135deg, rgba(89, 98, 249, 0.4) 0%, rgba(127, 86, 217, 0.4) 100%); }
+        
+        .btn-success {
+            background: rgba(16, 185, 129, 0.15);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34D399;
         }
-        .btn-outline-secondary:hover { background: var(--border-glass); color: #fff; }
-        .btn-success { background-color: #10B981; border: none; color: #fff; }
-        .btn-danger { background-color: #EF4444; border: none; color: #fff; }
+        .btn-success:hover { background: rgba(16, 185, 129, 0.25); }
+
+        /* Inputs */
+        .form-control, .form-select {
+            background: rgba(11, 12, 16, 0.5) !important;
+            border: 1px solid var(--glass-border) !important;
+            color: #fff;
+            border-radius: 6px;
+        }
+        .form-control:focus, .form-select:focus {
+            background: rgba(11, 12, 16, 0.7) !important;
+            color: #fff;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 3px rgba(89, 98, 249, 0.15) !important;
+        }
+        .form-control::placeholder { color: #6A6E7A; }
 
         /* Badges */
         .badge { font-weight: 500; letter-spacing: 0.03em; padding: 0.35em 0.6em; }
-        .bg-primary { background-color: var(--accent) !important; color: #fff !important; }
-        .bg-success { background-color: rgba(16, 185, 129, 0.2) !important; color: #34D399 !important; }
-        .bg-warning { background-color: rgba(245, 158, 11, 0.2) !important; color: #FBBF24 !important; }
-        .bg-info { background-color: rgba(89, 98, 249, 0.2) !important; color: #818CF8 !important; }
-        .bg-danger { background-color: rgba(239, 68, 68, 0.2) !important; color: #F87171 !important; }
-        .bg-dark { background-color: rgba(22, 23, 28, 0.8) !important; color: #E6E8EB !important; }
-        .bg-light { background-color: rgba(255, 255, 255, 0.08) !important; color: #E6E8EB !important; }
+        .bg-primary { background: rgba(89, 98, 249, 0.2) !important; color: #818CF8 !important; border: 1px solid rgba(89, 98, 249, 0.3); }
+        .bg-success { background: rgba(16, 185, 129, 0.15) !important; color: #34D399 !important; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .bg-warning { background: rgba(245, 158, 11, 0.15) !important; color: #FBBF24 !important; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .bg-info { background: rgba(89, 98, 249, 0.15) !important; color: #818CF8 !important; border: 1px solid rgba(89, 98, 249, 0.3); }
+        .bg-dark { background: rgba(22, 23, 28, 0.8) !important; color: #E6E8EB !important; }
+        .bg-light { background: rgba(255, 255, 255, 0.06) !important; color: #E6E8EB !important; }
 
         /* Alerts */
         .alert {
-            background: var(--bg-glass) !important;
+            background: var(--glass-bg) !important;
             backdrop-filter: blur(10px);
-            border: 1px solid var(--border-glass) !important;
+            border: 1px solid var(--glass-border) !important;
             color: #E6E8EB;
         }
         .alert-info { border-left: 4px solid var(--accent) !important; }
         .alert-warning { border-left: 4px solid #F59E0B !important; color: #FCD34D !important; }
 
-        /* Marca de agua (se ve a través del vidrio) */
+        /* Marca de agua */
         body::before {
             content: "";
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -119,22 +139,22 @@
         }
         
         .navbar {
-            background: rgba(11, 12, 16, 0.8);
+            background: rgba(11, 12, 16, 0.75);
             backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-glass);
+            border-bottom: 1px solid var(--glass-border);
             position: sticky; top: 0; z-index: 1000;
         }
         .main-content { flex: 1; position: relative; z-index: 1; }
         .footer {
             background: var(--bg-canvas);
             padding: 1rem 0;
-            border-top: 1px solid var(--border-glass);
+            border-top: 1px solid var(--glass-border);
             margin-top: auto;
             color: #6A6E7A;
         }
         code {
-            background: rgba(22, 23, 28, 0.8);
-            border: 1px solid var(--border-glass);
+            background: rgba(22, 23, 28, 0.7);
+            border: 1px solid var(--glass-border);
             color: #818CF8;
             padding: 2px 6px; border-radius: 4px;
             font-family: 'Inter', monospace;
