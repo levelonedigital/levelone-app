@@ -1,7 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 FIX: Modales en Modo Oscuro (Letras visibles, fondo correcto) */
+  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) */
+  .modal { z-index: 1060 !important; }
+  .modal-backdrop { z-index: 1050 !important; pointer-events: none !important; }
+  .modal-dialog-scrollable .modal-content { 
+    max-height: 90vh !important; 
+    display: flex !important; 
+    flex-direction: column !important; 
+  }
+  .modal-body { 
+    flex: 1 1 auto !important; 
+    overflow-y: auto !important; 
+    max-height: 65vh !important;
+    pointer-events: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: #272A2E #16171C;
+  }
+  .modal-content, .modal-header, .modal-footer, .btn, button, a, input, label { 
+    pointer-events: auto !important; 
+  }
+  .btn-close { filter: invert(1) !important; opacity: 0.8 !important; cursor: pointer !important; }
+  .btn-close:hover { opacity: 1 !important; }
+  #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+  /* Estilos base del modal en tema oscuro */
   .modal-content {
     background-color: #16171C !important;
     border: 1px solid #272A2E !important;
@@ -9,27 +31,11 @@
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
   }
-  .modal-header, .modal-footer {
-    border-color: #272A2E !important;
-  }
-  .modal-body {
-    color: #C4C7CE !important;
-    line-height: 1.65;
-    font-size: 0.95rem;
-  }
-  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title {
-    color: #E6E8EB !important;
-  }
+  .modal-header, .modal-footer { border-color: #272A2E !important; }
+  .modal-body { color: #C4C7CE !important; line-height: 1.65; font-size: 0.95rem; }
+  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { color: #E6E8EB !important; }
   .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
   .modal-body hr { border-color: #272A2E !important; margin: 15px 0; }
-  .btn-close-white { filter: invert(1) !important; }
-  
-  /* Botón aceptar deshabilitado hasta marcar checkbox */
-  #btn-aceptar-terminos:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    filter: grayscale(1);
-  }
 </style>
 
 <div class="container py-5">
@@ -209,7 +215,7 @@
         <h5 class="modal-title">📜 BASES Y CONDICIONES – LEVELONE</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}></button>
       </div>
-      <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+      <div class="modal-body">
         <strong>1. Naturaleza del servicio</strong>
         <p>LevelONE es una plataforma digital que ofrece:</p>
         <ul><li>Acceso a una comunidad privada de usuarios</li><li>Beneficios asociados a capacitaciones y contenidos</li><li>La posibilidad de participar en un sistema de actividad en red basado en la venta de productos</li></ul>
@@ -291,11 +297,11 @@
         <ul><li>Habilidades comerciales</li><li>Compromiso</li><li>Actividad de terceros</li></ul>
         <p>La empresa no será responsable por pérdidas económicas, falta de resultados, ni conflictos entre usuarios.<br><strong>El usuario participa bajo su exclusiva responsabilidad.</strong></p>
       </div>
-      <div class="modal-footer" style="border-top: 1px solid #272A2E; background: #16171C;">
+      <div class="modal-footer">
         <div class="d-flex flex-column w-100 align-items-start">
           <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="check-terminos" style="margin-top: 4px;">
-            <label class="form-check-label" for="check-terminos" style="color: #E6E8EB; font-size: 0.9rem;">
+            <input class="form-check-input" type="checkbox" id="check-terminos" style="margin-top: 4px; cursor: pointer;">
+            <label class="form-check-label" for="check-terminos" style="color: #E6E8EB; font-size: 0.9rem; cursor: pointer;">
               ✅ He leído, comprendido y acepto los Términos y Condiciones de levelONE.
             </label>
           </div>
