@@ -23,12 +23,11 @@
             display: flex;
             flex-direction: column;
         }
-        /* 🔹 TEXTOS */
         .text-muted, .text-secondary { color: var(--text-sec) !important; }
         .text-readable { color: #C4C7CE !important; }
-        .text-name { color: #F3F4F6 !important; font-weight: 600; } /* Nombres bien visibles */
+        .text-name { color: #F3F4F6 !important; font-weight: 600; }
 
-        /* 🔹 CARDS Y TABLAS CON FONDO ESMERILADO (CERO BLANCO) */
+        /* 🔹 CARDS Y TABLAS CON FONDO ESMERILADO */
         .card, .table-responsive {
             background: var(--glass-bg) !important;
             backdrop-filter: blur(14px);
@@ -44,11 +43,7 @@
             color: #fff;
             font-weight: 600;
         }
-        .table { 
-            background: transparent !important; 
-            color: var(--text-sec) !important; 
-            margin-bottom: 0;
-        }
+        .table { background: transparent !important; color: var(--text-sec) !important; margin-bottom: 0; }
         .table thead th {
             background: rgba(255, 255, 255, 0.06) !important;
             backdrop-filter: blur(6px);
@@ -59,11 +54,17 @@
             letter-spacing: 0.06em;
             border-bottom: 1px solid var(--glass-border) !important;
         }
+        
+        /* 🔹 FIX: FILAS DE TABLA 100% TRANSPARENTES */
+        .table tbody tr, .table tbody td {
+            background: transparent !important;
+            color: var(--text-sec) !important;
+        }
         .table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04) !important; }
         .table tbody td { vertical-align: middle; padding: 0.75rem; }
-        .table tbody tr:hover { background: rgba(255,255,255,0.03) !important; }
+        .table tbody tr:hover { background: rgba(255,255,255,0.05) !important; }
 
-        /* 🔹 BOTONES ESMERILADOS (FROSTED) */
+        /* 🔹 BOTONES ESMERILADOS */
         .btn-frost {
             background: rgba(255, 255, 255, 0.06) !important;
             backdrop-filter: blur(6px) !important;
