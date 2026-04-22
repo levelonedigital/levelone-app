@@ -5,7 +5,7 @@
         <div class="col-md-5 col-lg-4">
             <div class="text-center mb-4">
                 <img src="{{ url_for('static', filename='Logo.png') }}" alt="levelONE Logo" class="img-fluid mb-3" style="max-width: 320px;">
-                <p class="text-muted fw-medium">Plataforma de acceso para vendedores</p>
+                <p class="text-readable fw-medium mb-0">Plataforma de acceso para vendedores</p>
             </div>
             <div class="card p-4">
                 {% with messages = get_flashed_messages() %}
@@ -15,11 +15,11 @@
                 {% endwith %}
                 <form method="post" action="/ingresar">
                     <div class="mb-3">
-                        <label class="form-label fw-medium"><i class="bi bi-ticket-perforated me-1 text-primary"></i>Número de Sticker</label>
+                        <label class="form-label fw-medium text-readable"><i class="bi bi-ticket-perforated me-1 text-primary"></i>Número de Sticker</label>
                         <input type="text" name="sticker_id" class="form-control" placeholder="Ej: STK-A1B2C3" required>
                     </div>
                     <div class="mb-4">
-                        <label class="form-label fw-medium"><i class="bi bi-key me-1 text-primary"></i>Contraseña</label>
+                        <label class="form-label fw-medium text-readable"><i class="bi bi-key me-1 text-primary"></i>Contraseña</label>
                         <input type="password" name="password" class="form-control" placeholder="Ingresa tu contraseña temporal" required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
@@ -28,7 +28,7 @@
                 </form>
             </div>
             <div class="text-center mt-3">
-                <small class="text-muted">¿Problemas para ingresar? Contactá a tu vendedor referente.</small>
+                <small class="text-readable">¿Problemas para ingresar? Contactá a tu vendedor referente.</small>
             </div>
         </div>
     </div>
