@@ -5,7 +5,7 @@ import requests
 from datetime import datetime, timedelta
 from collections import deque
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import psycopg2
@@ -31,7 +31,8 @@ def init_db():
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
         password_hash TEXT NOT NULL, current_level INTEGER DEFAULT 5,
         referrals_completed_count INTEGER DEFAULT 0, is_level1 BOOLEAN DEFAULT FALSE,
-        role TEXT DEFAULT 'seller', graduated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        role TEXT DEFAULT 'seller', graduated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        terms_accepted_at TIMESTAMP NULL, terms_version TEXT DEFAULT 'v1.0'
     )''')
     cur.execute('''CREATE TABLE IF NOT EXISTS referral_tree (
         id SERIAL PRIMARY KEY, parent_id INTEGER, child_id INTEGER, UNIQUE(parent_id, child_id)
@@ -77,6 +78,13 @@ def login():
         cur.execute("SELECT * FROM users WHERE sticker_id=%s", (sid,))
         row_u = cur.fetchone()
         if row_u and check_password_hash(row_u["password_hash"], pwd):
+            # ✅ Verificar si aceptó términos
+            if row_u["terms_accepted_at"] is None:
+                session["user_id"] = row_u["id"]
+                session["role"] = row_u["role"]
+                conn.close()
+                return redirect(url_for("accept_terms"))
+            
             session["user_id"] = row_u["id"]
             session["role"] = row_u["role"]
             conn.close()
@@ -84,6 +92,37 @@ def login():
         flash("Sticker o contraseña incorrectos.")
         conn.close()
     return render_template("login.html")
+
+@app.route("/accept_terms")
+def accept_terms():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    conn = get_db()
+    cur = get_cur(conn)
+    cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
+    row_u = cur.fetchone()
+    conn.close()
+    if not row_u or row_u["terms_accepted_at"] is not None:
+        return redirect(url_for("dashboard"))
+    return render_template("login.html", show_terms_modal=True, user=row_u)
+
+@app.route("/api/accept_terms", methods=["POST"])
+def api_accept_terms():
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "No autenticado"}), 401
+    
+    conn = get_db()
+    cur = get_cur(conn)
+    try:
+        cur.execute("UPDATE users SET terms_accepted_at=%s, terms_version=%s WHERE id=%s",
+                    (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "v1.0", session["user_id"]))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        conn.close()
 
 @app.route("/dashboard")
 def dashboard():
@@ -98,6 +137,11 @@ def dashboard():
         session.clear()
         conn.close()
         return redirect(url_for("login"))
+    
+    # ✅ Si no aceptó términos, redirigir
+    if row_u["terms_accepted_at"] is None:
+        conn.close()
+        return redirect(url_for("accept_terms"))
     
     u = dict(row_u)
     uid = u.get("id")
@@ -339,7 +383,6 @@ def resolver_confirmacion(sticker_id, action):
         conn.close()
     return redirect("/dashboard")
 
-# --- NUEVA FUNCIÓN: CAMBIAR CBU DE ADMIN ---
 @app.route("/admin/cambiar_cbu", methods=["POST"])
 def admin_cambiar_cbu():
     if "user_id" not in session:
@@ -369,7 +412,6 @@ def admin_cambiar_cbu():
     finally:
         conn.close()
     return redirect("/dashboard")
-# -------------------------------------------
 
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
 def enviar_datos_email(sticker_id):
