@@ -1,40 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 FIX 1: Modal por encima de la barra fija (Sin bloqueo visual) */
-  .modal { z-index: 1080 !important; }
-  .modal-backdrop { z-index: 1070 !important; }
-  .modal-dialog { margin-top: 75px !important; margin-bottom: 2rem !important; } /* Espacio seguro sobre el navbar */
-  
-  /* 🔹 FIX 2: Texto más claro y legible */
+  /* 🔹 Ajustes seguros para Bootstrap 5 + Modo Oscuro */
   .modal-content {
     background-color: #16171C !important;
     border: 1px solid #272A2E !important;
-    color: #FFFFFF !important;
     border-radius: 12px;
     box-shadow: 0 12px 48px rgba(0,0,0,0.7);
   }
-  .modal-header, .modal-footer { border-color: #272A2E !important; }
-  .modal-body { 
-    color: #F3F4F6 !important; /* Gris muy claro (casi blanco) para lectura fluida */
-    line-height: 1.7; 
-    font-size: 1rem; 
-    pointer-events: auto !important;
+  .modal-header, .modal-footer {
+    border-color: #272A2E !important;
+    background-color: #16171C !important;
   }
-  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { 
-    color: #FFFFFF !important; /* Blanco puro para títulos */
-    font-weight: 600;
+  .modal-title, .modal-body strong {
+    color: #FFFFFF !important;
   }
-  
-  /* 🔹 FIX 3: Scroll y Botones funcionales */
-  .modal-dialog-scrollable .modal-content { display: flex !important; flex-direction: column !important; }
-  .modal-body { flex: 1 1 auto !important; overflow-y: auto !important; max-height: 65vh !important; }
-  .btn, button, a, input, label, .btn-close { pointer-events: auto !important; }
-  .btn-close { filter: invert(1) !important; opacity: 0.9 !important; cursor: pointer !important; }
-  .btn-close:hover { opacity: 1 !important; }
+  .modal-body {
+    color: #E6E8EB !important;
+    line-height: 1.65;
+    font-size: 0.95rem;
+  }
+  .modal-dialog {
+    margin-top: 5rem; /* Empuja el modal debajo de la barra fija */
+  }
+  .modal-dialog-scrollable .modal-body {
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+  /* Scrollbar oscuro integrado */
+  .modal-body::-webkit-scrollbar { width: 8px; }
+  .modal-body::-webkit-scrollbar-track { background: #16171C; }
+  .modal-body::-webkit-scrollbar-thumb { background: #272A2E; border-radius: 4px; }
+  .btn-close { filter: invert(1); opacity: 0.8; }
+  .btn-close:hover { opacity: 1; }
   #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-  .modal-body ul { padding-left: 20px; margin-bottom: 12px; }
-  .modal-body hr { border-color: #272A2E !important; margin: 16px 0; }
+  .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
+  .modal-body hr { border-color: #272A2E; margin: 15px 0; }
 </style>
 
 <div class="container py-5">
@@ -65,7 +66,6 @@
                 </form>
             </div>
             
-            <!-- 🔹 BOTONES DE AYUDA -->
             <div class="text-center mt-3 d-flex justify-content-center gap-2 flex-wrap">
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-guia">📖 Guía de Inicio</button>
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-faq">❓ Preguntas Frecuentes</button>
@@ -314,7 +314,6 @@
   </div>
 </div>
 
-<!-- Script para modal de términos -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const check = document.getElementById('check-terminos');
@@ -324,7 +323,6 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.disabled = !this.checked;
     });
   }
-  
   if (btn) {
     btn.addEventListener('click', function() {
       fetch('/api/accept_terms', { method: 'POST', headers: {'Content-Type': 'application/json'} })
@@ -336,7 +334,6 @@ document.addEventListener('DOMContentLoaded', function() {
       .catch(() => alert('Error de conexión. Intentá de nuevo.'));
     });
   }
-  
   {% if show_terms_modal %}
   var modalTerms = new bootstrap.Modal(document.getElementById('modal-terminos'));
   modalTerms.show();
