@@ -1,41 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) */
-  .modal { z-index: 1060 !important; }
-  .modal-backdrop { z-index: 1050 !important; pointer-events: none !important; }
-  .modal-dialog-scrollable .modal-content { 
-    max-height: 90vh !important; 
-    display: flex !important; 
-    flex-direction: column !important; 
-  }
-  .modal-body { 
-    flex: 1 1 auto !important; 
-    overflow-y: auto !important; 
-    max-height: 65vh !important;
-    pointer-events: auto !important;
-    scrollbar-width: thin;
-    scrollbar-color: #272A2E #16171C;
-  }
-  .modal-content, .modal-header, .modal-footer, .btn, button, a, input, label { 
-    pointer-events: auto !important; 
-  }
-  .btn-close { filter: invert(1) !important; opacity: 0.8 !important; cursor: pointer !important; }
-  .btn-close:hover { opacity: 1 !important; }
-  #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-  /* Estilos base del modal en tema oscuro */
+  /* 🔹 FIX 1: Modal por encima de la barra fija (Sin bloqueo visual) */
+  .modal { z-index: 1080 !important; }
+  .modal-backdrop { z-index: 1070 !important; }
+  .modal-dialog { margin-top: 75px !important; margin-bottom: 2rem !important; } /* Espacio seguro sobre el navbar */
+  
+  /* 🔹 FIX 2: Texto más claro y legible */
   .modal-content {
     background-color: #16171C !important;
     border: 1px solid #272A2E !important;
-    color: #E6E8EB !important;
+    color: #FFFFFF !important;
     border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    box-shadow: 0 12px 48px rgba(0,0,0,0.7);
   }
   .modal-header, .modal-footer { border-color: #272A2E !important; }
-  .modal-body { color: #C4C7CE !important; line-height: 1.65; font-size: 0.95rem; }
-  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { color: #E6E8EB !important; }
-  .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
-  .modal-body hr { border-color: #272A2E !important; margin: 15px 0; }
+  .modal-body { 
+    color: #F3F4F6 !important; /* Gris muy claro (casi blanco) para lectura fluida */
+    line-height: 1.7; 
+    font-size: 1rem; 
+    pointer-events: auto !important;
+  }
+  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { 
+    color: #FFFFFF !important; /* Blanco puro para títulos */
+    font-weight: 600;
+  }
+  
+  /* 🔹 FIX 3: Scroll y Botones funcionales */
+  .modal-dialog-scrollable .modal-content { display: flex !important; flex-direction: column !important; }
+  .modal-body { flex: 1 1 auto !important; overflow-y: auto !important; max-height: 65vh !important; }
+  .btn, button, a, input, label, .btn-close { pointer-events: auto !important; }
+  .btn-close { filter: invert(1) !important; opacity: 0.9 !important; cursor: pointer !important; }
+  .btn-close:hover { opacity: 1 !important; }
+  #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+  .modal-body ul { padding-left: 20px; margin-bottom: 12px; }
+  .modal-body hr { border-color: #272A2E !important; margin: 16px 0; }
 </style>
 
 <div class="container py-5">
@@ -301,7 +300,7 @@
         <div class="d-flex flex-column w-100 align-items-start">
           <div class="form-check mb-2">
             <input class="form-check-input" type="checkbox" id="check-terminos" style="margin-top: 4px; cursor: pointer;">
-            <label class="form-check-label" for="check-terminos" style="color: #E6E8EB; font-size: 0.9rem; cursor: pointer;">
+            <label class="form-check-label" for="check-terminos" style="color: #E6E8EB; font-size: 0.95rem; cursor: pointer;">
               ✅ He leído, comprendido y acepto los Términos y Condiciones de levelONE.
             </label>
           </div>
