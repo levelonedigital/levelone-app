@@ -145,6 +145,24 @@
             border-bottom: 1px solid var(--glass-border);
             position: sticky; top: 0; z-index: 1000;
         }
+
+        /* 🔹 NUEVO: LOGO CON FONDO ESMERILADO (AGREGADO AHORA) */
+        .navbar-brand {
+            background: rgba(255, 255, 255, 0.08); /* Fondo semi-transparente */
+            backdrop-filter: blur(10px); /* Efecto blur */
+            border-radius: 10px; /* Bordes redondeados */
+            padding: 6px 12px; /* Espaciado interno */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Borde sutil */
+            transition: all 0.3s ease;
+        }
+        .navbar-brand:hover {
+            background: rgba(255, 255, 255, 0.15); /* Brilla un poco al pasar el mouse */
+        }
+        .navbar-brand img {
+            height: 36px; /* Altura del logo */
+            width: auto;
+        }
+
         .main-content { flex: 1; position: relative; z-index: 1; }
         .footer {
             background: var(--bg-canvas);
@@ -161,23 +179,12 @@
             font-family: 'Inter', monospace;
         }
     </style>
-    /* Logo con fondo esmerilado */
-.navbar-brand {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 6px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.navbar-brand img {
-    height: 36px; /* Un poco más grande para que se vea bien */
-}
 </head>
 <body>
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="https://levelone.uno/static/Logo.png" alt="levelONE" class="me-2" style="height: 32px;">
+                <img src="https://levelone.uno/static/Logo.png" alt="levelONE" class="me-2">
                 <span class="fw-bold fs-5">levelONE</span>
             </a>
         </div>
