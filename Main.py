@@ -27,15 +27,8 @@ def init_db():
     conn = get_db()
     cur = get_cur(conn)
     
-    # 🔹 RESET LIMPIO: Eliminar tablas antiguas para evitar conflictos de schema
-    cur.execute("DROP TABLE IF EXISTS stickers CASCADE")
-    cur.execute("DROP TABLE IF EXISTS cycle_levels CASCADE")
-    cur.execute("DROP TABLE IF EXISTS cycles CASCADE")
-    cur.execute("DROP TABLE IF EXISTS referral_tree CASCADE")
-    cur.execute("DROP TABLE IF EXISTS users CASCADE")
-    
-    # Crear tablas limpias
-    cur.execute('''CREATE TABLE users (
+    # Crear tablas limpias (sin DROP para preservar datos entre deployments)
+    cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
         password_hash TEXT NOT NULL, current_level INTEGER DEFAULT 5,
@@ -43,17 +36,17 @@ def init_db():
         role TEXT DEFAULT 'seller', graduated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         terms_accepted_at TIMESTAMP NULL, terms_version TEXT DEFAULT 'v1.0'
     )''')
-    cur.execute('''CREATE TABLE referral_tree (
+    cur.execute('''CREATE TABLE IF NOT EXISTS referral_tree (
         id SERIAL PRIMARY KEY, parent_id INTEGER, child_id INTEGER, UNIQUE(parent_id, child_id)
     )''')
-    cur.execute('''CREATE TABLE cycles (
+    cur.execute('''CREATE TABLE IF NOT EXISTS cycles (
         id SERIAL PRIMARY KEY, l5_user_id INTEGER NOT NULL, status TEXT DEFAULT 'active', completed_at TIMESTAMP
     )''')
-    cur.execute('''CREATE TABLE cycle_levels (
+    cur.execute('''CREATE TABLE IF NOT EXISTS cycle_levels (
         id SERIAL PRIMARY KEY, user_id INTEGER, cycle_id INTEGER,
         level INTEGER DEFAULT 5, is_graduated BOOLEAN DEFAULT FALSE, UNIQUE(user_id, cycle_id)
     )''')
-    cur.execute('''CREATE TABLE stickers (
+    cur.execute('''CREATE TABLE IF NOT EXISTS stickers (
         id SERIAL PRIMARY KEY, sticker_code TEXT UNIQUE NOT NULL,
         seller_id INTEGER, cycle_id INTEGER, buyer_name TEXT, buyer_phone TEXT,
         buyer_email TEXT, buyer_cbu TEXT, step INTEGER DEFAULT 1,
@@ -61,13 +54,15 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
-    # Insertar Admin
-    cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                 ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
-                  generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
+    # Insertar Admin solo si no existe
+    cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
+    if not cur.fetchone():
+        cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                     ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
+                      generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
 
-    # Insertar usuarios de prueba por nivel y crear ciclo base
+    # Insertar usuarios demo solo si no existen (ON CONFLICT)
     users_data = [
         ('DEMO-L5-01', 'Nivel 5 Demo', '+5491150000001', 'l5@test.com', 'alias.l5', 5),
         ('DEMO-L4-01', 'Nivel 4 Demo', '+5491150000002', 'l4@test.com', 'alias.l4', 4),
@@ -78,22 +73,31 @@ def init_db():
     inserted_ids = []
     for sid, name, phone, email, cbu, lvl in users_data:
         cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, current_level, role, terms_accepted_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (sticker_id) DO NOTHING RETURNING id''',
                      (sid, name, phone, email, cbu, generate_password_hash("Demo2026!", method='pbkdf2:sha256'), lvl, 'seller', datetime.now()))
-        inserted_ids.append(cur.fetchone()["id"])
+        result = cur.fetchone()
+        if result:
+            inserted_ids.append(result["id"])
+        else:
+            # Si ya existía, obtener su ID
+            cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sid,))
+            inserted_ids.append(cur.fetchone()["id"])
 
-    # Crear ciclo y asignar niveles
-    l5_id = inserted_ids[0]
-    cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (l5_id,))
-    cycle_id = cur.fetchone()["id"]
-    for i, uid in enumerate(inserted_ids):
-        lvl = 5 - i
-        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s)", (uid, cycle_id, lvl))
-        if i > 0:
-            cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s)", (inserted_ids[i-1], uid))
+    # Crear ciclo base y niveles solo si no existen
+    if inserted_ids:
+        l5_id = inserted_ids[0]
+        cur.execute("SELECT id FROM cycles WHERE l5_user_id=%s", (l5_id,))
+        if not cur.fetchone():
+            cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (l5_id,))
+            cycle_id = cur.fetchone()["id"]
+            for i, uid in enumerate(inserted_ids):
+                lvl = 5 - i
+                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (uid, cycle_id, lvl))
+                if i > 0:
+                    cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (inserted_ids[i-1], uid))
             
     conn.commit()
-    print("✅ DB limpiada y usuarios por nivel creados.", flush=True)
+    print("✅ DB inicializada (datos preservados).", flush=True)
     conn.close()
 
 init_db()
@@ -177,7 +181,6 @@ def dashboard():
     sticker = u.get("sticker_id", "")
     level = u.get("current_level", 5)
 
-    # 🔹 FIX: Buscar ciclos siempre, sin filtrar por nivel
     cur.execute("SELECT * FROM cycles WHERE l5_user_id=%s OR id IN (SELECT cycle_id FROM cycle_levels WHERE user_id=%s)", (uid, uid))
     cycles = cur.fetchall()
         
@@ -198,7 +201,6 @@ def dashboard():
             cycle_level = cl["level"]
             is_graduated_cycle = bool(cl["is_graduated"])
 
-    # 🔹 FIX: Consultar pending siempre que haya active_cycle
     pending = None
     if active_cycle:
         cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
@@ -214,6 +216,7 @@ def dashboard():
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
         elif step == 2:
+            # ✅ CORRECCIÓN: CBU del usuario que está en Nivel 1 de ESTE ciclo específico
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
             if l1_row: cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],))
@@ -227,15 +230,15 @@ def dashboard():
 
     confirmations = []
     if sticker == 'ADMIN001':
-        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
+        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_phone, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-        cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,))
-        l1_cycles = [r["cycle_id"] for r in cur.fetchall()]
-        if l1_cycles:
-            ph = ','.join(['%s'] * len(l1_cycles))
-            cur.execute(f"SELECT id, sticker_code, buyer_name, buyer_cbu, cycle_id, step, status FROM stickers WHERE step=2 AND status='sent' AND cycle_id IN ({ph})", l1_cycles)
-            confirmations = cur.fetchall()
+        # ✅ CORRECCIÓN: JOIN estricto para que solo vea confirmaciones de su rol (Nivel 1) en SU ciclo
+        cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_phone, s.cycle_id, s.step, s.status 
+                      FROM stickers s
+                      JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
+                      WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
+        confirmations = cur.fetchall()
 
     participants = []
     if level != 5 and sticker != "ADMIN001" and role != "graduated":
@@ -269,7 +272,8 @@ def dashboard():
 
     my_sales_history = []
     income_history = []
-    cur.execute("SELECT * FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
+    # ✅ CORRECCIÓN: Incluir buyer_phone explícitamente para el botón WhatsApp
+    cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
     my_sales_history = [dict(s) for s in cur.fetchall()]
     if sticker == "ADMIN001":
         cur.execute("SELECT * FROM stickers WHERE step=1 AND status IN ('confirmed', 'entregado') ORDER BY created_at DESC")
@@ -437,7 +441,7 @@ def enviar_datos_email(sticker_id):
             buyer_name = s["buyer_name"]
             app_url = request.host_url.rstrip('/') + "/ingresar"
 
-            # ✅ EMAIL HTML RESTAURADO AL DISEÑO ORIGINAL COMPLETO
+            # ✅ EMAIL HTML ORIGINAL COMPLETO RESTAURADO
             try:
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {
