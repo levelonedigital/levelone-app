@@ -397,7 +397,35 @@ def resolver_confirmacion(sticker_id, action):
         s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm":
-                cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,))
+                # 🔹 FIX LÓGICA:
+                # Si es Paso 1 o 2, al confirmar se cierra el sticker (entregado) y se desbloquea al vendedor L5.
+                if s["step"] < 3:
+                    cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
+                    
+                    # Lógica de subida de nivel (misma que en enviar_datos_email)
+                    cid, sid = s["cycle_id"], s["seller_id"]
+                    cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
+                    entregados = cur.fetchone()["cnt"]
+                    
+                    if entregados == 3:
+                        cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (sid,))
+                        cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (sid, cid))
+                        parent = sid
+                        while True:
+                            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
+                            row = cur.fetchone()
+                            if not row: break
+                            parent = row["parent_id"]
+                            cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cid))
+                            cl = cur.fetchone()
+                            if cl:
+                                nl = max(1, cl["level"]-1)
+                                cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (nl, nl==1, parent, cid))
+                                cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (nl, parent))
+                        cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
+                else:
+                    # Si es Paso 3, solo confirma (quedando a la espera de enviar el email)
+                    cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,))
             else:
                 cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,))
         conn.commit()
