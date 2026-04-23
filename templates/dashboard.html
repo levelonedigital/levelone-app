@@ -48,7 +48,7 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 FIX 1: El formulario solo aparece si NO hay un sticker en proceso (pending/sent/confirmed) -->
+  <!-- 🔹 FORMULARIO CREAR STICKER (NIVEL 5) -->
   {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -76,6 +76,7 @@
   </div>
   {% endif %}
 
+  <!-- 🔹 PENDING / CBU DESTINO -->
   {% if pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -85,7 +86,7 @@
           <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
           <p class="mb-2 text-readable">Teléfono: <strong class="text-white">{{ pending_phone }}</strong></p>
           
-          <!-- 🔹 FIX 2: Botón WhatsApp a la par del CBU -->
+          <!-- 🔹 FIX: Botón WhatsApp a la par del CBU -->
           <p class="mb-3 text-readable d-flex align-items-center flex-wrap gap-2">
               CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code>
               {% if pending_phone %}
@@ -101,9 +102,21 @@
               <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Marcar Enviado / Solicitar Confirmación</button>
             </form>
             {% endif %}
+
+            <!-- ✅ AGREGADO: Botón de confirmación exclusivo para PASO 3 -->
             {% if pending.status == 'sent' %}
-            <div class="alert alert-info mb-0 py-2">⏳ Esperando confirmación de pago...</div>
+            <div class="w-100">
+              <div class="alert alert-info mb-2 py-2">⏳ Esperando confirmación de pago...</div>
+              {% if pending.step == 3 %}
+              <form method="POST" action="/resolver_confirmacion/{{ pending.id }}/confirm" class="d-inline mb-2">
+                <button type="submit" class="btn btn-success">
+                  <i class="bi bi-check-circle me-1"></i> ✅ Confirmar Recibido
+                </button>
+              </form>
+              {% endif %}
+            </div>
             {% endif %}
+
             {% if pending.status == 'confirmed' %}
             <form method="POST" action="/enviar_datos_email/{{ pending.id }}" class="d-inline">
               <button type="submit" class="btn btn-primary"><i class="bi bi-envelope me-1"></i> Enviar Credenciales por Email</button>
