@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) */
+  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) - VERSIÓN FUNCIONAL */
   .modal { z-index: 1060 !important; }
   .modal-backdrop { z-index: 1050 !important; pointer-events: none !important; }
   .modal-dialog-scrollable .modal-content { 
@@ -16,6 +16,10 @@
     pointer-events: auto !important;
     scrollbar-width: thin;
     scrollbar-color: #272A2E #16171C;
+    /* ✅ LETRAS MÁS CLARAS (Blanco suave) */
+    color: #F3F4F6 !important; 
+    line-height: 1.65; 
+    font-size: 0.95rem; 
   }
   .modal-content, .modal-header, .modal-footer, .btn, button, a, input, label { 
     pointer-events: auto !important; 
@@ -23,6 +27,7 @@
   .btn-close { filter: invert(1) !important; opacity: 0.8 !important; cursor: pointer !important; }
   .btn-close:hover { opacity: 1 !important; }
   #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+  
   /* Estilos base del modal en tema oscuro */
   .modal-content {
     background-color: #16171C !important;
@@ -32,8 +37,7 @@
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
   }
   .modal-header, .modal-footer { border-color: #272A2E !important; }
-  .modal-body { color: #C4C7CE !important; line-height: 1.65; font-size: 0.95rem; }
-  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { color: #E6E8EB !important; }
+  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { color: #FFFFFF !important; }
   .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
   .modal-body hr { border-color: #272A2E !important; margin: 15px 0; }
 </style>
@@ -64,6 +68,13 @@
                         <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al Sistema
                     </button>
                 </form>
+                
+                <!-- ✅ TEXTO DE AYUDA RESTAURADO -->
+                <div class="text-center mt-3">
+                    <small class="text-muted" style="color: #A1A1AA !important;">
+                        ¿Problemas para ingresar? Contactá a tu vendedor referente.
+                    </small>
+                </div>
             </div>
             
             <!-- 🔹 BOTONES DE AYUDA -->
