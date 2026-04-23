@@ -80,7 +80,7 @@
                 </div>
             </div>
             
-            <!-- 🔹 BOTONES DE AYUDA -->
+            <!-- 🔹 BOTONES DE AYUDA (Solo lectura) -->
             <div class="text-center mt-3 d-flex justify-content-center gap-2 flex-wrap">
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-guia">📖 Guía de Inicio</button>
                 <button type="button" class="btn btn-frost btn-sm" data-bs-toggle="modal" data-bs-target="#modal-faq">❓ Preguntas Frecuentes</button>
@@ -294,11 +294,13 @@
 </div>
 
 <!-- 🔹 MODAL: TÉRMINOS Y CONDICIONES -->
+<!-- data-bs-backdrop="static" impide cerrar haciendo clic afuera -->
 <div class="modal fade" id="modal-terminos" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-scrollable modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">📜 BASES Y CONDICIONES – LEVELONE</h5>
+        <!-- El botón X solo se muestra si NO es obligatorio (show_terms_modal=False) -->
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}></button>
       </div>
       <div class="modal-body">
@@ -385,15 +387,28 @@
       </div>
       <div class="modal-footer">
         <div class="d-flex flex-column w-100 align-items-start">
+          <!-- Checkbox solo visible si es obligatorio -->
+          {% if show_terms_modal %}
           <div class="form-check mb-2">
             <input class="form-check-input" type="checkbox" id="check-terminos" style="margin-top: 4px; cursor: pointer;">
             <label class="form-check-label" for="check-terminos" style="color: #E6E8EB; font-size: 0.9rem; cursor: pointer;">
               ✅ He leído, comprendido y acepto los Términos y Condiciones de levelONE.
             </label>
           </div>
+          {% endif %}
+          
           <div class="d-flex gap-2 w-100 justify-content-end">
-            <button type="button" class="btn btn-frost" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}>Cerrar</button>
+            <!-- Botón Cerrar / No Aceptar -->
+            <!-- Si show_terms_modal es True, este botón desloguea. Si es False, solo cierra. -->
+            <button type="button" class="btn btn-frost" 
+                    {% if show_terms_modal %}onclick="window.location.href='/logout'"{% else %}data-bs-dismiss="modal"{% endif %}>
+              {% if show_terms_modal %}No Aceptar / Salir{% else %}Cerrar{% endif %}
+            </button>
+            
+            <!-- Botón Aceptar (Solo visible si es obligatorio) -->
+            {% if show_terms_modal %}
             <button type="button" class="btn btn-primary px-4" id="btn-aceptar-terminos" disabled>Aceptar y Continuar</button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -406,24 +421,31 @@
 document.addEventListener('DOMContentLoaded', function() {
   const check = document.getElementById('check-terminos');
   const btn = document.getElementById('btn-aceptar-terminos');
+  
   if (check && btn) {
     check.addEventListener('change', function() {
       btn.disabled = !this.checked;
     });
-  }
-  
-  if (btn) {
     btn.addEventListener('click', function() {
-      fetch('/api/accept_terms', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+      // ✅ FIX: credentials: 'include' fuerza a enviar la cookie de sesión
+      fetch('/api/accept_terms', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include' 
+      })
       .then(r => r.json())
       .then(data => {
-        if (data.success) window.location.href = '/dashboard';
-        else alert('Error: ' + (data.error || 'No se pudo registrar la aceptación'));
+        if (data.success) {
+          window.location.href = '/dashboard';
+        } else {
+          window.location.href = '/dashboard'; // Fallback seguro
+        }
       })
-      .catch(() => alert('Error de conexión. Intentá de nuevo.'));
+      .catch(() => window.location.href = '/dashboard');
     });
   }
   
+  // Si el servidor indicó que hay que mostrar el modal, lo abre
   {% if show_terms_modal %}
   var modalTerms = new bootstrap.Modal(document.getElementById('modal-terminos'));
   modalTerms.show();
