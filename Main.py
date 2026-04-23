@@ -67,7 +67,7 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1'))
     conn.commit()
-    print("✅ DB lista con migración.", flush=True)
+    print("✅ DB lista.", flush=True)
     conn.close()
 
 init_db()
@@ -176,8 +176,10 @@ def dashboard():
             cycle_level = cl["level"]
             is_graduated_cycle = bool(cl["is_graduated"])
 
+    # 🔹 FIX: Se quitó la condición "level == 5" para que la tarjeta de acción se muestre
+    # siempre que haya un ciclo activo, sin importar si el nivel cambió por el bug anterior.
     pending = None
-    if level == 5 and active_cycle:
+    if active_cycle:
         cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
         pending_row = cur.fetchone()
         pending = dict(pending_row) if pending_row else None
@@ -308,7 +310,6 @@ def crear_sticker():
                 cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (parent, cycle_id, lvl))
         else: cycle_id = cycle["id"]
 
-        # ✅ FIX: Solo bloquea si hay un sticker pendiente o enviado. Si está 'confirmed' o 'entregado', deja continuar.
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone():
             flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual.")
@@ -443,7 +444,6 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # ✅ FIX: Lógica de subida de nivel SOLO cuando se marca como entregado
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
             entregados = cur.fetchone()["cnt"]
             
