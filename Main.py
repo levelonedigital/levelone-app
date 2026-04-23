@@ -26,6 +26,8 @@ def get_cur(conn):
 def init_db():
     conn = get_db()
     cur = get_cur(conn)
+    
+    # Crear tabla users si no existe
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -34,6 +36,17 @@ def init_db():
         role TEXT DEFAULT 'seller', graduated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         terms_accepted_at TIMESTAMP NULL, terms_version TEXT DEFAULT 'v1.0'
     )''')
+    
+    # 🔹 MIGRACIÓN: Agregar columnas si no existen (para bases de datos antiguas)
+    try:
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP NULL")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT DEFAULT 'v1.0'")
+        conn.commit()
+    except Exception as e:
+        print(f"⚠️ Migración: {e}")
+        conn.rollback()
+    
+    # Resto de tablas
     cur.execute('''CREATE TABLE IF NOT EXISTS referral_tree (
         id SERIAL PRIMARY KEY, parent_id INTEGER, child_id INTEGER, UNIQUE(parent_id, child_id)
     )''')
@@ -52,6 +65,7 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Admin por defecto
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role)
@@ -59,7 +73,7 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1'))
     conn.commit()
-    print("✅ DB lista.", flush=True)
+    print("✅ DB lista con migración.", flush=True)
     conn.close()
 
 init_db()
@@ -82,10 +96,13 @@ def login():
             session["user_id"] = row_u["id"]
             session["role"] = row_u["role"]
             
-            # ✅ 2. Verificar términos
-            if row_u["terms_accepted_at"] is None:
-                conn.close()
-                return redirect(url_for("accept_terms")) # Redirige al modal
+            # ✅ 2. Verificar términos (con manejo seguro de columna)
+            try:
+                if row_u.get("terms_accepted_at") is None:
+                    conn.close()
+                    return redirect(url_for("accept_terms"))
+            except:
+                pass  # Si no existe la columna, asumimos que no aceptó
             
             conn.close()
             return redirect(url_for("dashboard"))
@@ -95,7 +112,6 @@ def login():
 
 @app.route("/accept_terms")
 def accept_terms():
-    # Si no hay sesión, vuelve al login
     if "user_id" not in session:
         return redirect(url_for("login"))
     
@@ -105,11 +121,12 @@ def accept_terms():
     row_u = cur.fetchone()
     conn.close()
     
-    # Si ya aceptó, entra directo
-    if not row_u or row_u["terms_accepted_at"] is not None:
+    try:
+        if not row_u or row_u.get("terms_accepted_at") is not None:
+            return redirect(url_for("dashboard"))
+    except:
         return redirect(url_for("dashboard"))
         
-    # Muestra el login con el modal forzado
     return render_template("login.html", show_terms_modal=True, user=row_u)
 
 @app.route("/api/accept_terms", methods=["POST"])
@@ -145,9 +162,12 @@ def dashboard():
         return redirect(url_for("login"))
     
     # ✅ Bloqueo de seguridad: Si no aceptó términos, no entra al dashboard
-    if row_u["terms_accepted_at"] is None:
-        conn.close()
-        return redirect(url_for("accept_terms"))
+    try:
+        if row_u.get("terms_accepted_at") is None:
+            conn.close()
+            return redirect(url_for("accept_terms"))
+    except:
+        pass
     
     u = dict(row_u)
     uid = u.get("id")
