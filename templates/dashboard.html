@@ -22,6 +22,21 @@
   </div>
 
   {% if user.sticker_id == 'ADMIN001' %}
+  <!-- 🔹 AGREGADO: Formulario simple para cambiar CBU del Admin, arriba del historial -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-primary">
+        <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configurar CBU Administrativo</div>
+        <div class="card-body">
+          <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap">
+            <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias para Paso 1" required>
+            <button type="submit" class="btn btn-primary">Actualizar CBU</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
@@ -154,7 +169,15 @@
   {% if participants %}
   <div class="row mb-4">
     <div class="col-12">
-      <div class="card"><div class="card-header fw-bold">👥 Estado de tu Red</div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td><code>{{ p.sticker_id }}</code></td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-primary">{{ p.level }}</span></td><td><a href="https://wa.me/{{ p.phone.replace('+','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1"><i class="bi bi-whatsapp"></i></a><a href="tel:{{ p.phone }}" class="btn btn-frost btn-sm"><i class="bi bi-telephone"></i></a></td></tr>{% endfor %}</tbody></table></div></div></div>
+      <div class="card"><div class="card-header fw-bold">👥 Estado de tu Red</div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td><code>{{ p.sticker_id }}</code></td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-primary">{{ p.level }}</span></td><td>
+        <!-- ✅ CORRECCIÓN: Botones con texto explícito e icono WhatsApp consistente -->
+        <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1">
+          <i class="bi bi-whatsapp"></i> WhatsApp
+        </a>
+        <a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm">
+          <i class="bi bi-telephone"></i> Llamar
+        </a>
+      </td></tr>{% endfor %}</tbody></table></div></div></div>
     </div>
   </div>
   {% endif %}
@@ -172,10 +195,18 @@
                 <tr>
                   <td>{{ item.num }}</td>
                   <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <code class="bg-dark px-2 py-1 rounded text-warning">{{ item.sale.sticker_code }}</code>
-                      <code class="bg-dark px-2 py-1 rounded text-info">{{ item.sale.temp_pass }}</code>
-                      <button type="button" class="btn btn-sm btn-outline-light border-0" onclick="copiarCredenciales('{{ item.sale.sticker_code }}', '{{ item.sale.temp_pass }}')" title="Copiar Sticker y Pass"><i class="bi bi-clipboard"></i></button>
+                    <div class="d-flex flex-column gap-1">
+                      <div class="d-flex align-items-center gap-2">
+                        <code class="bg-dark px-2 py-1 rounded text-warning">{{ item.sale.sticker_code }}</code>
+                        <code class="bg-dark px-2 py-1 rounded text-info">{{ item.sale.temp_pass }}</code>
+                        <button type="button" class="btn btn-sm btn-outline-light border-0" onclick="copiarCredenciales('{{ item.sale.sticker_code }}', '{{ item.sale.temp_pass }}')" title="Copiar Sticker y Pass"><i class="bi bi-clipboard"></i></button>
+                      </div>
+                      <!-- ✅ AGREGADO: Botón WhatsApp visible para compartir credenciales -->
+                      {% if item.sale.buyer_phone %}
+                      <a href="https://wa.me/{{ item.sale.buyer_phone.replace('+','').replace(' ','') }}?text=Hola!%20Tu%20acceso%20a%20levelONE:%0ASticker:%20{{ item.sale.sticker_code }}%0APass:%20{{ item.sale.temp_pass }}" target="_blank" class="btn btn-success btn-sm">
+                        <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
+                      </a>
+                      {% endif %}
                     </div>
                   </td>
                   <td>{{ item.sale.buyer_name }}</td>
