@@ -436,24 +436,61 @@ def enviar_datos_email(sticker_id):
             sticker_code = s["sticker_code"]
             buyer_name = s["buyer_name"]
             app_url = request.host_url.rstrip('/') + "/ingresar"
+
+            # ✅ EMAIL HTML RESTAURADO AL DISEÑO ORIGINAL COMPLETO
             try:
                 url = "https://api.brevo.com/v3/smtp/email"
-                headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
+                headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "api-key": os.environ.get("BREVO_API_KEY")
+                }
                 payload = {
-                    "sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")},
+                    "sender": {
+                        "name": os.environ.get("BREVO_SENDER_NAME", "levelONE"),
+                        "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")
+                    },
                     "to": [{"email": buyer_email, "name": buyer_name}],
                     "subject": f"🎉 ¡Tu acceso a levelONE está listo! | {sticker_code}",
                     "htmlContent": f"""
-                    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f4f4f4; border-radius: 10px;">
-                        <h2 style="color: #333;">¡Bienvenido, {buyer_name}! 🎉</h2>
-                        <p>Tu sticker <strong>{sticker_code}</strong> ha sido activado.</p>
-                        <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50;">
-                            <p><strong>Sticker ID:</strong> {sticker_code}</p>
-                            <p><strong>Contraseña:</strong> {temp_pass}</p>
-                            <a href="{app_url}" style="display:inline-block; padding:10px 20px; background:#4CAF50; color:white; text-decoration:none; border-radius:5px;">Ingresar a levelONE</a>
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 520px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px;">
+                        <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.95); border-radius: 12px; margin-bottom: 16px;">
+                            <h1 style="margin: 0; color: #667eea; font-size: 24px; font-weight: 700;">🌟 levelONE</h1>
+                            <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">Plataforma de Stickers Digitales</p>
                         </div>
-                        <p style="font-size:12px; color:#666; margin-top:20px;">© 2026 levelONE. Todos los derechos reservados.</p>
-                    </div>"""
+                        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                            <h2 style="color: #333; margin: 0 0 12px 0; font-size: 20px;">¡Bienvenido, {buyer_name}! 🎉</h2>
+                            <p style="color: #555; margin: 8px 0; line-height: 1.5;">Tu sticker <strong>{sticker_code}</strong> ha sido activado.</p>
+                            <div style="background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
+                                <img src="https://levelone.uno/static/sticker.jpg" alt="Sticker levelONE" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                <p style="margin: 16px 0 0 0; color: #444; font-size: 14px; line-height: 1.6;">
+                                    🎫 <strong>Este es el sticker que compraste.</strong><br>
+                                    El que te habilita para ingresar a la plataforma y poder generar tus ventas.
+                                </p>
+                            </div>
+                            <div style="background: #f8f9ff; border-left: 4px solid #667eea; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                                <p style="margin: 0 0 8px 0; color: #333; font-weight: 600;">🔐 Tus datos de acceso (permanentes):</p>
+                                <p style="margin: 4px 0; color: #555;"><strong>Sticker ID:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{sticker_code}</code></p>
+                                <p style="margin: 4px 0 0 0; color: #555;"><strong>Contraseña:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{temp_pass}</code></p>
+                            </div>
+                            <div style="text-align: center; margin: 24px 0 16px 0;">
+                                <a href="{app_url}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">🚀 Ingresar a mi cuenta</a>
+                            </div>
+                            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 8px; margin-top: 20px;">
+                                <p style="margin: 0 0 8px 0; color: #856404; font-size: 13px; line-height: 1.4;">
+                                    ⏳ <strong>Plazo de actividad:</strong> Tenés 7 días desde la activación para completar tus 3 ventas. Pasado ese plazo, el acceso se cancela automáticamente y no se realizan reintegros.
+                                </p>
+                                <p style="margin: 0; color: #856404; font-size: 13px;">
+                                    📖 <a href="https://levelone.uno/terminos" style="color: #856404; text-decoration: underline;">Leer Términos y Condiciones completos</a>
+                                </p>
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 16px; color: rgba(255,255,255,0.9); font-size: 12px;">
+                            <p style="margin: 0;">© 2026 levelONE. Todos los derechos reservados.</p>
+                            <p style="margin: 4px 0 0 0; opacity: 0.8;">Si no solicitaste este acceso, contactá a quien te vendió el sticker.</p>
+                        </div>
+                    </div>
+                    """
                 }
                 response = requests.post(url, json=payload, headers=headers, timeout=10)
                 response.raise_for_status()
