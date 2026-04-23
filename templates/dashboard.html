@@ -48,7 +48,8 @@
   </div>
   {% endif %}
 
-  {% if user.current_level == 5 and user.role != 'graduated' %}
+  <!-- 🔹 FIX 1: El formulario solo aparece si NO hay un sticker en proceso (pending/sent/confirmed) -->
+  {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
@@ -83,7 +84,16 @@
         <div class="card-body">
           <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
           <p class="mb-2 text-readable">Teléfono: <strong class="text-white">{{ pending_phone }}</strong></p>
-          <p class="mb-3 text-readable">CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code></p>
+          
+          <!-- 🔹 FIX 2: Botón WhatsApp a la par del CBU -->
+          <p class="mb-3 text-readable d-flex align-items-center flex-wrap gap-2">
+              CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code>
+              {% if pending_phone %}
+              <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20el%20pago%20del%20sticker%20levelONE,%20te%20paso%20mi%20CBU:%20{{ pending_cbu }}" target="_blank" class="btn btn-success btn-sm">
+                  <i class="bi bi-whatsapp"></i> Enviar CBU
+              </a>
+              {% endif %}
+          </p>
           
           <div class="d-flex gap-2 flex-wrap">
             {% if pending.status == 'pending' %}
