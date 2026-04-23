@@ -28,7 +28,7 @@
     <div class="col-12">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span class="fw-bold">💰 Historial de Pagos Recibidos (Nivel 1)</span>
+          <span class="fw-bold">💰 Historial de Pagos Recibidos</span>
           <span class="badge bg-success">{{ income|length }} pagos confirmados</span>
         </div>
         <div class="card-body p-0">
@@ -85,8 +85,8 @@
                 <label class="form-label text-readable small fw-medium">Teléfono (con código país)</label>
                 <div class="input-group">
                   <input type="text" name="phone" id="buyer_phone" class="form-control" required placeholder="+54911...">
-                  <button type="button" class="btn btn-success" onclick="openWhatsApp()" title="Abrir WhatsApp con el comprador">
-                    <i class="bi bi-whatsapp"></i> Enviar
+                  <button type="button" class="btn btn-success" onclick="openWhatsApp()" title="Enviar CBU por WhatsApp">
+                    <i class="bi bi-whatsapp"></i> Enviar CBU
                   </button>
                 </div>
               </div>
@@ -95,7 +95,7 @@
                 <input type="email" name="email" class="form-control" required placeholder="email@ejemplo.com">
               </div>
               <div class="col-12">
-                <label class="form-label text-readable small fw-medium">CBU Destino</label>
+                <label class="form-label text-readable small fw-medium">CBU del Comprador (para registrar)</label>
                 <div class="input-group">
                   <input type="text" name="cbu" class="form-control" required placeholder="CBU o Alias del comprador">
                   <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.querySelector('input').value)">
@@ -289,12 +289,18 @@
   </div>
 </div>
 
-<!-- 🔹 SCRIPT WHATSAPP -->
+<!-- 🔹 CAMPO OCULTO CON TU CBU (SEGURO PARA JS) -->
+<input type="hidden" id="seller_cbu" value="{{ user.cbu_alias }}">
+
+<!-- 🔹 SCRIPT WHATSAPP ACTUALIZADO -->
 <script>
 function openWhatsApp() {
   let phone = document.getElementById('buyer_phone').value.replace(/\D/g, '');
+  let cbu = document.getElementById('seller_cbu').value;
+  
   if(phone.length >= 8) {
-    window.open(`https://wa.me/${phone}?text=Hola!%20Te%20envío%20los%20datos%20para%20el%20pago%20del%20sticker%20levelONE.`, '_blank');
+    let msg = `Hola! Te paso mi CBU para el pago del sticker levelONE: ${cbu}. Por favor enviame el comprobante cuando lo realices.`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   } else {
     alert('⚠️ Ingresá un número de teléfono válido (ej: +54911...)');
   }
