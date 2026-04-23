@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) - VERSIÓN FUNCIONAL */
+  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) */
   .modal { z-index: 1060 !important; }
   .modal-backdrop { z-index: 1050 !important; pointer-events: none !important; }
+  
+  /* ✅ CORRECCIÓN: Bajar el modal para que no lo tape el logo */
+  .modal-dialog { margin-top: 80px !important; }
+
   .modal-dialog-scrollable .modal-content { 
     max-height: 90vh !important; 
     display: flex !important; 
@@ -16,8 +20,7 @@
     pointer-events: auto !important;
     scrollbar-width: thin;
     scrollbar-color: #272A2E #16171C;
-    /* ✅ LETRAS MÁS CLARAS (Blanco suave) */
-    color: #F3F4F6 !important; 
+    color: #F3F4F6 !important; /* Letras más claras */
     line-height: 1.65; 
     font-size: 0.95rem; 
   }
