@@ -37,7 +37,7 @@ def init_db():
         terms_accepted_at TIMESTAMP NULL, terms_version TEXT DEFAULT 'v1.0'
     )''')
     
-    # 🔹 MIGRACIÓN: Agregar columnas si no existen (para bases de datos antiguas)
+    # 🔹 MIGRACIÓN: Agregar columnas si no existen
     try:
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP NULL")
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT DEFAULT 'v1.0'")
@@ -92,17 +92,15 @@ def login():
         cur.execute("SELECT * FROM users WHERE sticker_id=%s", (sid,))
         row_u = cur.fetchone()
         if row_u and check_password_hash(row_u["password_hash"], pwd):
-            # ✅ 1. Crear sesión PRIMERO
             session["user_id"] = row_u["id"]
             session["role"] = row_u["role"]
             
-            # ✅ 2. Verificar términos (con manejo seguro de columna)
             try:
                 if row_u.get("terms_accepted_at") is None:
                     conn.close()
                     return redirect(url_for("accept_terms"))
             except:
-                pass  # Si no existe la columna, asumimos que no aceptó
+                pass
             
             conn.close()
             return redirect(url_for("dashboard"))
@@ -161,7 +159,6 @@ def dashboard():
         conn.close()
         return redirect(url_for("login"))
     
-    # ✅ Bloqueo de seguridad: Si no aceptó términos, no entra al dashboard
     try:
         if row_u.get("terms_accepted_at") is None:
             conn.close()
@@ -211,11 +208,13 @@ def dashboard():
     if pending:
         step = pending["step"]
         cid = pending["cycle_id"] or active_cycle["id"]
+        
         if step == 1:
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
         elif step == 2:
-            cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
+            # ✅ CORRECCIÓN: Ahora apunta a Nivel 2
+            cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=2 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
             if l1_row:
                 cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],))
