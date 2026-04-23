@@ -1,12 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 SOLO COLORES - NADA DE ESTRUCTURA */
-  .modal-content { background-color: #16171C !important; border-color: #272A2E !important; }
-  .modal-header, .modal-footer { border-color: #272A2E !important; background-color: #16171C !important; }
-  .modal-title, .modal-body { color: #F3F4F6 !important; }
-  .modal-body strong { color: #FFFFFF !important; }
-  .btn-close { filter: invert(1) !important; }
+  /* 🔹 FIX: Interacción y Scroll en Modales (Modo Oscuro) */
+  .modal { z-index: 1060 !important; }
+  .modal-backdrop { z-index: 1050 !important; pointer-events: none !important; }
+  .modal-dialog-scrollable .modal-content { 
+    max-height: 90vh !important; 
+    display: flex !important; 
+    flex-direction: column !important; 
+  }
+  .modal-body { 
+    flex: 1 1 auto !important; 
+    overflow-y: auto !important; 
+    max-height: 65vh !important;
+    pointer-events: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: #272A2E #16171C;
+  }
+  .modal-content, .modal-header, .modal-footer, .btn, button, a, input, label { 
+    pointer-events: auto !important; 
+  }
+  .btn-close { filter: invert(1) !important; opacity: 0.8 !important; cursor: pointer !important; }
+  .btn-close:hover { opacity: 1 !important; }
+  #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+  /* Estilos base del modal en tema oscuro */
+  .modal-content {
+    background-color: #16171C !important;
+    border: 1px solid #272A2E !important;
+    color: #E6E8EB !important;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  }
+  .modal-header, .modal-footer { border-color: #272A2E !important; }
+  .modal-body { color: #C4C7CE !important; line-height: 1.65; font-size: 0.95rem; }
+  .modal-body strong, .modal-body h5, .modal-body h6, .modal-title { color: #E6E8EB !important; }
+  .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
+  .modal-body hr { border-color: #272A2E !important; margin: 15px 0; }
 </style>
 
 <div class="container py-5">
@@ -16,14 +45,12 @@
                 <img src="{{ url_for('static', filename='Logo.png') }}" alt="levelONE Logo" class="img-fluid mb-3" style="max-width: 320px;">
                 <p class="text-readable fw-medium mb-0">Plataforma de acceso para vendedores</p>
             </div>
-            
             <div class="card p-4">
                 {% with messages = get_flashed_messages() %}
                     {% if messages %}
                     <div class="alert alert-info py-2 small mb-3">{{ messages[0] }}</div>
                     {% endif %}
                 {% endwith %}
-                
                 <form method="post" action="/ingresar">
                     <div class="mb-3">
                         <label class="form-label fw-medium text-readable"><i class="bi bi-ticket-perforated me-1 text-primary"></i>Número de Sticker</label>
@@ -37,13 +64,6 @@
                         <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al Sistema
                     </button>
                 </form>
-
-                <!-- ✅ TEXTO ORIGINAL RESTAURADO -->
-                <div class="text-center mt-3">
-                    <small class="text-muted" style="color: #A1A1AA !important;">
-                        ¿Problemas para ingresar? Contactá a tu vendedor referente.
-                    </small>
-                </div>
             </div>
             
             <!-- 🔹 BOTONES DE AYUDA -->
@@ -62,7 +82,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">📘 GUÍA DE INICIO: ¿CÓMO FUNCIONA levelONE?</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <p><strong>🎯 ¿En qué consiste?</strong><br>
@@ -123,7 +143,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">❓ Preguntas Frecuentes</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <p><strong>❓ “¿Esto es legal o es una estafa piramidal?”</strong><br>
@@ -193,7 +213,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">📜 BASES Y CONDICIONES – LEVELONE</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" {% if show_terms_modal %}style="display:none"{% endif %}></button>
       </div>
       <div class="modal-body">
         <strong>1. Naturaleza del servicio</strong>
@@ -280,8 +300,8 @@
       <div class="modal-footer">
         <div class="d-flex flex-column w-100 align-items-start">
           <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="check-terminos">
-            <label class="form-check-label text-white" for="check-terminos">
+            <input class="form-check-input" type="checkbox" id="check-terminos" style="margin-top: 4px; cursor: pointer;">
+            <label class="form-check-label" for="check-terminos" style="color: #E6E8EB; font-size: 0.9rem; cursor: pointer;">
               ✅ He leído, comprendido y acepto los Términos y Condiciones de levelONE.
             </label>
           </div>
@@ -295,22 +315,26 @@
   </div>
 </div>
 
+<!-- Script para modal de términos -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const check = document.getElementById('check-terminos');
   const btn = document.getElementById('btn-aceptar-terminos');
-  
   if (check && btn) {
     check.addEventListener('change', function() {
       btn.disabled = !this.checked;
     });
+  }
+  
+  if (btn) {
     btn.addEventListener('click', function() {
-      fetch('/api/accept_terms', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) window.location.href = '/dashboard';
-          else alert('Error al guardar aceptación');
-        });
+      fetch('/api/accept_terms', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) window.location.href = '/dashboard';
+        else alert('Error: ' + (data.error || 'No se pudo registrar la aceptación'));
+      })
+      .catch(() => alert('Error de conexión. Intentá de nuevo.'));
     });
   }
   
