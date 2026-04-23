@@ -116,7 +116,7 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 PENDING / CBU DESTINO (ACTUALIZADO) -->
+  <!-- 🔹 PENDING / CBU DESTINO -->
   {% if pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -267,7 +267,7 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 MIS VENTAS / INGRESOS -->
+  <!-- 🔹 MIS VENTAS / INGRESOS (CON COLUMNA DE PASS RESTAURADA) -->
   <div class="row">
     <div class="col-12">
       <div class="card">
@@ -278,9 +278,9 @@
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Sticker</th>
+                  <th>Sticker / Pass</th>
                   <th>Comprador</th>
-                  <th>CBU</th>
+                  <th>CBU Destino</th>
                   <th>Estado</th>
                 </tr>
               </thead>
@@ -288,7 +288,15 @@
                 {% for item in my_sales %}
                 <tr>
                   <td>{{ item.num }}</td>
-                  <td><code>{{ item.sale.sticker_code }}</code></td>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <code class="bg-dark px-2 py-1 rounded text-warning">{{ item.sale.sticker_code }}</code>
+                      <code class="bg-dark px-2 py-1 rounded text-info">{{ item.sale.temp_pass }}</code>
+                      <button type="button" class="btn btn-sm btn-outline-light border-0" onclick="copiarCredenciales('{{ item.sale.sticker_code }}', '{{ item.sale.temp_pass }}')" title="Copiar Sticker y Pass">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                    </div>
+                  </td>
                   <td>{{ item.sale.buyer_name }}</td>
                   <td><code class="text-info">{{ item.sale.buyer_cbu }}</code></td>
                   <td>
@@ -315,11 +323,12 @@
   </div>
 </div>
 
-<!-- 🔹 CAMPO OCULTO CON TU CBU (SEGURO PARA JS) -->
+<!-- 🔹 CAMPO OCULTO CON TU CBU (PARA WHATSAPP) -->
 <input type="hidden" id="seller_cbu" value="{{ user.cbu_alias }}">
 
-<!-- 🔹 SCRIPT WHATSAPP ACTUALIZADO -->
+<!-- 🔹 SCRIPTS -->
 <script>
+// Función para abrir WhatsApp con tu CBU
 function openWhatsApp() {
   let phone = document.getElementById('buyer_phone').value.replace(/\D/g, '');
   let cbu = document.getElementById('seller_cbu').value;
@@ -330,6 +339,16 @@ function openWhatsApp() {
   } else {
     alert('⚠️ Ingresá un número de teléfono válido (ej: +54911...)');
   }
+}
+
+// Función para copiar Sticker + Pass
+function copiarCredenciales(sticker, pass) {
+  let texto = `Sticker: ${sticker}\nPass: ${pass}`;
+  navigator.clipboard.writeText(texto).then(() => {
+    alert('✅ Sticker y contraseña copiados al portapapeles');
+  }).catch(() => {
+    alert('❌ Error al copiar. Intentá manualmente.');
+  });
 }
 </script>
 {% endblock %}
