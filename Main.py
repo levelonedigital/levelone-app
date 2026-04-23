@@ -26,7 +26,16 @@ def get_cur(conn):
 def init_db():
     conn = get_db()
     cur = get_cur(conn)
-    cur.execute('''CREATE TABLE IF NOT EXISTS users (
+    
+    # 🔹 RESET LIMPIO: Eliminar tablas antiguas para evitar conflictos de schema
+    cur.execute("DROP TABLE IF EXISTS stickers CASCADE")
+    cur.execute("DROP TABLE IF EXISTS cycle_levels CASCADE")
+    cur.execute("DROP TABLE IF EXISTS cycles CASCADE")
+    cur.execute("DROP TABLE IF EXISTS referral_tree CASCADE")
+    cur.execute("DROP TABLE IF EXISTS users CASCADE")
+    
+    # Crear tablas limpias
+    cur.execute('''CREATE TABLE users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
         password_hash TEXT NOT NULL, current_level INTEGER DEFAULT 5,
@@ -34,25 +43,17 @@ def init_db():
         role TEXT DEFAULT 'seller', graduated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         terms_accepted_at TIMESTAMP NULL, terms_version TEXT DEFAULT 'v1.0'
     )''')
-    try:
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMP NULL")
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT DEFAULT 'v1.0'")
-        conn.commit()
-    except Exception as e:
-        print(f"⚠️ Migración: {e}")
-        conn.rollback()
-    
-    cur.execute('''CREATE TABLE IF NOT EXISTS referral_tree (
+    cur.execute('''CREATE TABLE referral_tree (
         id SERIAL PRIMARY KEY, parent_id INTEGER, child_id INTEGER, UNIQUE(parent_id, child_id)
     )''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS cycles (
+    cur.execute('''CREATE TABLE cycles (
         id SERIAL PRIMARY KEY, l5_user_id INTEGER NOT NULL, status TEXT DEFAULT 'active', completed_at TIMESTAMP
     )''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS cycle_levels (
+    cur.execute('''CREATE TABLE cycle_levels (
         id SERIAL PRIMARY KEY, user_id INTEGER, cycle_id INTEGER,
         level INTEGER DEFAULT 5, is_graduated BOOLEAN DEFAULT FALSE, UNIQUE(user_id, cycle_id)
     )''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS stickers (
+    cur.execute('''CREATE TABLE stickers (
         id SERIAL PRIMARY KEY, sticker_code TEXT UNIQUE NOT NULL,
         seller_id INTEGER, cycle_id INTEGER, buyer_name TEXT, buyer_phone TEXT,
         buyer_email TEXT, buyer_cbu TEXT, step INTEGER DEFAULT 1,
@@ -60,21 +61,45 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
-    cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
-    if not cur.fetchone():
-        cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                     ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
-                      generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1'))
+    # Insertar Admin
+    cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                 ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
+                  generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
+
+    # Insertar usuarios de prueba por nivel y crear ciclo base
+    users_data = [
+        ('DEMO-L5-01', 'Nivel 5 Demo', '+5491150000001', 'l5@test.com', 'alias.l5', 5),
+        ('DEMO-L4-01', 'Nivel 4 Demo', '+5491150000002', 'l4@test.com', 'alias.l4', 4),
+        ('DEMO-L3-01', 'Nivel 3 Demo', '+5491150000003', 'l3@test.com', 'alias.l3', 3),
+        ('DEMO-L2-01', 'Nivel 2 Demo', '+5491150000004', 'l2@test.com', 'alias.l2', 2),
+        ('DEMO-L1-01', 'Nivel 1 Demo', '+5491150000005', 'l1@test.com', 'alias.l1', 1)
+    ]
+    inserted_ids = []
+    for sid, name, phone, email, cbu, lvl in users_data:
+        cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, current_level, role, terms_accepted_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id''',
+                     (sid, name, phone, email, cbu, generate_password_hash("Demo2026!", method='pbkdf2:sha256'), lvl, 'seller', datetime.now()))
+        inserted_ids.append(cur.fetchone()["id"])
+
+    # Crear ciclo y asignar niveles
+    l5_id = inserted_ids[0]
+    cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (l5_id,))
+    cycle_id = cur.fetchone()["id"]
+    for i, uid in enumerate(inserted_ids):
+        lvl = 5 - i
+        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s)", (uid, cycle_id, lvl))
+        if i > 0:
+            cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s)", (inserted_ids[i-1], uid))
+            
     conn.commit()
-    print("✅ DB lista.", flush=True)
+    print("✅ DB limpiada y usuarios por nivel creados.", flush=True)
     conn.close()
 
 init_db()
 
 @app.route("/")
-def index():
-    return redirect(url_for("login"))
+def index(): return redirect(url_for("login"))
 
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
@@ -152,12 +177,9 @@ def dashboard():
     sticker = u.get("sticker_id", "")
     level = u.get("current_level", 5)
 
-    if level == 5:
-        cur.execute("SELECT * FROM cycles WHERE l5_user_id=%s", (uid,))
-        cycles = cur.fetchall()
-    else:
-        cur.execute("SELECT * FROM cycles WHERE l5_user_id=%s OR id IN (SELECT cycle_id FROM cycle_levels WHERE user_id=%s)", (uid, uid))
-        cycles = cur.fetchall()
+    # 🔹 FIX: Buscar ciclos siempre, sin filtrar por nivel
+    cur.execute("SELECT * FROM cycles WHERE l5_user_id=%s OR id IN (SELECT cycle_id FROM cycle_levels WHERE user_id=%s)", (uid, uid))
+    cycles = cur.fetchall()
         
     cycle_id = request.args.get("cycle_id", type=int)
     if not cycle_id and cycles: cycle_id = cycles[-1]["id"]
@@ -176,8 +198,7 @@ def dashboard():
             cycle_level = cl["level"]
             is_graduated_cycle = bool(cl["is_graduated"])
 
-    # 🔹 FIX: Se quitó la condición "level == 5" para que la tarjeta de acción se muestre
-    # siempre que haya un ciclo activo, sin importar si el nivel cambió por el bug anterior.
+    # 🔹 FIX: Consultar pending siempre que haya active_cycle
     pending = None
     if active_cycle:
         cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
