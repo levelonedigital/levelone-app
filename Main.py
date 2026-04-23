@@ -27,7 +27,7 @@ def init_db():
     conn = get_db()
     cur = get_cur(conn)
     
-    # Crear tablas limpias (sin DROP para preservar datos entre deployments)
+    # Crear tablas (sin DROP para preservar datos entre deployments)
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -62,7 +62,7 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
 
-    # Insertar usuarios demo solo si no existen (ON CONFLICT)
+    # Insertar usuarios demo solo si no existen
     users_data = [
         ('DEMO-L5-01', 'Nivel 5 Demo', '+5491150000001', 'l5@test.com', 'alias.l5', 5),
         ('DEMO-L4-01', 'Nivel 4 Demo', '+5491150000002', 'l4@test.com', 'alias.l4', 4),
@@ -79,7 +79,6 @@ def init_db():
         if result:
             inserted_ids.append(result["id"])
         else:
-            # Si ya existía, obtener su ID
             cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sid,))
             inserted_ids.append(cur.fetchone()["id"])
 
@@ -103,7 +102,8 @@ def init_db():
 init_db()
 
 @app.route("/")
-def index(): return redirect(url_for("login"))
+def index():
+    return redirect(url_for("login"))
 
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
@@ -121,7 +121,8 @@ def login():
                 if row_u.get("terms_accepted_at") is None:
                     conn.close()
                     return redirect(url_for("accept_terms"))
-            except: pass
+            except:
+                pass
             conn.close()
             return redirect(url_for("dashboard"))
         flash("Sticker o contraseña incorrectos.")
@@ -130,7 +131,8 @@ def login():
 
 @app.route("/accept_terms")
 def accept_terms():
-    if "user_id" not in session: return redirect(url_for("login"))
+    if "user_id" not in session:
+        return redirect(url_for("login"))
     conn = get_db()
     cur = get_cur(conn)
     cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
@@ -139,7 +141,8 @@ def accept_terms():
     try:
         if not row_u or row_u.get("terms_accepted_at") is not None:
             return redirect(url_for("dashboard"))
-    except: return redirect(url_for("dashboard"))
+    except:
+        return redirect(url_for("dashboard"))
     return render_template("login.html", show_terms_modal=True, user=row_u)
 
 @app.route("/api/accept_terms", methods=["POST"])
@@ -156,11 +159,13 @@ def api_accept_terms():
     except Exception as e:
         conn.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
-    finally: conn.close()
+    finally:
+        conn.close()
 
 @app.route("/dashboard")
 def dashboard():
-    if "user_id" not in session: return redirect(url_for("login"))
+    if "user_id" not in session:
+        return redirect(url_for("login"))
     conn = get_db()
     cur = get_cur(conn)
     cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
@@ -173,7 +178,8 @@ def dashboard():
         if row_u.get("terms_accepted_at") is None:
             conn.close()
             return redirect(url_for("accept_terms"))
-    except: pass
+    except:
+        pass
     
     u = dict(row_u)
     uid = u.get("id")
@@ -185,7 +191,8 @@ def dashboard():
     cycles = cur.fetchall()
         
     cycle_id = request.args.get("cycle_id", type=int)
-    if not cycle_id and cycles: cycle_id = cycles[-1]["id"]
+    if not cycle_id and cycles:
+        cycle_id = cycles[-1]["id"]
     
     active_cycle = None
     if cycle_id:
@@ -200,6 +207,9 @@ def dashboard():
         if cl:
             cycle_level = cl["level"]
             is_graduated_cycle = bool(cl["is_graduated"])
+            
+    # Sincronizar nivel mostrado con el del ciclo activo
+    u["current_level"] = cycle_level
 
     pending = None
     if active_cycle:
@@ -216,15 +226,18 @@ def dashboard():
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
         elif step == 2:
-            # ✅ CORRECCIÓN: CBU del usuario que está en Nivel 1 de ESTE ciclo específico
             cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1 LIMIT 1", (cid,))
             l1_row = cur.fetchone()
-            if l1_row: cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],))
-            row = cur.fetchone() if l1_row else None
+            if l1_row:
+                cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (l1_row["user_id"],))
+                row = cur.fetchone()
+            else:
+                row = None
         elif step == 3:
             cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,))
             row = cur.fetchone()
-        else: row = None
+        else:
+            row = None
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
 
@@ -233,7 +246,6 @@ def dashboard():
         cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_phone, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-        # ✅ CORRECCIÓN: JOIN estricto para que solo vea confirmaciones de su rol (Nivel 1) en SU ciclo
         cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_phone, s.cycle_id, s.step, s.status 
                       FROM stickers s
                       JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
@@ -260,19 +272,21 @@ def dashboard():
             participants = [dict(p) for p in cur.fetchall()]
             sales_map = {}
             cur.execute(f"SELECT seller_id, COUNT(*) as cnt FROM stickers WHERE seller_id IN ({ph}) AND status='entregado' GROUP BY seller_id", all_ids)
-            for r in cur.fetchall(): sales_map[r["seller_id"]] = r["cnt"]
+            for r in cur.fetchall():
+                sales_map[r["seller_id"]] = r["cnt"]
             for p in participants:
                 p["sales_done"] = 3 if (sales_map.get(p["id"], 0) == 0 and p["current_level"] < 5) else sales_map.get(p["id"], 0)
                 if active_cycle:
                     cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (p["id"], cycle_id))
                     cl = cur.fetchone()
                     p["level"] = cl["level"] if cl else p["current_level"]
-                else: p["level"] = p["current_level"]
-        except: pass
+                else:
+                    p["level"] = p["current_level"]
+        except:
+            pass
 
     my_sales_history = []
     income_history = []
-    # ✅ CORRECCIÓN: Incluir buyer_phone explícitamente para el botón WhatsApp
     cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
     my_sales_history = [dict(s) for s in cur.fetchall()]
     if sticker == "ADMIN001":
@@ -291,14 +305,20 @@ def dashboard():
 
     try:
         active_cycles_display = [c for c in cycles if not (c["completed_at"] and (datetime.now() - datetime.strptime(c["completed_at"], "%Y-%m-%d %H:%M:%S")).days > 30)]
-    except: active_cycles_display = cycles
+    except:
+        active_cycles_display = cycles
+    
+    # Obtener CBU actual del Admin para mostrarlo en el formulario
+    cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
+    admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
 
     conn.close()
-    return render_template("dashboard.html", user=u, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)])
+    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)])
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
-    if "user_id" not in session: return redirect("/login")
+    if "user_id" not in session:
+        return redirect("/login")
     conn = get_db()
     cur = get_cur(conn)
     try:
@@ -323,17 +343,25 @@ def crear_sticker():
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
             cycle_id = cur.fetchone()["id"]
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (row_u["id"], cycle_id, 5))
-            parent = row_u["id"]
-            while True:
-                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
+            
+            # 🔹 NUEVA LÓGICA: Asignar niveles 4->3->2->1 subiendo por la red de referidos
+            parent_id = row_u["id"]
+            for lvl in [4, 3, 2, 1]:
+                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent_id,))
                 up = cur.fetchone()
-                if not up: break
-                parent = up["parent_id"]
-                cur.execute("SELECT current_level FROM users WHERE id=%s", (parent,))
-                pr = cur.fetchone()
-                lvl = pr["current_level"] if pr else 1
-                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (parent, cycle_id, lvl))
-        else: cycle_id = cycle["id"]
+                if not up:
+                    break  # Cadena terminada
+                parent_id = up["parent_id"]
+                
+                cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
+                p_data = cur.fetchone()
+                if p_data and p_data["sticker_id"] == "ADMIN001":
+                    break  # El Admin no participa en ciclos
+                    
+                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
+                cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
+        else:
+            cycle_id = cycle["id"]
 
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone():
@@ -362,7 +390,8 @@ def crear_sticker():
         conn.rollback()
         print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True)
         flash(f"❌ Error: {str(e)}")
-    finally: conn.close()
+    finally:
+        conn.close()
     return redirect("/dashboard")
 
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
@@ -403,7 +432,8 @@ def resolver_confirmacion(sticker_id, action):
 
 @app.route("/admin/cambiar_cbu", methods=["POST"])
 def admin_cambiar_cbu():
-    if "user_id" not in session: return redirect("/ingresar")
+    if "user_id" not in session:
+        return redirect("/ingresar")
     conn = get_db()
     cur = get_cur(conn)
     try:
@@ -424,7 +454,8 @@ def admin_cambiar_cbu():
     except Exception as e:
         conn.rollback()
         flash(f"❌ Error al guardar: {str(e)}")
-    finally: conn.close()
+    finally:
+        conn.close()
     return redirect("/dashboard")
 
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
@@ -441,7 +472,6 @@ def enviar_datos_email(sticker_id):
             buyer_name = s["buyer_name"]
             app_url = request.host_url.rstrip('/') + "/ingresar"
 
-            # ✅ EMAIL HTML ORIGINAL COMPLETO RESTAURADO
             try:
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {
@@ -516,7 +546,8 @@ def enviar_datos_email(sticker_id):
                 while True:
                     cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
                     row = cur.fetchone()
-                    if not row: break
+                    if not row:
+                        break
                     parent = row["parent_id"]
                     cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cid))
                     cl = cur.fetchone()
