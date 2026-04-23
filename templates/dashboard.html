@@ -116,13 +116,13 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 PENDING / CBU DESTINO -->
+  <!-- 🔹 PENDING / CBU DESTINO (ACTUALIZADO) -->
   {% if pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card border-warning">
         <div class="card-header bg-warning bg-opacity-10 text-warning fw-bold">
-          ⏳ Sticker Pendiente de Confirmación (Paso {{ pending.step }})
+          ⏳ Sticker Pendiente (Paso {{ pending.step }})
         </div>
         <div class="card-body">
           <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
@@ -130,18 +130,44 @@
           <p class="mb-3 text-readable">CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code></p>
           
           <div class="d-flex gap-2 flex-wrap">
+            
+            <!-- 🔹 BOTÓN 1: MARCAR ENVIADO (Solo si está 'pending') -->
+            {% if pending.status == 'pending' %}
             <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
               <button type="submit" class="btn btn-success">
-                <i class="bi bi-check-circle me-1"></i> Marcar como Enviado / Pagado
-              </button>
-            </form>
-            {% if pending.step == 3 %}
-            <form method="POST" action="/enviar_datos_email/{{ pending.id }}" class="d-inline">
-              <button type="submit" class="btn btn-frost">
-                <i class="bi bi-envelope me-1"></i> Enviar Credenciales por Email
+                <i class="bi bi-check-circle me-1"></i> Marcar Enviado / Datos Entregados
               </button>
             </form>
             {% endif %}
+
+            <!-- 🔹 BOTÓN 2: CONFIRMAR PAGO (Si ya está 'sent') -->
+            {% if pending.status == 'sent' %}
+              <!-- Si es Paso 3 (Tu Dinero) -->
+              {% if pending.step == 3 %}
+              <form method="POST" action="/resolver_confirmacion/{{ pending.id }}/confirm" class="d-inline">
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-cash-stack me-1"></i> Confirmar Recibido (Cerrar Ciclo)
+                </button>
+              </form>
+              <!-- Si es Paso 1 o 2 (Dinero de Admin/Nivel 1) -->
+              {% else %}
+              <form method="POST" action="/resolver_confirmacion/{{ pending.id }}/confirm" class="d-inline">
+                <button type="submit" class="btn btn-success">
+                  <i class="bi bi-check-lg me-1"></i> Confirmar Transferencia
+                </button>
+              </form>
+              {% endif %}
+            {% endif %}
+
+            <!-- 🔹 BOTÓN 3: ENVIAR EMAIL (Solo Paso 3) -->
+            {% if pending.step == 3 %}
+            <form method="POST" action="/enviar_datos_email/{{ pending.id }}" class="d-inline">
+              <button type="submit" class="btn btn-frost">
+                <i class="bi bi-envelope me-1"></i> Enviar Credenciales
+              </button>
+            </form>
+            {% endif %}
+
           </div>
         </div>
       </div>
