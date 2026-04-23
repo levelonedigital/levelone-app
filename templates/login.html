@@ -1,38 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* 🔹 CORRECCIÓN DEFINITIVA DE MODALES */
-  /* 1. Fondo oscuro y borde */
-  .modal-content {
-    background-color: #16171C !important;
-    border: 1px solid #272A2E !important;
-    border-radius: 12px;
-  }
-  
-  /* 2. Forzar letras claras (Blanco/Gris muy claro) */
-  .modal-header, .modal-footer, .modal-title, .modal-body {
-    color: #F3F4F6 !important; /* Letras claras para lectura */
-    border-color: #272A2E !important;
-    background-color: #16171C !important;
-  }
-  .modal-body strong {
-    color: #FFFFFF !important; /* Títulos más blancos */
-  }
-
-  /* 3. Botón de cerrar visible (Invertir color porque el fondo es negro) */
-  .btn-close { 
-    filter: invert(1) grayscale(100%) brightness(200%); 
-    opacity: 0.8;
-  }
-  .btn-close:hover { opacity: 1; }
-
-  /* 4. Checkbox y botón de aceptar */
-  #btn-aceptar-terminos:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-  
-  /* 5. Scrollbar oscuro para que combine con el diseño */
-  .modal-body::-webkit-scrollbar { width: 8px; }
-  .modal-body::-webkit-scrollbar-track { background: #16171C; }
-  .modal-body::-webkit-scrollbar-thumb { background: #272A2E; border-radius: 4px; }
+  /* 🔹 SOLO COLORES - NADA DE ESTRUCTURA */
+  .modal-content { background-color: #16171C !important; border-color: #272A2E !important; }
+  .modal-header, .modal-footer { border-color: #272A2E !important; background-color: #16171C !important; }
+  .modal-title, .modal-body { color: #F3F4F6 !important; }
+  .modal-body strong { color: #FFFFFF !important; }
+  .btn-close { filter: invert(1) !important; }
 </style>
 
 <div class="container py-5">
@@ -64,7 +38,7 @@
                     </button>
                 </form>
 
-                <!-- 🔹 TEXTO RECUPERADO (El que estaba antes) -->
+                <!-- ✅ TEXTO ORIGINAL RESTAURADO -->
                 <div class="text-center mt-3">
                     <small class="text-muted" style="color: #A1A1AA !important;">
                         ¿Problemas para ingresar? Contactá a tu vendedor referente.
@@ -83,13 +57,11 @@
 </div>
 
 <!-- 🔹 MODAL: GUÍA DE INICIO -->
-<!-- Usamos "modal-dialog-scrollable" para que Bootstrap maneje el scroll automáticamente -->
 <div class="modal fade" id="modal-guia" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-scrollable modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">📘 GUÍA DE INICIO: ¿CÓMO FUNCIONA levelONE?</h5>
-        <!-- Botón cerrar nativo -->
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -310,7 +282,7 @@
           <div class="form-check mb-2">
             <input class="form-check-input" type="checkbox" id="check-terminos">
             <label class="form-check-label text-white" for="check-terminos">
-              ✅ He leído, comprendido y acepto los Términos y Condiciones.
+              ✅ He leído, comprendido y acepto los Términos y Condiciones de levelONE.
             </label>
           </div>
           <div class="d-flex gap-2 w-100 justify-content-end">
@@ -323,7 +295,6 @@
   </div>
 </div>
 
-<!-- Script funcional -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const check = document.getElementById('check-terminos');
