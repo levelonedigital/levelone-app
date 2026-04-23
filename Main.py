@@ -78,15 +78,15 @@ def login():
         cur.execute("SELECT * FROM users WHERE sticker_id=%s", (sid,))
         row_u = cur.fetchone()
         if row_u and check_password_hash(row_u["password_hash"], pwd):
-            # ✅ Verificar si aceptó términos
-            if row_u["terms_accepted_at"] is None:
-                session["user_id"] = row_u["id"]
-                session["role"] = row_u["role"]
-                conn.close()
-                return redirect(url_for("accept_terms"))
-            
+            # ✅ 1. Crear sesión PRIMERO
             session["user_id"] = row_u["id"]
             session["role"] = row_u["role"]
+            
+            # ✅ 2. Verificar términos
+            if row_u["terms_accepted_at"] is None:
+                conn.close()
+                return redirect(url_for("accept_terms")) # Redirige al modal
+            
             conn.close()
             return redirect(url_for("dashboard"))
         flash("Sticker o contraseña incorrectos.")
@@ -95,15 +95,21 @@ def login():
 
 @app.route("/accept_terms")
 def accept_terms():
+    # Si no hay sesión, vuelve al login
     if "user_id" not in session:
         return redirect(url_for("login"))
+    
     conn = get_db()
     cur = get_cur(conn)
     cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
     row_u = cur.fetchone()
     conn.close()
+    
+    # Si ya aceptó, entra directo
     if not row_u or row_u["terms_accepted_at"] is not None:
         return redirect(url_for("dashboard"))
+        
+    # Muestra el login con el modal forzado
     return render_template("login.html", show_terms_modal=True, user=row_u)
 
 @app.route("/api/accept_terms", methods=["POST"])
@@ -138,7 +144,7 @@ def dashboard():
         conn.close()
         return redirect(url_for("login"))
     
-    # ✅ Si no aceptó términos, redirigir
+    # ✅ Bloqueo de seguridad: Si no aceptó términos, no entra al dashboard
     if row_u["terms_accepted_at"] is None:
         conn.close()
         return redirect(url_for("accept_terms"))
