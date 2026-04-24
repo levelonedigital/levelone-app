@@ -27,6 +27,7 @@ def init_db():
     conn = get_db()
     cur = get_cur(conn)
     
+    # Crear tablas (sin DROP para preservar datos)
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -53,6 +54,7 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Insertar Admin solo si no existe
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
@@ -60,6 +62,7 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
 
+    # ✅ CORRECCIÓN: DEMO con CBU explícito
     users_data = [
         ('DEMO-L5-01', 'Nivel 5 Demo', '+5491150000001', 'l5@test.com', 'CBU-L5-DEMO', 5),
         ('DEMO-L4-01', 'Nivel 4 Demo', '+5491150000002', 'l4@test.com', 'CBU-L4-DEMO', 4),
@@ -68,6 +71,7 @@ def init_db():
         ('DEMO-L1-01', 'Nivel 1 Demo', '+5491150000005', 'l1@test.com', 'CBU-L1-DEMO', 1)
     ]
     inserted_ids = []
+    # ✅ CORRECCIÓN SINTAXIS: Bucle completo y correcto
     for sid, name, phone, email, cbu, lvl in users_data:
         cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, current_level, role, terms_accepted_at)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (sticker_id) DO NOTHING RETURNING id''',
@@ -79,20 +83,29 @@ def init_db():
             cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sid,))
             inserted_ids.append(cur.fetchone()["id"])
 
-    if inserted_ids:
-        l5_id = inserted_ids[0]
+    # 🔗 PRE-VINCULACIÓN ESTRICTA DE LA CADENA DEMO
+    if len(inserted_ids) == 5:
+        l5_id, l4_id, l3_id, l2_id, l1_id = inserted_ids
+        links = [
+            (l4_id, l5_id), # L4 es padre de L5
+            (l3_id, l4_id), # L3 es padre de L4
+            (l2_id, l3_id), # L2 es padre de L3
+            (l1_id, l2_id)  # L1 es padre de L2
+        ]
+        for parent, child in links:
+            cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s, %s) ON CONFLICT (parent_id, child_id) DO NOTHING", (parent, child))
+
+        # Crear ciclo base y niveles solo si no existen
         cur.execute("SELECT id FROM cycles WHERE l5_user_id=%s", (l5_id,))
         if not cur.fetchone():
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (l5_id,))
             cycle_id = cur.fetchone()["id"]
-            for i, uid in enumerate(inserted_ids):
-                lvl = 5 - i
+            levels = {l5_id: 5, l4_id: 4, l3_id: 3, l2_id: 2, l1_id: 1}
+            for uid, lvl in levels.items():
                 cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (uid, cycle_id, lvl))
-                if i > 0:
-                    cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (inserted_ids[i-1], uid))
             
     conn.commit()
-    print("✅ DB inicializada (datos preservados).", flush=True)
+    print("✅ DB inicializada con cadena de referidos vinculada.", flush=True)
     conn.close()
 
 init_db()
@@ -312,43 +325,37 @@ def crear_sticker():
             conn.close()
             return redirect("/dashboard")
 
-        # 🔹 NUEVA LÓGICA: SIEMPRE se crea un ciclo nuevo por venta (independiente)
+        # 🔹 SIEMPRE se crea un ciclo nuevo por venta (independiente)
         cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
         cycle_id = cur.fetchone()["id"]
 
-        # Vendedor = Nivel 5 en este ciclo
+        # Vendedor = Nivel 5 en su propio ciclo
         cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
         cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
 
-        # Recorrer cadena de referidos hacia arriba (máx 4 padres)
-        parents = []
-        current_parent_id = row_u["id"]
-        for _ in range(4):
-            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent_id,))
-            row = cur.fetchone()
-            if not row: break
-            parent_id = row["parent_id"]
+        # 🔹 ASIGNACIÓN ESTRICTA HACIA ARRIBA: 1er Padre=4, 2do=3, 3ro=2, 4to=1
+        current_parent = row_u["id"]
+        for lvl in [4, 3, 2, 1]:
+            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,))
+            up = cur.fetchone()
+            if not up: break # Cadena terminada
+            parent_id = up["parent_id"]
+            
             cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
             p_data = cur.fetchone()
-            if p_data and p_data["sticker_id"] == "ADMIN001": break
-            parents.append(parent_id)
-            current_parent_id = parent_id
+            if p_data and p_data["sticker_id"] == "ADMIN001": break # Admin no participa en ciclos
+                
+            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
+            cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
+            current_parent = parent_id
 
-        # Asignación dinámica: el más lejano disponible = Nivel 1, el siguiente = Nivel 2, etc.
-        parents.reverse()
-        for i, p_id in enumerate(parents):
-            lvl = i + 1
-            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (p_id, cycle_id, lvl))
-            cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, p_id))
-
-        # Verificación de pending (ahora siempre estará vacío en el nuevo ciclo, pero se mantiene por seguridad)
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone():
             flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual.")
             conn.close()
             return redirect(url_for("dashboard", cycle_id=cycle_id))
             
-        # 🔹 Paso global (1ra venta, 2da, 3ra) independiente del ciclo
+        # Cálculo global de step (1ra venta=1, 2da=2, 3ra=3)
         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],))
         completed = cur.fetchone()["cnt"]
         if completed >= 3:
