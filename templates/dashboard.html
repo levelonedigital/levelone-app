@@ -11,8 +11,8 @@
         <div class="text-end">
           {% if user.role == 'graduated' %}
             <span class="badge bg-success fs-6">🎓 Graduado</span>
-          {% elif is_graduated_cycle or user.current_level == 4 %}
-            <span class="badge bg-info fs-6">✅ Ciclo Completado | Nivel 4</span>
+          {% elif is_graduated_cycle %}
+            <span class="badge bg-info fs-6">✅ Ciclo Completado</span>
           {% else %}
             <span class="badge bg-warning text-dark fs-6">🔄 En Activo</span>
           {% endif %}
@@ -21,62 +21,33 @@
     </div>
   </div>
 
-  <!-- 🔹 SECCIÓN UNIVERSAL: Pagos por Confirmar (Visible para Admin y Nivel 1) -->
-  {% if confirmations %}
+  {% if user.sticker_id == 'ADMIN001' %}
+  <!-- 🔹 AGREGADO: Formulario Admin con CBU actual visible + Confirmación nativa -->
   <div class="row mb-3">
     <div class="col-12">
-      <div class="card border-info">
-        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">📥 Pagos por Confirmar</div>
+      <div class="card border-primary">
+        <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configurar CBU Administrativo</div>
         <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover">
-              <thead><tr><th>Sticker</th><th>Comprador</th><th>CBU</th><th>Acción</th></tr></thead>
-              <tbody>
-                {% for item in confirmations %}
-                <tr>
-                  <td><code>{{ item.sticker_code }}</code></td>
-                  <td>{{ item.buyer_name }}</td>
-                  <td><code class="text-info">{{ item.buyer_cbu }}</code></td>
-                  <td>
-                    <div class="d-flex gap-2">
-                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
-                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar</button>
-                      </form>
-                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline">
-                        <button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
+          <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
+            <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias para Paso 1" required>
+            <button type="submit" class="btn btn-primary">Actualizar CBU</button>
+          </form>
         </div>
       </div>
     </div>
   </div>
-  {% endif %}
 
-  <!-- 🔹 BLOQUE ADMIN: Orden exacto solicitado -->
-  {% if user.sticker_id == 'ADMIN001' %}
-  <div class="row mb-3">
+  <div class="row mb-4">
     <div class="col-12">
-      <div class="card border-primary">
-        <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configuración Administrativa</div>
-        <div class="card-body">
-          <!-- 1. CBU Actual -->
-          <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
-          <!-- 2. Formulario Configurar CBU -->
-          <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap mb-3" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
-            <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias" required>
-            <button type="submit" class="btn btn-primary">Actualizar CBU</button>
-          </form>
-          
-          <!-- 3. Historial de Pagos Recibidos -->
-          <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">💰 Historial de Pagos Recibidos</h6>
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold">💰 Historial de Pagos Recibidos</span>
+          <span class="badge bg-success">{{ income|length }} pagos confirmados</span>
+        </div>
+        <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm mb-0">
+            <table class="table mb-0">
               <thead><tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
               <tbody>
                 {% for item in income %}
@@ -93,7 +64,6 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 L5: Formulario Crear Sticker (solo si es Nivel 5 y no está pendiente) -->
   {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -117,13 +87,6 @@
           </form>
         </div>
       </div>
-    </div>
-  </div>
-  {% elif user.current_level == 4 or is_graduated_cycle %}
-  <!-- 🔹 Post-3 ventas: Alerta de éxito + Estado de Red visible -->
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="alert alert-success fw-bold text-center">🎓 ¡Ciclo completado! Subiste de nivel.</div>
     </div>
   </div>
   {% endif %}
@@ -178,8 +141,29 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 Estado de tu Red (Visible cuando sube de nivel o ya está en red) -->
-  {% if (user.current_level != 5 or is_graduated_cycle) and user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
+  {% if confirmations %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header fw-bold">📥 Pagos por Confirmar</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead><tr><th>Sticker</th><th>Comprador</th><th>CBU</th><th>Acción</th></tr></thead>
+              <tbody>
+                {% for item in confirmations %}
+                <tr><td><code>{{ item.sticker_code }}</code></td><td>{{ item.buyer_name }}</td><td><code class="text-info">{{ item.buyer_cbu }}</code></td><td><div class="d-flex gap-2"><form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline"><button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar</button></form><form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline"><button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button></form></div></td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if participants %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card"><div class="card-header fw-bold">👥 Estado de tu Red</div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td><code>{{ p.sticker_id }}</code></td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-primary">{{ p.level }}</span></td><td>
