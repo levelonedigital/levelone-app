@@ -79,7 +79,6 @@ def init_db():
             cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sid,))
             inserted_ids.append(cur.fetchone()["id"])
 
-    # Pre-vinculación de DEMO en referral_tree
     if len(inserted_ids) == 5:
         l5_id, l4_id, l3_id, l2_id, l1_id = inserted_ids
         links = [(l4_id, l5_id), (l3_id, l4_id), (l2_id, l3_id), (l1_id, l2_id)]
@@ -128,7 +127,6 @@ def login():
 
 @app.route("/terminos")
 def terminos():
-    """Página pública de Términos y Condiciones sin autenticación."""
     terminos_html = """
     <!DOCTYPE html>
     <html lang="es">
@@ -154,16 +152,11 @@ def terminos():
         <div class="container">
             <h1>📄 Bases y Condiciones de Uso</h1>
             <p>Última actualización: Abril 2026. Bienvenido a LevelONE. Al activar tu sticker y utilizar nuestra plataforma, aceptás las siguientes condiciones.</p>
-
             <h2>1. Activación y Acceso</h2>
             <p>El acceso a la plataforma se otorga mediante la compra y activación de un "Sticker levelONE". Este sticker es la herramienta que te permite ingresar a la comunidad, acceder a las capacitaciones y participar en el sistema de ciclos.</p>
-
             <h2>2. Plazo de Actividad</h2>
             <p>El usuario dispone de un plazo estricto de <strong>7 días</strong> desde la activación de su sticker para completar sus 3 ventas iniciales y avanzar de nivel.</p>
-            <div class="alert">
-                ⚠️ <strong>Importante:</strong> Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin derecho a reintegro, y el sticker dejará de ser funcional para la generación de ciclos.
-            </div>
-
+            <div class="alert">⚠️ <strong>Importante:</strong> Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin derecho a reintegro, y el sticker dejará de ser funcional para la generación de ciclos.</div>
             <h2>3. Naturaleza del Sistema</h2>
             <p>LevelONE es una plataforma educativa y de interacción comercial. <strong>No es un sistema de inversión financiera ni promete ganancias automáticas.</strong></p>
             <ul>
@@ -171,7 +164,6 @@ def terminos():
                 <li>La participación en el sistema de referidos es opcional; el sticker incluye beneficios (capacitaciones, comunidad) desde el momento de la compra.</li>
                 <li>El éxito en el sistema requiere acompañamiento de tu red y dedicación personal.</li>
             </ul>
-
             <h2>4. Comunidad y Beneficios</h2>
             <p>Como miembro, tenés acceso a:</p>
             <ul>
@@ -180,13 +172,9 @@ def terminos():
                 <li>Descuentos exclusivos en cursos presenciales y virtuales.</li>
                 <li>Posibilidad de generar ingresos mediante la venta de stickers y la expansión de tu red.</li>
             </ul>
-
             <h2>5. Cancelación y Reintegros</h2>
             <p>Dada la naturaleza digital del servicio (acceso inmediato a capacitaciones y herramientas), no se realizan reintegros una vez que el sticker ha sido activado y se ha hecho uso de los recursos de la plataforma.</p>
-
-            <p style="text-align: center; margin-top: 40px;">
-                <a href="/" class="btn-back">Volver a LevelONE</a>
-            </p>
+            <p style="text-align: center; margin-top: 40px;"><a href="/" class="btn-back">Volver a LevelONE</a></p>
         </div>
         <footer>© 2026 LevelONE. Todos los derechos reservados.</footer>
     </body>
@@ -506,7 +494,6 @@ def enviar_datos_email(sticker_id):
             temp_pass = s["temp_pass"]
             sticker_code = s["sticker_code"]
             buyer_name = s["buyer_name"]
-            # URL dinámica para términos
             app_terms_url = request.host_url.rstrip('/') + "/terminos"
             app_url = request.host_url.rstrip('/') + "/ingresar"
             
@@ -591,7 +578,9 @@ def enviar_datos_email(sticker_id):
 
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
-            cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
+            
+            # ✅ FIX: Conteo global de ventas entregadas (sin filtrar por cycle_id)
+            cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (sid,))
             entregados = cur.fetchone()["cnt"]
             
             if entregados == 3:
