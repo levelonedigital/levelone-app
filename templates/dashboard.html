@@ -21,8 +21,45 @@
     </div>
   </div>
 
-  {% if user.sticker_id == 'ADMIN001' %}
+  <!-- 🔹 SECCIÓN UNIVERSAL: Pagos por Confirmar (Visible para Admin y Nivel 1) -->
+  {% if confirmations %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-info">
+        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">📥 Pagos por Confirmar</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Sticker</th><th>Comprador</th><th>CBU</th><th>Acción</th></tr></thead>
+              <tbody>
+                {% for item in confirmations %}
+                <tr>
+                  <td><code>{{ item.sticker_code }}</code></td>
+                  <td>{{ item.buyer_name }}</td>
+                  <td><code class="text-info">{{ item.buyer_cbu }}</code></td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
+                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar</button>
+                      </form>
+                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline">
+                        <button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- 🔹 BLOQUE ADMIN: Orden exacto solicitado -->
+  {% if user.sticker_id == 'ADMIN001' %}
   <div class="row mb-3">
     <div class="col-12">
       <div class="card border-primary">
@@ -36,22 +73,7 @@
             <button type="submit" class="btn btn-primary">Actualizar CBU</button>
           </form>
           
-          <!-- 3. Pagos por Confirmar -->
-          {% if confirmations %}
-          <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">📥 Pagos por Confirmar</h6>
-          <div class="table-responsive mb-3">
-            <table class="table table-sm table-hover">
-              <thead><tr><th>Sticker</th><th>Comprador</th><th>CBU</th><th>Acción</th></tr></thead>
-              <tbody>
-                {% for item in confirmations %}
-                <tr><td><code>{{ item.sticker_code }}</code></td><td>{{ item.buyer_name }}</td><td><code class="text-info">{{ item.buyer_cbu }}</code></td><td><div class="d-flex gap-2"><form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline"><button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar</button></form><form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline"><button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button></form></div></td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          {% endif %}
-
-          <!-- 4. Historial de Pagos Recibidos -->
+          <!-- 3. Historial de Pagos Recibidos -->
           <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">💰 Historial de Pagos Recibidos</h6>
           <div class="table-responsive">
             <table class="table table-sm mb-0">
