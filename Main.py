@@ -5,7 +5,7 @@ import requests
 from datetime import datetime, timedelta
 from collections import deque
 
-from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import psycopg2
@@ -27,6 +27,7 @@ def init_db():
     conn = get_db()
     cur = get_cur(conn)
     
+    # Crear tablas (sin DROP para preservar datos)
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -53,6 +54,7 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Insertar Admin solo si no existe
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
@@ -60,6 +62,7 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
 
+    # ✅ CORRECCIÓN: DEMO con CBU explícito
     users_data = [
         ('DEMO-L5-01', 'Nivel 5 Demo', '+5491150000001', 'l5@test.com', 'CBU-L5-DEMO', 5),
         ('DEMO-L4-01', 'Nivel 4 Demo', '+5491150000002', 'l4@test.com', 'CBU-L4-DEMO', 4),
@@ -68,6 +71,7 @@ def init_db():
         ('DEMO-L1-01', 'Nivel 1 Demo', '+5491150000005', 'l1@test.com', 'CBU-L1-DEMO', 1)
     ]
     inserted_ids = []
+    # ✅ CORRECCIÓN SINTAXIS: Bucle completo y correcto
     for sid, name, phone, email, cbu, lvl in users_data:
         cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, current_level, role, terms_accepted_at)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (sticker_id) DO NOTHING RETURNING id''',
@@ -79,13 +83,19 @@ def init_db():
             cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sid,))
             inserted_ids.append(cur.fetchone()["id"])
 
-    # Pre-vinculación de DEMO en referral_tree
+    # 🔗 PRE-VINCULACIÓN ESTRICTA DE LA CADENA DEMO
     if len(inserted_ids) == 5:
         l5_id, l4_id, l3_id, l2_id, l1_id = inserted_ids
-        links = [(l4_id, l5_id), (l3_id, l4_id), (l2_id, l3_id), (l1_id, l2_id)]
+        links = [
+            (l4_id, l5_id), # L4 es padre de L5
+            (l3_id, l4_id), # L3 es padre de L4
+            (l2_id, l3_id), # L2 es padre de L3
+            (l1_id, l2_id)  # L1 es padre de L2
+        ]
         for parent, child in links:
             cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s, %s) ON CONFLICT (parent_id, child_id) DO NOTHING", (parent, child))
 
+        # Crear ciclo base y niveles solo si no existen
         cur.execute("SELECT id FROM cycles WHERE l5_user_id=%s", (l5_id,))
         if not cur.fetchone():
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (l5_id,))
@@ -125,74 +135,6 @@ def login():
         flash("Sticker o contraseña incorrectos.")
         conn.close()
     return render_template("login.html")
-
-@app.route("/terminos")
-def terminos():
-    """Página pública de Términos y Condiciones sin autenticación."""
-    terminos_html = """
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bases y Condiciones - LevelONE</title>
-        <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; line-height: 1.6; margin: 0; padding: 20px; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-            h1 { color: #4a5568; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-            h2 { color: #2d3748; margin-top: 30px; }
-            p { margin-bottom: 15px; }
-            ul { margin-bottom: 15px; padding-left: 20px; }
-            li { margin-bottom: 8px; }
-            .alert { background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; border-left: 4px solid #ffeeba; margin: 20px 0; }
-            .btn-back { display: inline-block; background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; margin-top: 20px; font-weight: 600; }
-            .btn-back:hover { background: #5a67d8; }
-            footer { text-align: center; margin-top: 40px; color: #718096; font-size: 0.9em; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>📄 Bases y Condiciones de Uso</h1>
-            <p>Última actualización: Abril 2026. Bienvenido a LevelONE. Al activar tu sticker y utilizar nuestra plataforma, aceptás las siguientes condiciones.</p>
-
-            <h2>1. Activación y Acceso</h2>
-            <p>El acceso a la plataforma se otorga mediante la compra y activación de un "Sticker levelONE". Este sticker es la herramienta que te permite ingresar a la comunidad, acceder a las capacitaciones y participar en el sistema de ciclos.</p>
-
-            <h2>2. Plazo de Actividad</h2>
-            <p>El usuario dispone de un plazo estricto de <strong>7 días</strong> desde la activación de su sticker para completar sus 3 ventas iniciales y avanzar de nivel.</p>
-            <div class="alert">
-                ⚠️ <strong>Importante:</strong> Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin derecho a reintegro, y el sticker dejará de ser funcional para la generación de ciclos.
-            </div>
-
-            <h2>3. Naturaleza del Sistema</h2>
-            <p>LevelONE es una plataforma educativa y de interacción comercial. <strong>No es un sistema de inversión financiera ni promete ganancias automáticas.</strong></p>
-            <ul>
-                <li>Los resultados económicos dependen exclusivamente de tu actividad, compromiso y capacidad de venta.</li>
-                <li>La participación en el sistema de referidos es opcional; el sticker incluye beneficios (capacitaciones, comunidad) desde el momento de la compra.</li>
-                <li>El éxito en el sistema requiere acompañamiento de tu red y dedicación personal.</li>
-            </ul>
-
-            <h2>4. Comunidad y Beneficios</h2>
-            <p>Como miembro, tenés acceso a:</p>
-            <ul>
-                <li>Comunidad privada de WhatsApp para soporte y estrategias.</li>
-                <li>Capacitaciones en ventas, marketing y negocios online.</li>
-                <li>Descuentos exclusivos en cursos presenciales y virtuales.</li>
-                <li>Posibilidad de generar ingresos mediante la venta de stickers y la expansión de tu red.</li>
-            </ul>
-
-            <h2>5. Cancelación y Reintegros</h2>
-            <p>Dada la naturaleza digital del servicio (acceso inmediato a capacitaciones y herramientas), no se realizan reintegros una vez que el sticker ha sido activado y se ha hecho uso de los recursos de la plataforma.</p>
-
-            <p style="text-align: center; margin-top: 40px;">
-                <a href="/" class="btn-back">Volver a LevelONE</a>
-            </p>
-        </div>
-        <footer>© 2026 LevelONE. Todos los derechos reservados.</footer>
-    </body>
-    </html>
-    """
-    return render_template_string(terminos_html)
 
 @app.route("/accept_terms")
 def accept_terms():
@@ -383,21 +325,26 @@ def crear_sticker():
             conn.close()
             return redirect("/dashboard")
 
+        # 🔹 SIEMPRE se crea un ciclo nuevo por venta (independiente)
         cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
         cycle_id = cur.fetchone()["id"]
 
+        # Vendedor = Nivel 5 en su propio ciclo
         cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
         cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
 
+        # 🔹 ASIGNACIÓN ESTRICTA HACIA ARRIBA: 1er Padre=4, 2do=3, 3ro=2, 4to=1
         current_parent = row_u["id"]
         for lvl in [4, 3, 2, 1]:
             cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,))
             up = cur.fetchone()
-            if not up: break
+            if not up: break # Cadena terminada
             parent_id = up["parent_id"]
+            
             cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
             p_data = cur.fetchone()
-            if p_data and p_data["sticker_id"] == "ADMIN001": break
+            if p_data and p_data["sticker_id"] == "ADMIN001": break # Admin no participa en ciclos
+                
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
             cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
             current_parent = parent_id
@@ -408,6 +355,7 @@ def crear_sticker():
             conn.close()
             return redirect(url_for("dashboard", cycle_id=cycle_id))
             
+        # Cálculo global de step (1ra venta=1, 2da=2, 3ra=3)
         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],))
         completed = cur.fetchone()["cnt"]
         if completed >= 3:
@@ -506,81 +454,45 @@ def enviar_datos_email(sticker_id):
             temp_pass = s["temp_pass"]
             sticker_code = s["sticker_code"]
             buyer_name = s["buyer_name"]
-            # URL dinámica para términos
-            app_terms_url = request.host_url.rstrip('/') + "/terminos"
             app_url = request.host_url.rstrip('/') + "/ingresar"
-            
             try:
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
                 payload = {
                     "sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")},
                     "to": [{"email": buyer_email, "name": buyer_name}],
-                    "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}",
+                    "subject": f"🎉 ¡Tu acceso a levelONE está listo! | {sticker_code}",
                     "htmlContent": f"""
                     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 520px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 16px;">
                         <div style="text-align: center; padding: 16px; background: rgba(255,255,255,0.95); border-radius: 12px; margin-bottom: 16px;">
-                            <h1 style="margin: 0; color: #667eea; font-size: 24px; font-weight: 700;">🎉 ¡BIENVENIDO/A A LEVELONE!</h1>
-                            <p style="margin: 8px 0 0 0; color: #555; font-size: 15px;">Tu sticker <strong>{sticker_code}</strong> ha sido activado correctamente ✅</p>
-                            <p style="margin: 4px 0 0 0; color: #444; font-size: 14px;">Ahora ya formás parte de la comunidad LevelONE.</p>
-                            <p style="margin: 8px 0 0 0; color: #667eea; font-weight: 600; font-size: 13px;">🌟 Tu plataforma para aprender y crecer</p>
+                            <h1 style="margin: 0; color: #667eea; font-size: 24px; font-weight: 700;">🌟 levelONE</h1>
+                            <p style="margin: 4px 0 0 0; color: #666; font-size: 14px;">Plataforma de Stickers Digitales</p>
                         </div>
                         <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-                            <div style="background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
+                            <h2 style="color: #333; margin: 0 0 12px 0; font-size: 20px;">¡Bienvenido, {buyer_name}! 🎉</h2>
+                            <p style="color: #555; margin: 8px 0; line-height: 1.5;">Tu sticker <strong>{sticker_code}</strong> ha sido activado.</p>
+                            <div style="background: #f8f9fa; border: 2px dashed #667eea; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
                                 <img src="https://levelone.uno/static/sticker.jpg" alt="Sticker levelONE" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                                <p style="margin: 12px 0 0 0; color: #444; font-size: 14px; font-weight: 600;">🎟️ Tu Sticker LevelONE</p>
-                                <p style="margin: 4px 0 0 0; color: #666; font-size: 13px;">Este es tu Sticker LevelONE</p>
-                            </div>
-                            <div style="margin-bottom: 20px;">
-                                <p style="color: #333; font-weight: 600; margin: 0 0 8px 0;">👉 Es tu ingreso a una comunidad con beneficios reales:</p>
-                                <ul style="color: #555; font-size: 14px; margin: 0 0 8px 0; padding-left: 20px;">
-                                    <li>📲 Acceso a la comunidad privada de WhatsApp</li>
-                                    <li>🎓 Capacitaciones en ventas, marketing y ventas online</li>
-                                    <li>💸 Hasta 50% de descuento en cursos presenciales y virtuales</li>
-                                    <li>🚀 La posibilidad de participar en el sistema y generar ingresos</li>
-                                </ul>
-                                <p style="color: #555; font-size: 14px; margin: 8px 0 0 0;">Tu sticker es la herramienta que te permite crecer, aprender y avanzar dentro de LevelONE.</p>
+                                <p style="margin: 16px 0 0 0; color: #444; font-size: 14px; line-height: 1.6;">🎫 <strong>Este es el sticker que compraste.</strong><br>El que te habilita para ingresar a la plataforma y poder generar tus ventas.</p>
                             </div>
                             <div style="background: #f8f9ff; border-left: 4px solid #667eea; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                                <p style="margin: 0 0 8px 0; color: #333; font-weight: 600;">🔐 Datos de acceso a la plataforma</p>
-                                <p style="margin: 4px 0; color: #555; font-size: 14px;"><strong>Usuario:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{sticker_code}</code></p>
-                                <p style="margin: 4px 0; color: #555; font-size: 14px;"><strong>Contraseña:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{temp_pass}</code></p>
-                                <p style="margin: 4px 0; color: #555; font-size: 14px;"><strong>Link de acceso:</strong> <a href="{app_url}" style="color: #667eea; text-decoration: none; font-weight: 600;">{app_url}</a></p>
-                            </div>
-                            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 8px; margin-top: 16px;">
-                                <p style="margin: 0 0 8px 0; color: #856404; font-size: 14px; font-weight: 600;">⏳ Plazo de Activación</p>
-                                <p style="margin: 0 0 8px 0; color: #856404; font-size: 13px; line-height: 1.4;">Tenés 7 días desde la activación de tu sticker para completar tus primeras 3 ventas iniciales dentro del sistema.</p>
-                                <p style="margin: 0 0 8px 0; color: #856404; font-size: 13px; line-height: 1.4;">⚠️ Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin reintegro.</p>
-                                <p style="margin: 0; color: #856404; font-size: 13px; line-height: 1.4;">💡 Te recomendamos aprovechar desde el primer día la comunidad y las capacitaciones disponibles para avanzar más rápido.</p>
-                            </div>
-                            <div style="background: #e8f4fd; border-left: 4px solid #0d6efd; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                                <p style="margin: 0 0 8px 0; color: #0b5ed7; font-weight: 600;">🤝 Comunidad LevelONE</p>
-                                <p style="margin: 0 0 8px 0; color: #333; font-size: 13px; line-height: 1.5;">Desde este momento también podés acceder a nuestra comunidad privada, donde vas a encontrar:</p>
-                                <p style="margin: 0; color: #555; font-size: 13px;">acompañamiento • seguimiento • soporte • estrategias de venta • información importante para tu crecimiento</p>
-                            </div>
-                            <div style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; border-radius: 8px; margin: 20px 0;">
-                                <p style="margin: 0 0 8px 0; color: #495057; font-weight: 600; font-size: 14px;">📜 Importante</p>
-                                <p style="margin: 0 0 4px 0; color: #6c757d; font-size: 13px; line-height: 1.4;">LevelONE no es un sistema de inversión ni promete ganancias automáticas.</p>
-                                <p style="margin: 0 0 4px 0; color: #6c757d; font-size: 13px; line-height: 1.4;">Los resultados dependen de tu actividad, compromiso y del acompañamiento de tu red.</p>
-                                <p style="margin: 0; color: #6c757d; font-size: 13px; line-height: 1.4;">Tu participación en el sistema es opcional: el sticker ya incluye beneficios reales desde el momento de la compra.</p>
-                            </div>
-                            <div style="margin: 20px 0 0 0; text-align: center;">
-                                <p style="margin: 0 0 4px 0; color: #333; font-weight: 600; font-size: 14px;">📄 Términos y Condiciones</p>
-                                <p style="margin: 0 0 8px 0; color: #555; font-size: 13px;">Al activar tu sticker aceptás nuestras Bases y Condiciones de uso de la plataforma.</p>
-                                <p style="margin: 0; font-size: 13px;">👉 Podés consultarlas aquí: <a href="{app_terms_url}" style="color: #667eea; text-decoration: underline;">Bases y Condiciones</a></p>
+                                <p style="margin: 0 0 8px 0; color: #333; font-weight: 600;">🔐 Tus datos de acceso (permanentes):</p>
+                                <p style="margin: 4px 0; color: #555;"><strong>Sticker ID:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{sticker_code}</code></p>
+                                <p style="margin: 4px 0 0 0; color: #555;"><strong>Contraseña:</strong> <code style="background: #eef2ff; padding: 2px 8px; border-radius: 4px; color: #667eea;">{temp_pass}</code></p>
                             </div>
                             <div style="text-align: center; margin: 24px 0 16px 0;">
-                                <p style="margin: 0 0 8px 0; color: #333; font-weight: 600; font-size: 15px;">🚀 Tu próximo paso</p>
-                                <p style="margin: 0 0 16px 0; color: #555; font-size: 13px;">Ingresá ahora a tu plataforma, activá tu red y comenzá a avanzar.<br>Tu crecimiento empieza hoy. Bienvenido a LevelONE.</p>
-                                <a href="{app_url}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">Ingresar a la plataforma</a>
+                                <a href="{app_url}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">🚀 Ingresar a mi cuenta</a>
+                            </div>
+                            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 8px; margin-top: 20px;">
+                                <p style="margin: 0 0 8px 0; color: #856404; font-size: 13px; line-height: 1.4;">⏳ <strong>Plazo de actividad:</strong> Tenés 7 días desde la activación para completar tus 3 ventas. Pasado ese plazo, el acceso se cancela automáticamente y no se realizan reintegros.</p>
+                                <p style="margin: 0; color: #856404; font-size: 13px;">📖 <a href="https://levelone.uno/terminos" style="color: #856404; text-decoration: underline;">Leer Términos y Condiciones completos</a></p>
                             </div>
                         </div>
                         <div style="text-align: center; padding: 16px; color: rgba(255,255,255,0.9); font-size: 12px;">
                             <p style="margin: 0;">© 2026 levelONE. Todos los derechos reservados.</p>
                             <p style="margin: 4px 0 0 0; opacity: 0.8;">Si no solicitaste este acceso, contactá a quien te vendió el sticker.</p>
                         </div>
-                    </div>
-                    """
+                    </div>"""
                 }
                 response = requests.post(url, json=payload, headers=headers, timeout=10)
                 response.raise_for_status()
