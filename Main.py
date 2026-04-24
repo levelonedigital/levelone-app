@@ -71,7 +71,8 @@ def init_db():
         ('DEMO-L1-01', 'Nivel 1 Demo', '+5491150000005', 'l1@test.com', 'CBU-L1-DEMO', 1)
     ]
     inserted_ids = []
-    for sid, name, phone, email, cbu, lvl in users_
+    # ✅ CORRECCIÓN CRÍTICA: Se agregó el ":" al final del for y "users_data" completo
+    for sid, name, phone, email, cbu, lvl in users_data:
         cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, current_level, role, terms_accepted_at)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (sticker_id) DO NOTHING RETURNING id''',
                      (sid, name, phone, email, cbu, generate_password_hash("Demo2026!", method='pbkdf2:sha256'), lvl, 'seller', datetime.now()))
