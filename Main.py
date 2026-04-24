@@ -579,7 +579,7 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # ✅ FIX: Conteo global de ventas entregadas (sin filtrar por cycle_id)
+            # ✅ ÚNICA LÍNEA MODIFICADA: Se eliminó "AND cycle_id=%s" para que cuente ventas globales
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (sid,))
             entregados = cur.fetchone()["cnt"]
             
