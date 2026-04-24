@@ -579,25 +579,35 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # ✅ ÚNICA LÍNEA MODIFICADA: Se eliminó "AND cycle_id=%s" para que cuente ventas globales
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (sid,))
             entregados = cur.fetchone()["cnt"]
             
-            if entregados == 3:
+            # 🔍 LOGGING TEMPORAL: Para ver exactamente qué cuenta la BD
+            print(f"[DEBUG] Seller {sid} | Cycle {cid} | Ventas entregadas contadas: {entregados}", flush=True)
+
+            if entregados >= 3:
+                print(f"[DEBUG] Ejecutando subida de nivel para {sid} -> Nivel 4", flush=True)
                 cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (sid,))
                 cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (sid, cid))
+                
                 parent = sid
                 while True:
                     cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
                     row = cur.fetchone()
-                    if not row: break
+                    if not row: 
+                        print(f"[DEBUG] Fin de cadena de referidos para {sid}", flush=True)
+                        break
                     parent = row["parent_id"]
                     cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cid))
                     cl = cur.fetchone()
                     if cl:
                         nl = max(1, cl["level"]-1)
+                        print(f"[DEBUG] Actualizando {parent} -> Nivel {nl} (Graduado: {nl==1})", flush=True)
                         cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (nl, nl==1, parent, cid))
                         cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (nl, parent))
+                    else:
+                        print(f"[DEBUG] ⚠️ {parent} no tiene registro en cycle_levels para ciclo {cid}", flush=True)
+                        
                 cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
                 flash("🎉 ¡Ciclo completado! Subiste de nivel.")
             else:
