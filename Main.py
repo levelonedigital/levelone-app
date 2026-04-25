@@ -591,27 +591,25 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # ✅ FIX: Conteo GLOBAL (se quitó AND cycle_id=%s para que sume las 3 ventas reales)
+            # Conteo global de ventas entregadas por este vendedor
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (sid,))
             entregados = cur.fetchone()["cnt"]
             
             if entregados == 3:
-                cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (sid,))
-                cur.execute("UPDATE cycle_levels SET level=4 WHERE user_id=%s AND cycle_id=%s", (sid, cid))
-                parent = sid
-                while True:
-                    cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (parent,))
-                    row = cur.fetchone()
-                    if not row: break
-                    parent = row["parent_id"]
-                    cur.execute("SELECT level FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (parent, cid))
-                    cl = cur.fetchone()
-                    if cl:
-                        nl = max(1, cl["level"]-1)
-                        cur.execute("UPDATE cycle_levels SET level=%s, is_graduated=%s WHERE user_id=%s AND cycle_id=%s", (nl, nl==1, parent, cid))
-                        cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (nl, parent))
+                # 1. Marcar como graduado al usuario que estaba en Nivel 1 en ESTE ciclo
+                cur.execute("UPDATE cycle_levels SET is_graduated = TRUE WHERE cycle_id = %s AND level = 1", (cid,))
+                
+                # 2. Bajar exactamente 1 nivel al resto (Niveles 2, 3, 4, 5)
+                cur.execute("UPDATE cycle_levels SET level = level - 1 WHERE cycle_id = %s AND level > 1", (cid,))
+                
+                # 3. Sincronizar current_level global con el nuevo nivel en este ciclo
+                cur.execute("SELECT user_id, level FROM cycle_levels WHERE cycle_id = %s", (cid,))
+                for row in cur.fetchall():
+                    cur.execute("UPDATE users SET current_level = %s WHERE id = %s", (row["level"], row["user_id"]))
+                    
+                # 4. Cerrar ciclo
                 cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
-                flash("🎉 ¡Ciclo completado! Subiste de nivel.")
+                flash("🎉 ¡Ciclo completado! L1 graduado. Demás bajaron de nivel.")
             else:
                 flash("✅ Credenciales enviadas. Sticker entregado.")
                 
