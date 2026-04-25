@@ -506,7 +506,6 @@ def enviar_datos_email(sticker_id):
             temp_pass = s["temp_pass"]
             sticker_code = s["sticker_code"]
             buyer_name = s["buyer_name"]
-            # URL dinámica para términos
             app_terms_url = request.host_url.rstrip('/') + "/terminos"
             app_url = request.host_url.rstrip('/') + "/ingresar"
             
@@ -591,7 +590,9 @@ def enviar_datos_email(sticker_id):
 
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
-            cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status='entregado'", (sid, cid))
+            
+            # ✅ FIX: Conteo GLOBAL (se quitó AND cycle_id=%s para que sume las 3 ventas reales)
+            cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (sid,))
             entregados = cur.fetchone()["cnt"]
             
             if entregados == 3:
