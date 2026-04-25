@@ -27,6 +27,7 @@ def init_db():
     conn = get_db()
     cur = get_cur(conn)
     
+    # Crear tablas (sin DROP para preservar datos)
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -53,6 +54,7 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # Insertar Admin solo si no existe
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
@@ -60,42 +62,11 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
 
-    users_data = [
-        ('DEMO-L5-01', 'Nivel 5 Demo', '+5491150000001', 'l5@test.com', 'CBU-L5-DEMO', 5),
-        ('DEMO-L4-01', 'Nivel 4 Demo', '+5491150000002', 'l4@test.com', 'CBU-L4-DEMO', 4),
-        ('DEMO-L3-01', 'Nivel 3 Demo', '+5491150000003', 'l3@test.com', 'CBU-L3-DEMO', 3),
-        ('DEMO-L2-01', 'Nivel 2 Demo', '+5491150000004', 'l2@test.com', 'CBU-L2-DEMO', 2),
-        ('DEMO-L1-01', 'Nivel 1 Demo', '+5491150000005', 'l1@test.com', 'CBU-L1-DEMO', 1)
-    ]
-    inserted_ids = []
-    for sid, name, phone, email, cbu, lvl in users_data:
-        cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, current_level, role, terms_accepted_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (sticker_id) DO NOTHING RETURNING id''',
-                     (sid, name, phone, email, cbu, generate_password_hash("Demo2026!", method='pbkdf2:sha256'), lvl, 'seller', datetime.now()))
-        result = cur.fetchone()
-        if result:
-            inserted_ids.append(result["id"])
-        else:
-            cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sid,))
-            inserted_ids.append(cur.fetchone()["id"])
-
-    # Pre-vinculación de DEMO en referral_tree
-    if len(inserted_ids) == 5:
-        l5_id, l4_id, l3_id, l2_id, l1_id = inserted_ids
-        links = [(l4_id, l5_id), (l3_id, l4_id), (l2_id, l3_id), (l1_id, l2_id)]
-        for parent, child in links:
-            cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s, %s) ON CONFLICT (parent_id, child_id) DO NOTHING", (parent, child))
-
-        cur.execute("SELECT id FROM cycles WHERE l5_user_id=%s", (l5_id,))
-        if not cur.fetchone():
-            cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (l5_id,))
-            cycle_id = cur.fetchone()["id"]
-            levels = {l5_id: 5, l4_id: 4, l3_id: 3, l2_id: 2, l1_id: 1}
-            for uid, lvl in levels.items():
-                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO NOTHING", (uid, cycle_id, lvl))
+    # ✅ ELIMINADO: Se borró el bloque que creaba los usuarios DEMO-Lx-01.
+    # La red completa se gestiona exclusivamente desde el script reset_db_red_completa.py.
             
     conn.commit()
-    print("✅ DB inicializada con cadena de referidos vinculada.", flush=True)
+    print("✅ DB inicializada (Tablas + Admin listos).", flush=True)
     conn.close()
 
 init_db()
