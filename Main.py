@@ -27,7 +27,6 @@ def init_db():
     conn = get_db()
     cur = get_cur(conn)
     
-    # Crear tablas (sin DROP para preservar datos)
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY, sticker_id TEXT UNIQUE NOT NULL,
         full_name TEXT, phone TEXT, email TEXT, address TEXT, cbu_alias TEXT NOT NULL,
@@ -54,16 +53,12 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
-    # Insertar Admin solo si no existe
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
-
-    # ✅ ELIMINADO: Se borró el bloque que creaba los usuarios DEMO-Lx-01.
-    # La red completa se gestiona exclusivamente desde el script reset_db_red_completa.py.
             
     conn.commit()
     print("✅ DB inicializada (Tablas + Admin listos).", flush=True)
@@ -99,7 +94,6 @@ def login():
 
 @app.route("/terminos")
 def terminos():
-    """Página pública de Términos y Condiciones sin autenticación."""
     terminos_html = """
     <!DOCTYPE html>
     <html lang="es">
@@ -125,16 +119,11 @@ def terminos():
         <div class="container">
             <h1>📄 Bases y Condiciones de Uso</h1>
             <p>Última actualización: Abril 2026. Bienvenido a LevelONE. Al activar tu sticker y utilizar nuestra plataforma, aceptás las siguientes condiciones.</p>
-
             <h2>1. Activación y Acceso</h2>
             <p>El acceso a la plataforma se otorga mediante la compra y activación de un "Sticker levelONE". Este sticker es la herramienta que te permite ingresar a la comunidad, acceder a las capacitaciones y participar en el sistema de ciclos.</p>
-
             <h2>2. Plazo de Actividad</h2>
             <p>El usuario dispone de un plazo estricto de <strong>7 días</strong> desde la activación de su sticker para completar sus 3 ventas iniciales y avanzar de nivel.</p>
-            <div class="alert">
-                ⚠️ <strong>Importante:</strong> Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin derecho a reintegro, y el sticker dejará de ser funcional para la generación de ciclos.
-            </div>
-
+            <div class="alert">⚠️ <strong>Importante:</strong> Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin derecho a reintegro, y el sticker dejará de ser funcional para la generación de ciclos.</div>
             <h2>3. Naturaleza del Sistema</h2>
             <p>LevelONE es una plataforma educativa y de interacción comercial. <strong>No es un sistema de inversión financiera ni promete ganancias automáticas.</strong></p>
             <ul>
@@ -142,7 +131,6 @@ def terminos():
                 <li>La participación en el sistema de referidos es opcional; el sticker incluye beneficios (capacitaciones, comunidad) desde el momento de la compra.</li>
                 <li>El éxito en el sistema requiere acompañamiento de tu red y dedicación personal.</li>
             </ul>
-
             <h2>4. Comunidad y Beneficios</h2>
             <p>Como miembro, tenés acceso a:</p>
             <ul>
@@ -151,13 +139,9 @@ def terminos():
                 <li>Descuentos exclusivos en cursos presenciales y virtuales.</li>
                 <li>Posibilidad de generar ingresos mediante la venta de stickers y la expansión de tu red.</li>
             </ul>
-
             <h2>5. Cancelación y Reintegros</h2>
             <p>Dada la naturaleza digital del servicio (acceso inmediato a capacitaciones y herramientas), no se realizan reintegros una vez que el sticker ha sido activado y se ha hecho uso de los recursos de la plataforma.</p>
-
-            <p style="text-align: center; margin-top: 40px;">
-                <a href="/" class="btn-back">Volver a LevelONE</a>
-            </p>
+            <p style="text-align: center; margin-top: 40px;"><a href="/" class="btn-back">Volver a LevelONE</a></p>
         </div>
         <footer>© 2026 LevelONE. Todos los derechos reservados.</footer>
     </body>
@@ -323,6 +307,18 @@ def dashboard():
             cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status IN ('confirmed', 'entregado') AND cycle_id IN ({ph}) ORDER BY created_at DESC", l1_cycles)
             income_history = [dict(r) for r in cur.fetchall()]
 
+    # ✅ NUEVO: Historial de pagos confirmados por el usuario (cuando estuvo en Nivel 1)
+    cur.execute("""
+        SELECT s.sticker_code, s.buyer_name, s.buyer_cbu, s.created_at, s.cycle_id, s.status
+        FROM stickers s
+        JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
+        WHERE cl.user_id = %s AND cl.level = 1 AND s.step = 2 AND s.status IN ('confirmed', 'entregado')
+        ORDER BY s.created_at DESC LIMIT 21
+    """, (uid,))
+    payment_raw = [dict(r) for r in cur.fetchall()]
+    payment_confirmed = payment_raw[:20]
+    has_more_payments = len(payment_raw) > 20
+
     try:
         active_cycles_display = [c for c in cycles if not (c["completed_at"] and (datetime.now() - datetime.strptime(c["completed_at"], "%Y-%m-%d %H:%M:%S")).days > 30)]
     except: active_cycles_display = cycles
@@ -331,7 +327,7 @@ def dashboard():
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
 
     conn.close()
-    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)])
+    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, payment_confirmed=payment_confirmed, has_more_payments=has_more_payments, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)])
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
@@ -562,23 +558,15 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # Conteo global de ventas entregadas por este vendedor
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (sid,))
             entregados = cur.fetchone()["cnt"]
             
             if entregados == 3:
-                # 1. Marcar como graduado al usuario que estaba en Nivel 1 en ESTE ciclo
                 cur.execute("UPDATE cycle_levels SET is_graduated = TRUE WHERE cycle_id = %s AND level = 1", (cid,))
-                
-                # 2. Bajar exactamente 1 nivel al resto (Niveles 2, 3, 4, 5)
                 cur.execute("UPDATE cycle_levels SET level = level - 1 WHERE cycle_id = %s AND level > 1", (cid,))
-                
-                # 3. Sincronizar current_level global con el nuevo nivel en este ciclo
                 cur.execute("SELECT user_id, level FROM cycle_levels WHERE cycle_id = %s", (cid,))
                 for row in cur.fetchall():
                     cur.execute("UPDATE users SET current_level = %s WHERE id = %s", (row["level"], row["user_id"]))
-                    
-                # 4. Cerrar ciclo
                 cur.execute("UPDATE cycles SET status='completed', completed_at=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cid))
                 flash("🎉 ¡Ciclo completado! L1 graduado. Demás bajaron de nivel.")
             else:
