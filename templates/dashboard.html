@@ -80,7 +80,7 @@
               <thead><tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
               <tbody>
                 {% for item in income %}
-                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info">{{ item.sale.buyer_cbu }}</code></td><td><span class="badge bg-success">Confirmado</span></td></tr>
+                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
                 {% else %}
                 <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
                 {% endfor %}
@@ -199,10 +199,7 @@
                   <td><code>{{ p['sticker_code'] }}</code></td>
                   <td>{{ p['buyer_name'] }}</td>
                   <td>
-                    <code class="text-info d-block">{{ p['buyer_cbu'] }}</code>
-                    <small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small>
-                    <small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small>
-                    <small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small>
+                    <td><code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small></td>
                   </td>
                   <td>
                     {% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>
