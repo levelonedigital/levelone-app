@@ -198,7 +198,12 @@
                   <td>{{ p['created_at'].strftime('%d/%m/%Y %H:%M') }}</td>
                   <td><code>{{ p['sticker_code'] }}</code></td>
                   <td>{{ p['buyer_name'] }}</td>
-                  <td><code class="text-info">{{ p['buyer_cbu'] }}</code></td>
+                  <td>
+                    <code class="text-info d-block">{{ p['buyer_cbu'] }}</code>
+                    <small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small>
+                    <small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small>
+                    <small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small>
+                  </td>
                   <td>
                     {% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>
                     {% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}
