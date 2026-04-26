@@ -178,6 +178,41 @@
   </div>
   {% endif %}
 
+  <!-- 💰 Historial de Transferencias Confirmadas (Nivel 1) -->
+  {% if l1_payments %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-success">
+        <div class="card-header bg-success bg-opacity-10 text-success fw-bold">💰 Historial de Transferencias Confirmadas</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for p in l1_payments %}
+                <tr>
+                  <td>{{ p['created_at'].strftime('%d/%m/%Y %H:%M') }}</td>
+                  <td><code>{{ p['sticker_code'] }}</code></td>
+                  <td>{{ p['buyer_name'] }}</td>
+                  <td><code class="text-info">{{ p['buyer_cbu'] }}</code></td>
+                  <td>
+                    {% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>
+                    {% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="p-2 text-center border-top bg-light">
+            <small class="text-muted fw-bold">📊 Últimas 20 confirmaciones registradas</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
   <!-- 🔹 Estado de tu Red (Visible cuando sube de nivel o ya está en red) -->
   {% if (user.current_level != 5 or is_graduated_cycle) and user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
   <div class="row mb-4">
