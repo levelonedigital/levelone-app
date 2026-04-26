@@ -36,7 +36,7 @@
                 <tr>
                   <td><code>{{ item.sticker_code }}</code></td>
                   <td>{{ item.buyer_name }}</td>
-                  <td><code class="text-info">{{ item.buyer_cbu }}</code></td>
+                  <td><code class="text-info d-block">{{ item.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.buyer_cbu_entidad or 'N/A' }}</small></td>
                   <td>
                     <div class="d-flex gap-2">
                       <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
