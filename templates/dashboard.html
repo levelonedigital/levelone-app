@@ -74,7 +74,7 @@
   </div>
   {% endif %}
 
-  <!-- 💰 Historial de Pagos Recibidos (Nivel 1) -->
+  <!-- 💰 NUEVO: Historial de Pagos Recibidos (Nivel 1) -->
   {% if l1_payment_history %}
   <div class="row mb-4">
     <div class="col-12">
@@ -83,9 +83,7 @@
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm mb-0">
-              <thead>
-                <tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr>
-              </thead>
+              <thead><tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
               <tbody>
                 {% for pay in l1_payment_history %}
                 <tr>
@@ -113,37 +111,78 @@
   </div>
   {% endif %}
 
-  <!-- ✅ NUEVA SECCIÓN: Historial de Pagos Confirmados -->
-  {% if payment_confirmed %}
+  <!-- L5: Formulario Crear Sticker -->
+  {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
   <div class="row mb-4">
     <div class="col-12">
-      <div class="card border-success">
-        <div class="card-header bg-success bg-opacity-10 text-success fw-bold">💰 Historial de Pagos Confirmados</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table mb-0">
-              <thead><tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
-              <tbody>
-                {% for pay in payment_confirmed %}
-                <tr>
-                  <td>{{ pay.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                  <td><code>{{ pay.sticker_code }}</code></td>
-                  <td>{{ pay.buyer_name }}</td>
-                  <td><code class="text-info">{{ pay.buyer_cbu }}</code></td>
-                  <td>
-                    {% if pay.status == 'entregado' %}<span class="badge bg-success">Confirmado & Entregado</span>
-                    {% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+      <div class="card">
+        <div class="card-header"><span class="fw-bold">🎫 Crear Nuevo Sticker</span></div>
+        <div class="card-body">
+          <form method="POST" action="/crear_sticker">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label text-readable small fw-medium">Nombre Completo</label><input type="text" name="name" class="form-control" required placeholder="Ej: Juan Pérez"></div>
+              <div class="col-md-4">
+                <label class="form-label text-readable small fw-medium">Teléfono (con código país)</label>
+                <div class="input-group">
+                  <input type="text" name="phone" id="buyer_phone" class="form-control" required placeholder="+54911...">
+                  <button type="button" class="btn btn-success" onclick="openWhatsApp()" title="Enviar CBU por WhatsApp"><i class="bi bi-whatsapp"></i> Enviar CBU</button>
+                </div>
+              </div>
+              <div class="col-md-4"><label class="form-label text-readable small fw-medium">Email</label><input type="email" name="email" class="form-control" required placeholder="email@ejemplo.com"></div>
+              <div class="col-12"><label class="form-label text-readable small fw-medium">CBU del Comprador (para registrar)</label><div class="input-group"><input type="text" name="cbu" class="form-control" required placeholder="CBU o Alias del comprador"><button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.querySelector('input').value)"><i class="bi bi-clipboard"></i> Copiar</button></div></div>
+              <div class="col-12 text-end"><button type="submit" class="btn btn-primary px-4"><i class="bi bi-plus-circle me-2"></i>Generar Sticker</button></div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if pending %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-warning">
+        <div class="card-header bg-warning bg-opacity-10 text-warning fw-bold">⏳ Sticker Pendiente (Paso {{ pending.step }})</div>
+        <div class="card-body">
+          <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
+          <p class="mb-2 text-readable">Teléfono: <strong class="text-white">{{ pending_phone }}</strong></p>
+          
+          <p class="mb-3 text-readable d-flex align-items-center flex-wrap gap-2">
+              CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code>
+              {% if pending_phone %}
+              <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20el%20pago%20del%20sticker%20levelONE,%20te%20paso%20mi%20CBU:%20{{ pending_cbu }}" target="_blank" class="btn btn-success btn-sm">
+                  <i class="bi bi-whatsapp"></i> Enviar CBU
+              </a>
+              {% endif %}
+          </p>
+          
+          <div class="d-flex gap-2 flex-wrap">
+            {% if pending.status == 'pending' %}
+            <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
+              <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Marcar Enviado / Solicitar Confirmación</button>
+            </form>
+            {% endif %}
+
+            {% if pending.status == 'sent' %}
+            <div class="w-100">
+              <div class="alert alert-info mb-2 py-2">⏳ Esperando confirmación de pago...</div>
+              {% if pending.step == 3 %}
+              <form method="POST" action="/resolver_confirmacion/{{ pending.id }}/confirm" class="d-inline mb-2">
+                <button type="submit" class="btn btn-success">
+                  <i class="bi bi-check-circle me-1"></i> ✅ Confirmar Recibido
+                </button>
+              </form>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            {% if pending.status == 'confirmed' %}
+            <form method="POST" action="/enviar_datos_email/{{ pending.id }}" class="d-inline">
+              <button type="submit" class="btn btn-primary"><i class="bi bi-envelope me-1"></i> Enviar Credenciales por Email</button>
+            </form>
+            {% endif %}
           </div>
-          {% if has_more_payments %}
-          <div class="p-2 text-center border-top bg-light">
-            <small class="text-muted fw-bold">🔍 Hay más pagos registrados. (Ver más...)</small>
-          </div>
-          {% endif %}
         </div>
       </div>
     </div>
