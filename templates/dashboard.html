@@ -111,7 +111,11 @@
                 </div>
               </div>
               <div class="col-md-4"><label class="form-label text-readable small fw-medium">Email</label><input type="email" name="email" class="form-control" required placeholder="email@ejemplo.com"></div>
-              <div class="col-12"><label class="form-label text-readable small fw-medium">CBU del Comprador (para registrar)</label><div class="input-group"><input type="text" name="cbu" class="form-control" required placeholder="CBU o Alias del comprador"><button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(this.parentElement.querySelector('input').value)"><i class="bi bi-clipboard"></i> Copiar</button></div></div>
+              <div class="col-12"><label class="form-label text-readable small fw-medium">🏦 Datos Bancarios del Comprador</label></div>
+              <div class="col-md-3"><input type="text" name="cbu" class="form-control" required placeholder="CBU/Alias"></div>
+              <div class="col-md-3"><input type="text" name="cbu_titular" class="form-control" required placeholder="Titular"></div>
+              <div class="col-md-3"><input type="text" name="cbu_dni" class="form-control" required placeholder="DNI/CUIT"></div>
+              <div class="col-md-3"><input type="text" name="cbu_entidad" class="form-control" required placeholder="Entidad"></div>
               <div class="col-12 text-end"><button type="submit" class="btn btn-primary px-4"><i class="bi bi-plus-circle me-2"></i>Generar Sticker</button></div>
             </div>
           </form>
@@ -256,7 +260,12 @@
                     </div>
                   </td>
                   <td>{{ item.sale.buyer_name }}</td>
-                  <td><code class="text-info">{{ item.sale.buyer_cbu }}</code></td>
+                  <td>
+                    <code class="text-info d-block">{{ item.sale.buyer_cbu }}</code>
+                    <small class="text-muted d-block">👤 {{ item.sale.buyer_cbu_titular or 'N/A' }}</small>
+                    <small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small>
+                    <small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small>
+                  </td>
                   <td>
                     {% if item.sale.status == 'entregado' %}<span class="badge bg-success">Completado</span>
                     {% elif item.sale.status == 'confirmed' %}<span class="badge bg-primary">Pagado</span>
@@ -282,11 +291,15 @@
 <script>
 function openWhatsApp() {
   let phone = document.getElementById('buyer_phone').value.replace(/\D/g, '');
-  let cbu = document.getElementById('seller_cbu').value;
-  if(phone.length >= 8) {
-    let msg = `Hola! Te paso mi CBU para el pago del sticker levelONE: ${cbu}. Por favor enviame el comprobante cuando lo realices.`;
+  let cbu = document.querySelector('input[name="cbu"]').value;
+  let titular = document.querySelector('input[name="cbu_titular"]').value;
+  let dni = document.querySelector('input[name="cbu_dni"]').value;
+  let entidad = document.querySelector('input[name="cbu_entidad"]').value;
+  
+  if(phone.length >= 8 && cbu && titular && dni && entidad) {
+    let msg = `Hola! Para el pago del sticker levelONE, te paso mis datos bancarios:\n\n🏦 Entidad: ${entidad}\n👤 Titular: ${titular}\n🆔 DNI/CUIT: ${dni}\n💳 CBU/Alias: ${cbu}\n\nPor favor enviame el comprobante cuando lo realices.`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-  } else { alert('⚠️ Ingresá un número de teléfono válido (ej: +54911...)'); }
+  } else { alert('⚠️ Completá todos los campos: CBU, Titular, DNI/CUIT y Entidad.'); }
 }
 function copiarCredenciales(sticker, pass) {
   let texto = `Sticker: ${sticker}\nPass: ${pass}`;
