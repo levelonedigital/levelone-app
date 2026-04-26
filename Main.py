@@ -331,7 +331,7 @@ def dashboard():
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
     # ✅ NUEVO: Historial global de transferencias confirmadas cuando actuó como Nivel 1
     cur.execute("""
-        SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.status
+        SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.status
         FROM stickers s
         JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
         WHERE cl.user_id = %s AND cl.level = 1 AND s.step = 2 AND s.status IN ('confirmed', 'entregado')
