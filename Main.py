@@ -345,7 +345,7 @@ def dashboard():
     l1_payments = cur.fetchall()
     
     conn.close()
-    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments)
+    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link)
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
@@ -477,6 +477,40 @@ def admin_cambiar_cbu():
         conn.rollback()
         flash(f"❌ Error al guardar: {str(e)}")
     finally: conn.close()
+    return redirect("/dashboard")
+
+# ✅ NUEVO: Admin - Guardar configuración Mercado Pago
+@app.route("/admin/mp_config", methods=["POST"])
+def admin_mp_config():
+    if "user_id" not in session:
+        return redirect("/ingresar")
+    conn = get_db()
+    cur = get_cur(conn)
+    try:
+        # Verificar que sea ADMIN001
+        cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
+        row = cur.fetchone()
+        if not row or row["sticker_id"] != "ADMIN001":
+            flash("⛔ Acceso denegado.")
+            conn.close()
+            return redirect("/dashboard")
+        
+        # Obtener datos del formulario
+        mp_enabled = request.form.get("mp_enabled") == "on"
+        mp_link = request.form.get("mp_link", "").strip()
+        
+        # Actualizar en BD
+        cur.execute("UPDATE users SET mp_enabled=%s, mp_payment_link=%s WHERE sticker_id='ADMIN001'", 
+                    (mp_enabled, mp_link))
+        conn.commit()
+        flash("✅ Configuración de Mercado Pago actualizada.")
+        
+    except Exception as e:
+        conn.rollback()
+        flash(f"❌ Error al guardar: {str(e)}")
+    finally:
+        conn.close()
+    
     return redirect("/dashboard")
 
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
