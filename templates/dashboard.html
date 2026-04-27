@@ -108,7 +108,7 @@
   {% endif %}
 
   <!-- ✅ NUEVO: Botón de Pago MP (Visible Nivel 5 hasta que la primera venta esté Entregada) -->
-  {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or my_sales[0]['sale']['status'] != 'entregado') %}
+  {% if mp_enabled and mp_link and user.current_level == 5 and my_sales|length == 0 %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card border-success bg-success bg-opacity-10">
