@@ -87,6 +87,37 @@
               </tbody>
             </table>
           </div>
+
+          <!-- ✅ NUEVO: Configuración Mercado Pago (Solo Admin) -->
+          <h6 class="fw-bold mt-4 mb-2 border-bottom pb-2">💳 Configuración Mercado Pago</h6>
+          <form method="POST" action="/admin/mp_config">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="mp_enabled" id="mpEnabled" {% if mp_enabled %}checked{% endif %}>
+              <label class="form-check-label" for="mpEnabled">Habilitar botón de pago con Mercado Pago</label>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Link de Pago Único</label>
+              <input type="text" name="mp_link" class="form-control" value="{{ mp_link }}" placeholder="https://mpago.la/xxxxx">
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">💾 Guardar Configuración MP</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ✅ NUEVO: Botón MP (Solo L5 hasta que 1era venta pase a 'entregado') -->
+  {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or (my_sales|last)['sale']['status'] != 'entregado') %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-success bg-success bg-opacity-10">
+        <div class="card-body text-center">
+          <h5 class="text-success mb-2">💳 Paga tu Sticker con Mercado Pago</h5>
+          <p class="mb-3 small text-muted">Pago seguro. Activación automática al confirmar.</p>
+          <a href="{{ mp_link }}" target="_blank" class="btn btn-success btn-lg px-4">
+            <i class="bi bi-credit-card-2-back me-2"></i> Ir a Pagar con Mercado Pago
+          </a>
         </div>
       </div>
     </div>
@@ -199,7 +230,7 @@
                   <td><code>{{ p['sticker_code'] }}</code></td>
                   <td>{{ p['buyer_name'] }}</td>
                   <td>
-                    <td><code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small></td>
+                    <code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small>
                   </td>
                   <td>
                     {% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>
