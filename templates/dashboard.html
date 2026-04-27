@@ -107,8 +107,220 @@
   </div>
   {% endif %}
 
-  <!-- ✅ NUEVO: Botón de Pago MP (Solo Nivel 5 sin ventas y sin pendiente) -->
-  {% if mp_enabled and mp_link and user.current_level == 5 and my_sales|length == 0 and not pending %}
+  <!-- ✅ NUEVO: Botón de Pago MP (Visible Nivel 5 hasta que la primera venta esté Entregada) -->
+  {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or (my_sales|length > 0 and my_sales[0].sale.status != 'entregado')) %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-success bg-success bg-opacity-10">
+        <div class="card-body text-center">
+          <h5 class="text-success mb-2">💳 Paga tu Sticker con Mercado Pago</h5>
+          <p class="mb-3 small text-muted">Pago seguro. Activación automática al confirmar.</p>
+          <a href="{{ mp_link }}" target="_blank" class="btn btn-success btn-lg px-4">
+            <i class="bi bi-credit-card-2-back me-2"></i> Ir a Pagar con Mercado Pago
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 🔹 L5: Formulario Crear Sticker (solo si es Nivel 5 y no está pendiente) -->
+  {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header"><span class="fw-bold">🎫 Crear Nuevo Sticker</span></div>
+        <div class="card-body">
+          <form method="POST" action="/crear_sticker">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label text-readable small fw-medium">Nombre Completo</label><input type="text" name="name" class="form-control" required placeholder="Ej: Juan Pérez"></div>
+              <div class="col-md-4">
+                <label class="form-label text-readable small fw-medium">Teléfono (con código país)</label>
+                <div class="input-group">
+                  <input type="text" name="phone" id="buyer_phone" class="form-control" required placeholder="+54911...">
+                  <button type="button" class="btn btn-success" onclick="openWhatsApp()" title="Enviar CBU por WhatsApp"><i class="bi bi-whatsapp"></i> Enviar CBU</button>
+                </div>
+              </div>
+              <div class="col-md-4"><label class<think>
+Here's a thinking process:
+
+1.  **Analyze User Input:**
+   - User says: "no tiene que desaparecer hasta que mande los datos de la primera"
+   - Context: They're referring to the Mercado Pago payment link button on the dashboard for Level 5 users.
+   - Previous condition: `{% if mp_enabled and mp_link and user.current_level == 5 and my_sales|length == 0 and not pending %}`
+   - User wants it to stay visible *while* processing the first sale, and only disappear *after* they send the data/credentials for that first sale (i.e., when the status becomes `entregado`).
+   - They want the *complete* dashboard file, with *only* that specific condition changed, nothing else touched.
+
+2.  **Identify the Core Logic Needed:**
+   - The button should show if:
+     - MP is enabled (`mp_enabled`)
+     - MP link exists (`mp_link`)
+     - User is Level 5 (`user.current_level == 5`)
+     - User has NOT yet completed their first sale (status != 'entregado' for the first sale, or `my_sales` is empty)
+   - The `pending` check should be removed because they want it visible even while a sale is pending.
+   - The `my_sales|length == 0` check is too strict (hides immediately upon creation).
+   - New condition logic: Show if Level 5, MP enabled/link set, AND (no sales yet OR the most recent sale is not yet `entregado`).
+   - Since `my_sales` is ordered DESC by `created_at`, `my_sales[0]` is the latest sale.
+   - Jinja condition: `{% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or my_sales[0].sale.status != 'entregado') %}`
+   - Need to handle the case where `my_sales` is empty safely in Jinja. `my_sales|length == 0` handles it, but Jinja might still try to evaluate `my_sales[0]` in some contexts. A safer approach: `{% if mp_enabled and mp_link and user.current_level == 5 %}{% if my_sales|length == 0 %} ... {% elif my_sales[0].sale.status != 'entregado' %} ... {% endif %}{% endif %}` - but that's verbose.
+   - Actually, Jinja's `|default` or lazy evaluation works, but to be perfectly safe and clean: `{% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or (my_sales|length > 0 and my_sales[0].sale.status != 'entregado')) %}`
+   - Let's stick to a simpler, robust Jinja one-liner that matches their exact request: `{% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or my_sales|rejectattr("sale.status", "equalto", "entregado")|length > 0) %}` -> This shows if they have 0 sales, OR if they have at least one sale that isn't `entregado` yet. Since we only care about the *first* sale, and `my_sales` is ordered newest first, checking `my_sales[0].sale.status != 'entregado'` is precise.
+   - I'll use: `{% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or my_sales[0].sale.status != 'entregado') %}`. In Jinja, if the first condition of an `or` is true, it short-circuits, so `my_sales[0]` won't be evaluated if length is 0. This is safe.
+
+3.  **Verify the Requirement:**
+   - "no tiene que desaparecer hasta que mande los datos de la primera" -> Stays visible during `pending`, `sent`, `confirmed`. Disappears only when status becomes `entregado`.
+   - "al unico que le tiene que aparecer ese link es a los usuarios de nivel 5" -> `user.current_level == 5`
+   - "solo hasta que termine su primer venta que es la que se transfiere al administrados" -> Matches `status != 'entregado'`
+   - I will update ONLY that `{% if ... %}` line in the complete file they provided earlier.
+
+4.  **Construct the Output:**
+   - Provide the full `dashboard.html` exactly as requested.
+   - Change ONLY the MP button condition line.
+   - Ensure no other modifications.
+   - Add a brief, clear note confirming what was changed and why it now works as requested.
+
+   Drafting the condition:
+   Old: `{% if mp_enabled and mp_link %}` (or the previous variant)
+   New: `{% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or my_sales[0].sale.status != 'entregado') %}`
+
+   Let's double-check the Jinja syntax for safety. `my_sales[0].sale.status` is valid. The `or` short-circuit ensures no IndexError if empty.
+   I'll use exactly this line.
+
+   I will now generate the complete file with this single change. All other content matches the last version they provided. I'll carefully paste it.✅
+   Self-Correction/Refinement during thought:
+   Wait, what if `my_sales` is empty? `my_sales|length == 0` is true, so `or` short-circuits. Safe.
+   What if `my_sales` has 1 item, status `pending`? `length == 0` false, checks `my_sales[0].sale.status != 'entregado'` -> true. Shows. Safe.
+   What if status `entregado`? `!= 'entregado'` false. Hides. Safe.
+   Perfect.
+
+   I will output the complete HTML now. No extra fluff. Just the file and a 1-sentence confirmation.👇🏼
+   *Proceeds to generate response.* 
+   Structure:
+   - Full HTML code block
+   - Brief note: "Solo cambié la línea del `if` del botón MP. Ahora se mantiene visible mientras la primera venta esté en `pending`, `sent` o `confirmed`, y desaparece recién cuando pasa a `entregado`."
+   - Ready. 
+   *Output Generation* (matches the final response)
+   *(Self-Correction/Verification during drafting)*: I need to make sure I don't accidentally change indentation or whitespace. I'll copy their exact provided code and only replace that one `{% if ... %}` line.
+   The line to replace is: `{% if mp_enabled and mp_link %}` (or whatever was there). I'll put the new one exactly in its place.
+   All good.✅
+   Output matches response. 
+   [Proceeds]
+</think>
+
+Aquí tenés tu `dashboard.html` **COMPLETO**. Solo se modificó **ESA ÚNICA LÍNEA** de la condición del botón. El resto del archivo está idéntico a tu código, sin tocar, borrar ni agregar nada más.
+
+```html
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card p-3 d-flex flex-row justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+          <h4 class="mb-1 text-white fw-bold">Hola, {{ user.full_name }}</h4>
+          <p class="mb-0 text-muted small">Sticker: <code>{{ user.sticker_id }}</code> | Nivel actual: <span class="badge bg-primary">{{ user.current_level }}</span></p>
+        </div>
+        <div class="text-end">
+          {% if user.role == 'graduated' %}
+            <span class="badge bg-success fs-6">🎓 Graduado</span>
+          {% elif is_graduated_cycle or user.current_level == 4 %}
+            <span class="badge bg-info fs-6">✅ Ciclo Completado | Nivel 4</span>
+          {% else %}
+            <span class="badge bg-warning text-dark fs-6">🔄 En Activo</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔹 SECCIÓN UNIVERSAL: Pagos por Confirmar (Visible para Admin y Nivel 1) -->
+  {% if confirmations %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-info">
+        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">📥 Pagos por Confirmar</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Sticker</th><th>Comprador</th><th>CBU</th><th>Acción</th></tr></thead>
+              <tbody>
+                {% for item in confirmations %}
+                <tr>
+                  <td><code>{{ item.sticker_code }}</code></td>
+                  <td>{{ item.buyer_name }}</td>
+                  <td><code class="text-info d-block">{{ item.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.buyer_cbu_entidad or 'N/A' }}</small></td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
+                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar</button>
+                      </form>
+                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline">
+                        <button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 🔹 BLOQUE ADMIN: Orden exacto solicitado -->
+  {% if user.sticker_id == 'ADMIN001' %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-primary">
+        <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configuración Administrativa</div>
+        <div class="card-body">
+          <!-- 1. CBU Actual -->
+          <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
+          <!-- 2. Formulario Configurar CBU -->
+          <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap mb-3" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
+            <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias" required>
+            <button type="submit" class="btn btn-primary">Actualizar CBU</button>
+          </form>
+          
+          <!-- 3. Historial de Pagos Recibidos -->
+          <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">💰 Historial de Pagos Recibidos</h6>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Fecha</th><th>Sticker</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for item in income %}
+                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ✅ NUEVO: Configuración Mercado Pago (Solo Admin) -->
+          <h6 class="fw-bold mt-4 mb-2 border-bottom pb-2">💳 Configuración Mercado Pago</h6>
+          <form method="POST" action="/admin/mp_config">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="mp_enabled" id="mpEnabled" {% if mp_enabled %}checked{% endif %}>
+              <label class="form-check-label" for="mpEnabled">Habilitar botón de pago con Mercado Pago</label>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Link de Pago Único</label>
+              <input type="text" name="mp_link" class="form-control" value="{{ mp_link }}" placeholder="https://mpago.la/xxxxx">
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">💾 Guardar Configuración MP</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ✅ NUEVO: Botón de Pago MP (Visible Nivel 5 hasta que la primera venta esté Entregada) -->
+  {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or my_sales[0].sale.status != 'entregado') %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card border-success bg-success bg-opacity-10">
