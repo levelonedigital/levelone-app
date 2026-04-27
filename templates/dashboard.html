@@ -107,8 +107,8 @@
   </div>
   {% endif %}
 
-  <!-- ✅ NUEVO: Botón de Pago MP (Visible para todos si está habilitado) -->
-  {% if mp_enabled and mp_link %}
+  <!-- ✅ NUEVO: Botón de Pago MP (Solo Nivel 5 sin ventas y sin pendiente) -->
+  {% if mp_enabled and mp_link and user.current_level == 5 and my_sales|length == 0 and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card border-success bg-success bg-opacity-10">
