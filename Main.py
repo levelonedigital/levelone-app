@@ -263,14 +263,14 @@ def dashboard():
 
     confirmations = []
     if sticker == 'ADMIN001':
-    cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
-    confirmations = cur.fetchall()
+        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
+        confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-    cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status 
-                  FROM stickers s
-                  JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
-                  WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
-    confirmations = cur.fetchall()
+        cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status 
+                      FROM stickers s
+                      JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
+                      WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
+        confirmations = cur.fetchall()
 
     participants = []
     if level != 5 and sticker != "ADMIN001" and role != "graduated":
