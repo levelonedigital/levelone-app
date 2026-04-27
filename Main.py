@@ -62,6 +62,9 @@ def init_db():
                      ('ADMIN001', 'Administrador', 'admin@levelone.com', '+5491100000000', 'admin.levelone.mp',
                       generate_password_hash("Admin2026!", method='pbkdf2:sha256'), 1, True, 'level1', datetime.now()))
 
+    # ✅ ELIMINADO: Se borró el bloque que creaba los usuarios DEMO-Lx-01.
+    # La red completa se gestiona exclusivamente desde el script reset_db_red_completa.py.
+            
     conn.commit()
     print("✅ DB inicializada (Tablas + Admin listos).", flush=True)
     conn.close()
@@ -326,13 +329,6 @@ def dashboard():
     
     cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
-    
-    # ✅ NUEVO: Config MP
-    cur.execute("SELECT mp_enabled, mp_payment_link FROM users WHERE sticker_id='ADMIN001'")
-    mp_cfg = cur.fetchone()
-    mp_enabled = mp_cfg["mp_enabled"] if mp_cfg else False
-    mp_link = mp_cfg["mp_payment_link"] if mp_cfg else ""
-    
     # ✅ NUEVO: Historial global de transferencias confirmadas cuando actuó como Nivel 1
     cur.execute("""
         SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.status
@@ -344,7 +340,7 @@ def dashboard():
     l1_payments = cur.fetchall()
     
     conn.close()
-    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link)
+    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments)
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
@@ -475,25 +471,6 @@ def admin_cambiar_cbu():
     except Exception as e:
         conn.rollback()
         flash(f"❌ Error al guardar: {str(e)}")
-    finally: conn.close()
-    return redirect("/dashboard")
-
-# ✅ NUEVO: Guardar config MP
-@app.route("/admin/mp_config", methods=["POST"])
-def admin_mp_config():
-    if "user_id" not in session: return redirect("/ingresar")
-    conn = get_db(); cur = get_cur(conn)
-    try:
-        cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
-        row = cur.fetchone()
-        if not row or row["sticker_id"] != "ADMIN001": return redirect("/dashboard")
-        enabled = request.form.get("mp_enabled") == "on"
-        link = request.form.get("mp_link", "").strip()
-        cur.execute("UPDATE users SET mp_enabled=%s, mp_payment_link=%s WHERE sticker_id='ADMIN001'", (enabled, link))
-        conn.commit()
-        flash("✅ Configuración MP actualizada.")
-    except Exception as e:
-        conn.rollback(); flash(f"❌ Error: {str(e)}")
     finally: conn.close()
     return redirect("/dashboard")
 
