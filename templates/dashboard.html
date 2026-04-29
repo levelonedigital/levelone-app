@@ -205,6 +205,37 @@
   </div>
   {% endif %}
 
+  <!-- 📂 NUEVO: Botón y tabla desplegable para ciclos secundarios -->
+  {% if secondary_cycles %}
+  <div class="text-center my-3">
+      <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#ciclosSecundarios" aria-expanded="false" aria-controls="ciclosSecundarios">
+          📂 Ver otros ciclos activos en tu red ({{ secondary_cycles|length }})
+      </button>
+  </div>
+  <div class="collapse" id="ciclosSecundarios">
+      <div class="card card-body bg-light mb-3">
+          <h6 class="fw-bold text-muted">🌐 Ciclos donde participás como Nivel inferior</h6>
+          <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle mb-0">
+                  <thead class="table-secondary">
+                      <tr><th>ID Ciclo</th><th>Tu Nivel</th><th>Estado</th><th>Graduado</th></tr>
+                  </thead>
+                  <tbody>
+                  {% for sc in secondary_cycles %}
+                      <tr>
+                          <td><strong>#{{ sc.id }}</strong></td>
+                          <td><span class="badge bg-primary">Nivel {{ sc.level }}</span></td>
+                          <td><span class="badge bg-info text-dark">{{ sc.status|capitalize }}</span></td>
+                          <td>{{ '✅ Sí' if sc.is_graduated else '⏳ No' }}</td>
+                      </tr>
+                  {% endfor %}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+  </div>
+  {% endif %}
+
   <!-- 💰 Historial de Transferencias Confirmadas (Nivel 1) -->
   {% if l1_payments %}
   <div class="row mb-4">
