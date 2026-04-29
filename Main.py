@@ -219,7 +219,7 @@ def dashboard():
     cur.execute("""
         SELECT c.* FROM cycles c
         JOIN cycle_levels cl ON c.id = cl.cycle_id
-        WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5 AND c.status = 'active'
+        WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5
         ORDER BY c.id DESC
     """, (uid, uid))
     active_cycle = cur.fetchone()
