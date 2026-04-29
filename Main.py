@@ -342,7 +342,7 @@ def dashboard():
     # 🔍 NUEVO: Ciclos donde el usuario NO es Nivel 5 (para botón secundario)
     secondary_cycles = []
     cur.execute("""
-        SELECT c.id, c.status, cl.level, c.created_at, cl.is_graduated
+        SELECT c.id, c.status, cl.level, cl.is_graduated
         FROM cycles c
         JOIN cycle_levels cl ON c.id = cl.cycle_id
         WHERE cl.user_id = %s AND cl.level != 5 AND c.status = 'active'
