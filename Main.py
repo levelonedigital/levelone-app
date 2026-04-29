@@ -215,27 +215,24 @@ def dashboard():
     sticker = u.get("sticker_id", "")
     level = u.get("current_level", 5)
 
-        # 🔍 NUEVO: Buscar EXCLUSIVAMENTE el ciclo activo donde el usuario es Nivel 5 (creador)
+    # 🔍 Buscar ciclo L5 con <3 ventas entregadas (para permitir seguir vendiendo)
     cur.execute("""
-        SELECT c.* FROM cycles c
+        SELECT c.*, COUNT(s.id) as ventas_entregado
+        FROM cycles c
         JOIN cycle_levels cl ON c.id = cl.cycle_id
+        LEFT JOIN stickers s ON c.id = s.cycle_id AND s.status = 'entregado'
         WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5
+        GROUP BY c.id, cl.user_id, cl.level
+        HAVING COUNT(s.id) < 3
         ORDER BY c.id DESC
     """, (uid, uid))
     active_cycle = cur.fetchone()
 
-    # Si no tiene ciclo L5 activo, mostrar el más reciente donde participa
+    # Si no tiene ciclo L5 con <3 ventas, permitir crear uno nuevo (cycle_id = None)
     if not active_cycle:
-        cur.execute("""
-            SELECT c.* FROM cycles c
-            JOIN cycle_levels cl ON c.id = cl.cycle_id
-            WHERE cl.user_id = %s AND c.status = 'active'
-            ORDER BY c.id DESC LIMIT 1
-        """, (uid,))
-        active_cycle = cur.fetchone()
-
-    cycles = [active_cycle] if active_cycle else []
-    cycle_id = active_cycle["id"] if active_cycle else None
+        cycle_id = None
+    else:
+        cycle_id = active_cycle["id"]
         
     cycle_level = level
     is_graduated_cycle = False
@@ -334,8 +331,8 @@ def dashboard():
             income_history = [dict(r) for r in cur.fetchall()]
 
     try:
-        active_cycles_display = [c for c in cycles if not (c["completed_at"] and (datetime.now() - datetime.strptime(c["completed_at"], "%Y-%m-%d %H:%M:%S")).days > 30)]
-    except: active_cycles_display = cycles
+        active_cycles_display = [c for c in [active_cycle] if active_cycle and not (c["completed_at"] and (datetime.now() - datetime.strptime(c["completed_at"], "%Y-%m-%d %H:%M:%S")).days > 30)]
+    except: active_cycles_display = [active_cycle] if active_cycle else []
     
     cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
