@@ -108,7 +108,7 @@
   {% endif %}
   
   <!-- 🔹 L5: Formulario Crear Sticker (solo si es Nivel 5 y no está pendiente) -->
-  {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
+  {% if user.current_level == 5 and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
