@@ -215,16 +215,27 @@ def dashboard():
     sticker = u.get("sticker_id", "")
     level = u.get("current_level", 5)
 
-    cur.execute("SELECT * FROM cycles WHERE l5_user_id=%s OR id IN (SELECT cycle_id FROM cycle_levels WHERE user_id=%s)", (uid, uid))
-    cycles = cur.fetchall()
-        
-    cycle_id = request.args.get("cycle_id", type=int)
-    if not cycle_id and cycles: cycle_id = cycles[-1]["id"]
-    
-    active_cycle = None
-    if cycle_id:
-        cur.execute("SELECT * FROM cycles WHERE id=%s", (cycle_id,))
+        # 🔍 NUEVO: Buscar EXCLUSIVAMENTE el ciclo activo donde el usuario es Nivel 5 (creador)
+    cur.execute("""
+        SELECT c.* FROM cycles c
+        JOIN cycle_levels cl ON c.id = cl.cycle_id
+        WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5 AND c.status = 'active'
+        ORDER BY c.id DESC
+    """, (uid, uid))
+    active_cycle = cur.fetchone()
+
+    # Si no tiene ciclo L5 activo, mostrar el más reciente donde participa
+    if not active_cycle:
+        cur.execute("""
+            SELECT c.* FROM cycles c
+            JOIN cycle_levels cl ON c.id = cl.cycle_id
+            WHERE cl.user_id = %s AND c.status = 'active'
+            ORDER BY c.id DESC LIMIT 1
+        """, (uid,))
         active_cycle = cur.fetchone()
+
+    cycles = [active_cycle] if active_cycle else []
+    cycle_id = active_cycle["id"] if active_cycle else None
         
     cycle_level = level
     is_graduated_cycle = False
@@ -238,8 +249,8 @@ def dashboard():
     u["current_level"] = cycle_level
 
     pending = None
-    if active_cycle:
-        cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, active_cycle["id"]))
+    if cycle_id:
+        cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent', 'confirmed') ORDER BY created_at DESC LIMIT 1", (uid, cycle_id))
         pending_row = cur.fetchone()
         pending = dict(pending_row) if pending_row else None
 
@@ -304,8 +315,10 @@ def dashboard():
 
     my_sales_history = []
     income_history = []
-    cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
-    my_sales_history = [dict(s) for s in cur.fetchall()]
+    # 🔍 NUEVO: Filtrar historial SOLO al ciclo L5 principal
+    if cycle_id:
+        cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s AND cycle_id=%s ORDER BY created_at DESC", (uid, cycle_id))
+        my_sales_history = [dict(s) for s in cur.fetchall()]
     if sticker == "ADMIN001":
         cur.execute("SELECT * FROM stickers WHERE step=1 AND status IN ('confirmed', 'entregado') ORDER BY created_at DESC")
         income_history = [dict(r) for r in cur.fetchall()]
@@ -326,6 +339,16 @@ def dashboard():
     
     cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
+    # 🔍 NUEVO: Ciclos donde el usuario NO es Nivel 5 (para botón secundario)
+    secondary_cycles = []
+    cur.execute("""
+        SELECT c.id, c.status, cl.level, c.created_at, cl.is_graduated
+        FROM cycles c
+        JOIN cycle_levels cl ON c.id = cl.cycle_id
+        WHERE cl.user_id = %s AND cl.level != 5 AND c.status = 'active'
+        ORDER BY c.id DESC
+    """, (uid,))
+    secondary_cycles = cur.fetchall()
     
     # ✅ NUEVO: Config MP
     cur.execute("SELECT mp_enabled, mp_payment_link FROM users WHERE sticker_id='ADMIN001'")
@@ -344,7 +367,7 @@ def dashboard():
     l1_payments = cur.fetchall()
     
     conn.close()
-    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link)
+    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link, secondary_cycles=secondary_cycles)
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
