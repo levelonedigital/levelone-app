@@ -106,24 +106,7 @@
     </div>
   </div>
   {% endif %}
-
-  <!-- ✅ NUEVO: Botón MP (Solo L5 hasta que 1era venta pase a 'entregado') -->
-  {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or (my_sales|last)['sale']['status'] != 'entregado') %}
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card border-success bg-success bg-opacity-10">
-        <div class="card-body text-center">
-          <h5 class="text-success mb-2">💳 Paga tu Sticker con Mercado Pago</h5>
-          <p class="mb-3 small text-muted">Pago seguro. Activación automática al confirmar.</p>
-          <a href="{{ mp_link }}" target="_blank" class="btn btn-success btn-lg px-4">
-            <i class="bi bi-credit-card-2-back me-2"></i> Ir a Pagar con Mercado Pago
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
+  
   <!-- 🔹 L5: Formulario Crear Sticker (solo si es Nivel 5 y no está pendiente) -->
   {% if user.current_level == 5 and user.role != 'graduated' and not pending %}
   <div class="row mb-4">
@@ -180,6 +163,15 @@
               </a>
               {% endif %}
           </p>
+          {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or (my_sales|last)['sale']['status'] != 'entregado') %}
+          {% if pending_phone %}
+          <div class="mb-3">
+              <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20pagar%20tu%20sticker%20levelONE,%20te%20paso%20el%20link%20seguro%20de%20Mercado%20Pago:%20{{ mp_link }}" target="_blank" class="btn btn-outline-success btn-sm w-100">
+                  <i class="bi bi-credit-card me-1"></i> Compartir Link de Pago MP
+              </a>
+          </div>
+          {% endif %}
+          {% endif %}
           
           <div class="d-flex gap-2 flex-wrap">
             {% if pending.status == 'pending' %}
