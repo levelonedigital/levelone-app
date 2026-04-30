@@ -21,7 +21,6 @@
     </div>
   </div>
 
-  <!-- 🔹 SECCIÓN UNIVERSAL: Pagos por Confirmar (Visible para Admin y Nivel 1) -->
   {% if confirmations %}
   <div class="row mb-3">
     <div class="col-12">
@@ -58,22 +57,17 @@
   </div>
   {% endif %}
 
-  <!-- 🔹 BLOQUE ADMIN: Orden exacto solicitado -->
   {% if user.sticker_id == 'ADMIN001' %}
   <div class="row mb-3">
     <div class="col-12">
       <div class="card border-primary">
         <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configuración Administrativa</div>
         <div class="card-body">
-          <!-- 1. CBU Actual -->
           <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
-          <!-- 2. Formulario Configurar CBU -->
           <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap mb-3" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
             <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias" required>
             <button type="submit" class="btn btn-primary">Actualizar CBU</button>
           </form>
-          
-          <!-- 3. Historial de Pagos Recibidos -->
           <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">💰 Historial de Pagos Recibidos</h6>
           <div class="table-responsive">
             <table class="table table-sm mb-0">
@@ -87,8 +81,6 @@
               </tbody>
             </table>
           </div>
-
-          <!-- ✅ Configuración Mercado Pago (Solo Admin) -->
           <h6 class="fw-bold mt-4 mb-2 border-bottom pb-2">💳 Configuración Mercado Pago</h6>
           <form method="POST" action="/admin/mp_config">
             <div class="form-check mb-2">
@@ -107,7 +99,7 @@
   </div>
   {% endif %}
   
-  <!-- 🔹 L5: Formulario Crear Sticker (solo si es Nivel 5 y no está pendiente) -->
+  <!-- FORMULARIO CREAR STICKER: Solo si es Nivel 5 en su ciclo principal y no hay pendiente -->
   {% if user.current_level == 5 and not pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -138,7 +130,6 @@
     </div>
   </div>
   {% elif user.current_level == 4 or is_graduated_cycle %}
-  <!-- 🔹 Post-3 ventas: Alerta de éxito + Estado de Red visible -->
   <div class="row mb-3">
     <div class="col-12">
       <div class="alert alert-success fw-bold text-center">🎓 ¡Ciclo completado! Subiste de nivel.</div>
@@ -154,7 +145,6 @@
         <div class="card-body">
           <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
           <p class="mb-2 text-readable">Teléfono: <strong class="text-white">{{ pending_phone }}</strong></p>
-          
           <p class="mb-3 text-readable d-flex align-items-center flex-wrap gap-2">
               CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code>
               {% if pending_phone %}
@@ -172,27 +162,22 @@
           </div>
           {% endif %}
           {% endif %}
-          
           <div class="d-flex gap-2 flex-wrap">
             {% if pending.status == 'pending' %}
             <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
               <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Marcar Enviado / Solicitar Confirmación</button>
             </form>
             {% endif %}
-
             {% if pending.status == 'sent' %}
             <div class="w-100">
               <div class="alert alert-info mb-2 py-2">⏳ Esperando confirmación de pago...</div>
               {% if pending.step == 3 %}
               <form method="POST" action="/resolver_confirmacion/{{ pending.id }}/confirm" class="d-inline mb-2">
-                <button type="submit" class="btn btn-success">
-                  <i class="bi bi-check-circle me-1"></i> ✅ Confirmar Recibido
-                </button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> ✅ Confirmar Recibido</button>
               </form>
               {% endif %}
             </div>
             {% endif %}
-
             {% if pending.status == 'confirmed' %}
             <form method="POST" action="/enviar_datos_email/{{ pending.id }}" class="d-inline">
               <button type="submit" class="btn btn-primary"><i class="bi bi-envelope me-1"></i> Enviar Credenciales por Email</button>
@@ -205,7 +190,6 @@
   </div>
   {% endif %}
 
-  <!-- 💰 Historial de Transferencias Confirmadas (Nivel 1) -->
   {% if l1_payments %}
   <div class="row mb-4">
     <div class="col-12">
@@ -221,51 +205,33 @@
                   <td>{{ p['created_at'].strftime('%d/%m/%Y %H:%M') }}</td>
                   <td><code>{{ p['sticker_code'] }}</code></td>
                   <td>{{ p['buyer_name'] }}</td>
-                  <td>
-                    <code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small>
-                  </td>
-                  <td>
-                    {% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>
-                    {% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}
-                  </td>
+                  <td><code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small></td>
+                  <td>{% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>{% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}</td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          <div class="p-2 text-center border-top bg-light">
-            <small class="text-muted fw-bold">📊 Últimas 20 confirmaciones registradas</small>
-          </div>
+          <div class="p-2 text-center border-top bg-light"><small class="text-muted fw-bold">📊 Últimas 20 confirmaciones registradas</small></div>
         </div>
       </div>
     </div>
   </div>
   {% elif user.current_level != 5 and user.role != "graduated" and user.sticker_id != "ADMIN001" %}
-  <!-- Mostrar mensaje cuando no hay confirmaciones pendientes pero el usuario podría tenerlas -->
   <div class="row mb-4">
     <div class="col-12">
       <div class="card border-secondary">
         <div class="card-header bg-secondary bg-opacity-10 text-secondary fw-bold">📥 Pagos por Confirmar</div>
-        <div class="card-body text-center text-muted py-4">
-          <p class="mb-0">✅ No hay pagos pendientes por confirmar en este momento.</p>
-        </div>
+        <div class="card-body text-center text-muted py-4"><p class="mb-0">✅ No hay pagos pendientes por confirmar en este momento.</p></div>
       </div>
     </div>
   </div>
   {% endif %}
   
-  <!-- 🔹 Estado de tu Red (Visible cuando sube de nivel o ya está en red) -->
   {% if (user.current_level != 5 or is_graduated_cycle) and user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
   <div class="row mb-4">
     <div class="col-12">
-      <div class="card"><div class="card-header fw-bold">👥 Estado de tu Red</div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td><code>{{ p.sticker_id }}</code></td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-primary">{{ p.level }}</span></td><td>
-        <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1">
-          <i class="bi bi-whatsapp"></i> WhatsApp
-        </a>
-        <a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm">
-          <i class="bi bi-telephone"></i> Llamar
-        </a>
-      </td></tr>{% endfor %}</tbody></table></div></div></div>
+      <div class="card"><div class="card-header fw-bold">👥 Estado de tu Red</div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td><code>{{ p.sticker_id }}</code></td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-primary">{{ p.level }}</span></td><td><a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1"><i class="bi bi-whatsapp"></i> WhatsApp</a><a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm"><i class="bi bi-telephone"></i> Llamar</a></td></tr>{% endfor %}</tbody></table></div></div></div>
     </div>
   </div>
   {% endif %}
@@ -287,29 +253,16 @@
                       <div class="d-flex align-items-center gap-2">
                         <code class="bg-dark px-2 py-1 rounded text-warning">{{ item.sale.sticker_code }}</code>
                         <code class="bg-dark px-2 py-1 rounded text-info">{{ item.sale.temp_pass }}</code>
-                        <button type="button" class="btn btn-sm btn-outline-light border-0" onclick="copiarCredenciales('{{ item.sale.sticker_code }}', '{{ item.sale.temp_pass }}')" title="Copiar Sticker y Pass"><i class="bi bi-clipboard"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-light border-0" onclick="copiarCredenciales('{{ item.sale.sticker_code }}', '{{ item.sale.temp_pass }}')" title="Copiar"><i class="bi bi-clipboard"></i></button>
                       </div>
                       {% if item.sale.buyer_phone %}
-                      <a href="https://wa.me/{{ item.sale.buyer_phone.replace('+','').replace(' ','') }}?text=Hola!%20Tu%20acceso%20a%20levelONE:%0ASticker:%20{{ item.sale.sticker_code }}%0APass:%20{{ item.sale.temp_pass }}" target="_blank" class="btn btn-success btn-sm">
-                        <i class="bi bi-whatsapp"></i> Compartir por WhatsApp
-                      </a>
+                      <a href="https://wa.me/{{ item.sale.buyer_phone.replace('+','').replace(' ','') }}?text=Hola!%20Tu%20acceso%20a%20levelONE:%0ASticker:%20{{ item.sale.sticker_code }}%0APass:%20{{ item.sale.temp_pass }}" target="_blank" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i> Compartir por WhatsApp</a>
                       {% endif %}
                     </div>
                   </td>
                   <td>{{ item.sale.buyer_name }}</td>
-                  <td>
-                    <code class="text-info d-block">{{ item.sale.buyer_cbu }}</code>
-                    <small class="text-muted d-block">👤 {{ item.sale.buyer_cbu_titular or 'N/A' }}</small>
-                    <small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small>
-                    <small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small>
-                  </td>
-                  <td>
-                    {% if item.sale.status == 'entregado' %}<span class="badge bg-success">Completado</span>
-                    {% elif item.sale.status == 'confirmed' %}<span class="badge bg-primary">Pagado</span>
-                    {% elif item.sale.status == 'sent' %}<span class="badge bg-info">Enviado / Pendiente Confirm.</span>
-                    {% else %}<span class="badge bg-secondary">Borrador</span>
-                    {% endif %}
-                  </td>
+                  <td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td>
+                  <td>{% if item.sale.status == 'entregado' %}<span class="badge bg-success">Completado</span>{% elif item.sale.status == 'confirmed' %}<span class="badge bg-primary">Pagado</span>{% elif item.sale.status == 'sent' %}<span class="badge bg-info">Enviado / Pendiente Confirm.</span>{% else %}<span class="badge bg-secondary">Borrador</span>{% endif %}</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="5" class="text-center text-muted py-3">Aún no registraste ventas.</td></tr>
@@ -332,15 +285,13 @@ function openWhatsApp() {
   let titular = document.querySelector('input[name="cbu_titular"]').value;
   let dni = document.querySelector('input[name="cbu_dni"]').value;
   let entidad = document.querySelector('input[name="cbu_entidad"]').value;
-  
   if(phone.length >= 8 && cbu && titular && dni && entidad) {
     let msg = `Hola! Para el pago del sticker levelONE, te paso mis datos bancarios:\n\n🏦 Entidad: ${entidad}\n👤 Titular: ${titular}\n🆔 DNI/CUIT: ${dni}\n💳 CBU/Alias: ${cbu}\n\nPor favor enviame el comprobante cuando lo realices.`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-  } else { alert('⚠️ Completá todos los campos: CBU, Titular, DNI/CUIT y Entidad.'); }
+  } else { alert('⚠️ Completá todos los campos.'); }
 }
 function copiarCredenciales(sticker, pass) {
-  let texto = `Sticker: ${sticker}\nPass: ${pass}`;
-  navigator.clipboard.writeText(texto).then(() => { alert('✅ Sticker y contraseña copiados al portapapeles'); }).catch(() => { alert('❌ Error al copiar. Intentá manualmente.'); });
+  navigator.clipboard.writeText(`Sticker: ${sticker}\nPass: ${pass}`).then(() => alert('✅ Copiado')).catch(() => alert('❌ Error al copiar.'));
 }
 </script>
 {% endblock %}
