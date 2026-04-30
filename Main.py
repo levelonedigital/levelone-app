@@ -247,7 +247,7 @@ def dashboard():
     cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
     
-    cur.execute("SELECT mp_enabled, mp_payment_link FROM users WHERE sticker_id='ADMIN001')
+    cur.execute("SELECT mp_enabled, mp_payment_link FROM users WHERE sticker_id='ADMIN001'")
     mp_cfg = cur.fetchone()
     mp_enabled = mp_cfg["mp_enabled"] if mp_cfg else False
     mp_link = mp_cfg["mp_payment_link"] if mp_cfg else ""
