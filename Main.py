@@ -383,10 +383,15 @@ def crear_sticker():
             up = cur.fetchone()
             if not up: break
             parent_id = up["parent_id"]
+            
+            # 🔍 NUEVO: Registrar en cycle_levels SIEMPRE, incluso si es ADMIN001
+            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
+            
+            # Solo actualizar current_level global si NO es ADMIN001
             cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
             p_data = cur.fetchone()
-            if p_data and p_data["sticker_id"] == "ADMIN001": break
-            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
+            if p_data and p_data["sticker_id"] == "ADMIN001": 
+                break  # ADMIN ya registrado en cycle_levels, no tocar su current_level global
             cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
             current_parent = parent_id
 
