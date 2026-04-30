@@ -148,6 +148,11 @@ def dashboard():
     
     u = dict(row_u); uid = u.get("id"); role = u.get("role", "seller"); sticker = u.get("sticker_id", ""); level = u.get("current_level", 5)
 
+    # 🔍 CALCULAR SI YA VENDIÓ 3 STICKERS (para ocultar el botón)
+    cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (uid,))
+    cnt = cur.fetchone()["cnt"]
+    u["can_sell"] = (cnt < 3)  # Solo podrá ver el formulario si tiene menos de 3 ventas entregadas
+
     # 🔍 BUSCAR SOLO EL CICLO DONDE EL USUARIO ES NIVEL 5 (SU CICLO PRINCIPAL)
     cur.execute("""
         SELECT c.* FROM cycles c
