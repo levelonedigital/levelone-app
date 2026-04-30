@@ -177,6 +177,7 @@ def dashboard():
     if pending:
         step = pending["step"]
         cid = pending["cycle_id"] or (active_cycle["id"] if active_cycle else None)
+        # Usar step (1,2,3) para determinar CBU
         if step == 1:
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
         elif step == 2:
@@ -267,8 +268,7 @@ def crear_sticker():
         cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
         row_u = cur.fetchone()
         
-        # 🔍 VALIDACIÓN POR CICLO ESPECÍFICO (NO POR current_level GLOBAL)
-        # Busca si tiene AL MENOS UN ciclo activo donde es Nivel 5 y tiene <3 ventas entregadas
+        # VALIDACIÓN POR CICLO ESPECÍFICO: ¿Tiene algún ciclo L5 activo con <3 ventas?
         cur.execute("""
             SELECT c.id FROM cycles c
             JOIN cycle_levels cl ON c.id = cl.cycle_id
@@ -280,7 +280,6 @@ def crear_sticker():
         """, (row_u["id"], row_u["id"]))
         puede_vender = cur.fetchone()
         
-        # Bloquea SOLO si no encontró ningún ciclo L5 activo con <3 ventas
         if not row_u or not puede_vender:
             flash("Solo Nivel 5 puede crear stickers.")
             conn.close()
@@ -323,10 +322,8 @@ def crear_sticker():
             conn.close()
             return redirect(url_for("dashboard", cycle_id=cycle_id))
             
-        # Calcular step basado en ventas entregadas (lógica original)
-        cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],))
-        completed = cur.fetchone()["cnt"]
-        step = completed + 1
+        # ✅ FIX: Cada sticker nuevo en un ciclo nuevo SIEMPRE empieza en step=1
+        step = 1
 
         code = "STK-"+str(uuid.uuid4())[:6].upper(); temp_pass = "Temp-"+str(uuid.uuid4())[:8]
         cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) 
@@ -410,7 +407,7 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # Cierre específico POR CICLO
+            # Cierre específico POR CICLO: contar ventas ENTREGADAS solo en este ciclo
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE cycle_id=%s AND seller_id=%s AND status='entregado'", (cid, sid))
             entregados = cur.fetchone()["cnt"]
             
