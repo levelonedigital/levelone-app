@@ -100,7 +100,7 @@
   {% endif %}
   
   <!-- FORMULARIO CREAR STICKER: Solo si es Nivel 5 en su ciclo principal y no hay pendiente -->
-  {% if user.current_level == 5 and not pending %}
+  {% if user.current_level == 5 and user.can_sell and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
