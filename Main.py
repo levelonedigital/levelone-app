@@ -148,17 +148,16 @@ def dashboard():
     
     u = dict(row_u); uid = u.get("id"); role = u.get("role", "seller"); sticker = u.get("sticker_id", ""); level = u.get("current_level", 5)
 
-    # Buscar EXCLUSIVAMENTE el ciclo donde el usuario es Nivel 5
+    # 🔍 BUSCAR SOLO EL CICLO DONDE EL USUARIO ES NIVEL 5 (SU CICLO PRINCIPAL)
     cur.execute("""
         SELECT c.* FROM cycles c
         JOIN cycle_levels cl ON c.id = cl.cycle_id
         WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5
-        ORDER BY c.id DESC
+        ORDER BY c.id DESC LIMIT 1
     """, (uid, uid))
     active_cycle = cur.fetchone()
     
-    cycle_id = request.args.get("cycle_id", type=int)
-    if not cycle_id and active_cycle: cycle_id = active_cycle["id"]
+    cycle_id = active_cycle["id"] if active_cycle else None
     
     cycle_level = level; is_graduated_cycle = False
     if cycle_id:
@@ -176,8 +175,8 @@ def dashboard():
     pending_cbu = "No configurado"; pending_phone = "No configurado"
     if pending:
         step = pending["step"]
-        cid = pending["cycle_id"] or (active_cycle["id"] if active_cycle else None)
-        # Usar step (1,2,3) para determinar CBU
+        cid = pending["cycle_id"] or cycle_id
+        # FLUJO DE CBU BASADO EN STEP (1=Admin, 2=Nivel1, 3=Vendedor)
         if step == 1:
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
         elif step == 2:
@@ -223,7 +222,7 @@ def dashboard():
         except: pass
 
     my_sales_history = []; income_history = []
-    # Historial GLOBAL por usuario
+    # HISTORIAL GLOBAL (para que nunca se borren ventas)
     cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
     my_sales_history = [dict(s) for s in cur.fetchall()]
     
@@ -268,20 +267,11 @@ def crear_sticker():
         cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
         row_u = cur.fetchone()
         
-        # VALIDACIÓN POR CICLO ESPECÍFICO: ¿Tiene algún ciclo L5 activo con <3 ventas?
-        cur.execute("""
-            SELECT c.id FROM cycles c
-            JOIN cycle_levels cl ON c.id = cl.cycle_id
-            LEFT JOIN stickers s ON c.id = s.cycle_id AND s.seller_id = %s AND s.status = 'entregado'
-            WHERE c.l5_user_id = %s AND cl.level = 5 AND c.status = 'active'
-            GROUP BY c.id
-            HAVING COUNT(s.id) < 3
-            LIMIT 1
-        """, (row_u["id"], row_u["id"]))
-        puede_vender = cur.fetchone()
-        
-        if not row_u or not puede_vender:
-            flash("Solo Nivel 5 puede crear stickers.")
+        # VALIDAR SI YA COMPLETÓ 3 VENTAS ENTREGADAS
+        cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],))
+        completed = cur.fetchone()["cnt"]
+        if completed >= 3:
+            flash("🎓 Ciclo completado. ¡Felicitaciones!")
             conn.close()
             return redirect("/dashboard")
             
@@ -290,40 +280,39 @@ def crear_sticker():
         if not all([name, phone, email, cbu]):
             flash("Todos los campos son obligatorios."); conn.close(); return redirect("/dashboard")
 
-        # Crear nuevo ciclo independiente
+        # CREAR NUEVO CICLO INDEPENDIENTE
         cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
         cycle_id = cur.fetchone()["id"]
 
-        # Registrar al vendedor como Nivel 5 en ESTE ciclo
+        # REGISTRAR NIVEL 5 EN ESTE CICLO
         cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
         cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
 
-        # Asignar niveles 4,3,2,1 subiendo por referral_tree hasta ADMIN001
+        # ASIGNAR NIVELES 4,3,2,1 SUBIENDO POR EL ÁRBOL
         current_parent = row_u["id"]
         for lvl in [4, 3, 2, 1]:
             cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,))
             up = cur.fetchone()
             if not up: break
             parent_id = up["parent_id"]
-            # Registrar en cycle_levels SIEMPRE, incluso si es ADMIN001
+            # Registrar en cycle_levels SIEMPRE (incluyendo ADMIN)
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
-            # Solo actualizar current_level global si NO es ADMIN001
+            # Actualizar current_level global SOLO si NO es ADMIN
             cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
             p_data = cur.fetchone()
-            if p_data and p_data["sticker_id"] == "ADMIN001": 
-                break
+            if p_data and p_data["sticker_id"] == "ADMIN001": break
             cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
             current_parent = parent_id
 
-        # Verificar si ya hay un sticker pendiente en ESTE ciclo
+        # VERIFICAR PENDIENTE EN ESTE CICLO
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone():
             flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual.")
             conn.close()
             return redirect(url_for("dashboard", cycle_id=cycle_id))
             
-        # ✅ FIX: Cada sticker nuevo en un ciclo nuevo SIEMPRE empieza en step=1
-        step = 1
+        # ✅ RESTAURADO: Step se calcula según ventas entregadas (1, 2 o 3)
+        step = completed + 1
 
         code = "STK-"+str(uuid.uuid4())[:6].upper(); temp_pass = "Temp-"+str(uuid.uuid4())[:8]
         cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) 
@@ -407,7 +396,7 @@ def enviar_datos_email(sticker_id):
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
             cid, sid = s["cycle_id"], s["seller_id"]
             
-            # Cierre específico POR CICLO: contar ventas ENTREGADAS solo en este ciclo
+            # CIERRE ESPECÍFICO POR CICLO
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE cycle_id=%s AND seller_id=%s AND status='entregado'", (cid, sid))
             entregados = cur.fetchone()["cnt"]
             
