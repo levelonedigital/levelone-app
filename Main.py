@@ -247,13 +247,14 @@ def dashboard():
     if pending:
         step = pending["step"]
         cid = pending["cycle_id"] or (active_cycle["id"] if active_cycle else None)
-        if step == 1:
+        status = pending["status"]
+        if status == 'pending':
             cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
             row = cur.fetchone()
-        elif step == 2:
+        elif status == 'sent':
             cur.execute("SELECT u.cbu_alias FROM cycle_levels cl JOIN users u ON cl.user_id = u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1", (cid,))
             row = cur.fetchone()
-        elif step == 3:
+        elif status == 'confirmed':
             cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,))
             row = cur.fetchone()
         else: row = None
