@@ -67,7 +67,9 @@ def init_db():
 init_db()
 
 @app.route("/")
-def index(): return redirect(url_for("login"))
+def index(): 
+    """Muestra la Landing Page pública"""
+    return render_template("index.html")
 
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
