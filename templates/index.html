@@ -11,8 +11,8 @@
             --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --primary-color: #667eea;
             --secondary-color: #764ba2;
-            --bg-dark: #0a0a0a; /* Fondo negro como la app */
-            --bg-card: #1a1a2e; /* Tarjetas gris oscuro/azul noche */
+            --bg-dark: #0a0a0a;
+            --bg-card: #1a1a2e;
             --bg-card-hover: #222240;
             --text-white: #ffffff;
             --text-light: #e2e8f0;
@@ -31,7 +31,6 @@
             line-height: 1.6;
         }
 
-        /* --- Header con Degradado y Curva --- */
         header {
             background: var(--primary-gradient);
             color: var(--text-white);
@@ -91,7 +90,6 @@
             box-shadow: 0 8px 30px rgba(0,0,0,0.3);
         }
 
-        /* --- Features Section --- */
         .features { padding: 80px 0 60px; }
 
         .section-title {
@@ -139,7 +137,6 @@
 
         .card p { color: var(--text-muted); font-size: 0.95rem; }
 
-        /* --- Discount Banner --- */
         .discount-banner {
             background: var(--bg-card);
             border: 2px solid var(--primary-color);
@@ -159,7 +156,6 @@
 
         .discount-banner p { color: var(--text-light); }
 
-        /* --- Steps Section --- */
         .steps-section {
             background-color: var(--bg-card);
             padding: 80px 0;
@@ -195,7 +191,7 @@
         .step-card h4 { font-size: 1.2rem; margin-bottom: 10px; color: var(--text-white); }
         .step-card p { color: var(--text-muted); font-size: 0.95rem; }
 
-        /* CTA Box */
+        /* CTA Box (Modificado: Mensaje de Referido) */
         .cta-box {
             background: var(--bg-dark);
             border-radius: var(--card-radius);
@@ -203,40 +199,24 @@
             text-align: center;
             max-width: 700px;
             margin: 0 auto;
-            border: 2px dashed rgba(102, 126, 234, 0.4);
-            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+            border: 2px solid var(--primary-color); /* Borde sólido para destacar */
+            box-shadow: 0 4px 30px rgba(102, 126, 234, 0.15);
         }
 
-        .cta-box h3 { color: var(--text-white); margin-bottom: 5px; }
-        .cta-box > p { color: var(--text-muted); }
-
-        .price-tag {
-            font-size: 3.5rem;
-            font-weight: 800;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 15px 0 25px;
-            display: block;
-        }
-
-        .btn-payment {
-            display: inline-block;
-            background: var(--primary-gradient);
-            color: white;
-            padding: 18px 45px;
-            border-radius: var(--btn-radius);
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 1.2rem;
-            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
-            transition: all 0.3s;
-        }
-        .btn-payment:hover {
-            transform: scale(1.03);
-            box-shadow: 0 8px 35px rgba(102, 126, 234, 0.6);
+        .cta-box h3 { color: var(--text-white); margin-bottom: 15px; font-size: 1.5rem; }
+        .cta-box p { color: var(--text-muted); margin-bottom: 20px; font-size: 1.1rem; line-height: 1.6; }
+        
+        .highlight-box {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary-color);
+            margin-bottom: 20px;
+            text-align: left;
         }
         
+        .highlight-box p { margin: 0; color: var(--text-light); font-size: 1rem; }
+
         .secure-badge {
             margin-top: 15px;
             font-size: 0.85rem;
@@ -247,18 +227,6 @@
             gap: 5px;
         }
 
-        .waiting-notice {
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #f6e05e;
-            background: rgba(246, 224, 94, 0.1);
-            padding: 12px 15px;
-            border-radius: 8px;
-            display: inline-block;
-            border: 1px solid rgba(246, 224, 94, 0.3);
-        }
-
-        /* Platform Description */
         .platform-desc {
             background: var(--bg-card);
             padding: 40px;
@@ -277,7 +245,6 @@
         .platform-desc ul li::before { content: "✓"; position: absolute; left: 0; color: var(--primary-color); font-weight: bold; }
         .platform-desc strong { color: var(--text-white); }
 
-        /* --- Footer --- */
         footer {
             background-color: #050508;
             color: var(--text-muted);
@@ -299,7 +266,6 @@
 </head>
 <body>
 
-    <!-- Header -->
     <header>
         <div class="container">
             <h1>Aprendé. Ahorrá. Crecé.</h1>
@@ -308,7 +274,6 @@
         </div>
     </header>
 
-    <!-- Features -->
     <section class="features">
         <div class="container">
             <h2 class="section-title">¿Por qué elegirnos?</h2>
@@ -332,7 +297,6 @@
         </div>
     </section>
 
-    <!-- Discount Banner -->
     <div class="container">
         <div class="discount-banner">
             <h2>🎟️ Activá tu Sticker LevelONE</h2>
@@ -340,7 +304,6 @@
         </div>
     </div>
 
-    <!-- Steps Section -->
     <section class="steps-section">
         <div class="container">
             <h2 class="section-title">¿Cómo funciona el Sistema de Referidos?</h2>
@@ -363,27 +326,26 @@
                 </div>
             </div>
 
-            <!-- Caja de Compra Directa -->
+            <!-- CAJA INFORMATIVA DE REFERIDOS (Reemplaza la compra directa) -->
             <div class="cta-box">
-                <h3>🔥 Empezá tu camino hoy mismo</h3>
-                <p style="color: #718096; margin-bottom: 10px;">Sticker LevelONE (Acceso Vitalicio)</p>
+                <h3>🤝 Crecimiento en Conjunto</h3>
+                <p>
+                    En LevelONE creemos en la fuerza de la comunidad y el crecimiento compartido. 
+                    Por eso, para mantener el orden y la justicia del sistema, <strong>la adquisición de stickers se realiza exclusivamente a través de un referido activo.</strong>
+                </p>
                 
-                <span class="price-tag">$30.000</span>
-                
-                <a href="https://mpago.la/26ofKxu" class="btn-payment" target="_blank">
-                    Comprar Sticker Ahora 💳
-                </a>
-                
-                <div class="secure-badge">
-                    🔒 Pago 100% Seguro vía Mercado Pago
+                <div class="highlight-box">
+                    <p>
+                        ✅ ¿Querés unirte? Contactá a quien te invitó o escribinos para que te asignen un mentor.
+                        <br>✅ ¿Sos usuario? ¡Compartí tu link y ayudá a otros a crecer mientras generás ingresos!
+                    </p>
                 </div>
-                
-                <div class="waiting-notice">
-                    ⏳ Una vez realizado el pago recibirás tus credenciales de acceso (puede demorar).
-                </div>
+
+                <p style="font-size: 0.9rem; color: #718096;">
+                    Esto garantiza que cada nuevo miembro reciba el acompañamiento y soporte necesario desde el día uno.
+                </p>
             </div>
 
-            <!-- Descripción de la Plataforma -->
             <div class="platform-desc">
                 <h3>🌟 ¿Qué es LevelONE?</h3>
                 <p>
@@ -403,12 +365,12 @@
         </div>
     </section>
 
-    <!-- Footer -->
     <footer>
         <div class="container">
             <h3>LevelONE</h3>
             <p style="margin: 10px 0;">Plataforma Educativa y de Interacción Comercial.</p>
-            <p style="margin-bottom: 10px;">¿Tenés dudas? <a href="https://wa.me/TU_NUMERO_AQUI">Contactanos por WhatsApp</a></p>
+            
+            <p style="margin-bottom: 10px;">¿Tenés dudas? <a href="mailto:level.one.digital2000@gmail.com">Contactanos a nuestro email</a></p>
             
             <p class="legal-text">
                 Aviso Legal: Los resultados pueden variar según la dedicación individual. LevelONE es una plataforma educativa y de interacción comercial, no promete ganancias automáticas.
