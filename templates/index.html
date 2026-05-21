@@ -3,45 +3,420 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>levelONE | Acceso</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>LevelONE | Capacitación y Oportunidad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { background: linear-gradient(135deg, #0f172a, #1e293b); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .auth-card { background: #fff; border-radius: 12px; padding: 2rem; max-width: 420px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        .brand { font-weight: 800; color: #2563eb; letter-spacing: 1px; }
+        :root {
+            /* PALETA LEVELONE - DARK MODE */
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --bg-dark: #0a0a0a; /* Fondo negro como la app */
+            --bg-card: #1a1a2e; /* Tarjetas gris oscuro/azul noche */
+            --bg-card-hover: #222240;
+            --text-white: #ffffff;
+            --text-light: #e2e8f0;
+            --text-muted: #a0aec0;
+            --border-color: rgba(255,255,255,0.08);
+            --card-radius: 16px;
+            --btn-radius: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-white);
+            line-height: 1.6;
+        }
+
+        /* --- Header con Degradado y Curva --- */
+        header {
+            background: var(--primary-gradient);
+            color: var(--text-white);
+            padding: 100px 20px 80px;
+            text-align: center;
+            border-bottom-left-radius: 40px;
+            border-bottom-right-radius: 40px;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+        header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            margin-bottom: 35px;
+            opacity: 0.95;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            font-weight: 300;
+        }
+
+        .btn-main {
+            display: inline-block;
+            background-color: var(--text-white);
+            color: var(--secondary-color);
+            padding: 16px 40px;
+            border-radius: var(--btn-radius);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .btn-main:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+
+        /* --- Features Section --- */
+        .features { padding: 80px 0 60px; }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-white);
+            margin-bottom: 50px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            padding: 35px;
+            border-radius: var(--card-radius);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            background: var(--bg-card-hover);
+            border-color: rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.15);
+        }
+
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .card h3 {
+            margin-bottom: 15px;
+            color: var(--text-white);
+            font-size: 1.3rem;
+        }
+
+        .card p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* --- Discount Banner --- */
+        .discount-banner {
+            background: var(--bg-card);
+            border: 2px solid var(--primary-color);
+            border-radius: var(--card-radius);
+            padding: 40px;
+            text-align: center;
+            margin: 0 auto 60px;
+            max-width: 800px;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .discount-banner h2 {
+            font-size: 1.8rem;
+            color: var(--text-white);
+            margin-bottom: 10px;
+        }
+
+        .discount-banner p { color: var(--text-light); }
+
+        /* --- Steps Section --- */
+        .steps-section {
+            background-color: var(--bg-card);
+            padding: 80px 0;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+            text-align: center;
+        }
+
+        .step-card { position: relative; }
+
+        .step-number {
+            background: var(--primary-gradient);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin: 0 auto 20px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+        }
+
+        .step-card h4 { font-size: 1.2rem; margin-bottom: 10px; color: var(--text-white); }
+        .step-card p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* CTA Box */
+        .cta-box {
+            background: var(--bg-dark);
+            border-radius: var(--card-radius);
+            padding: 40px;
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto;
+            border: 2px dashed rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+
+        .cta-box h3 { color: var(--text-white); margin-bottom: 5px; }
+        .cta-box > p { color: var(--text-muted); }
+
+        .price-tag {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 15px 0 25px;
+            display: block;
+        }
+
+        .btn-payment {
+            display: inline-block;
+            background: var(--primary-gradient);
+            color: white;
+            padding: 18px 45px;
+            border-radius: var(--btn-radius);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.2rem;
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+            transition: all 0.3s;
+        }
+        .btn-payment:hover {
+            transform: scale(1.03);
+            box-shadow: 0 8px 35px rgba(102, 126, 234, 0.6);
+        }
+        
+        .secure-badge {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .waiting-notice {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #f6e05e;
+            background: rgba(246, 224, 94, 0.1);
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: inline-block;
+            border: 1px solid rgba(246, 224, 94, 0.3);
+        }
+
+        /* Platform Description */
+        .platform-desc {
+            background: var(--bg-card);
+            padding: 40px;
+            border-radius: var(--card-radius);
+            margin: 40px auto 0;
+            max-width: 800px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-align: left;
+        }
+
+        .platform-desc h3 { color: var(--text-white); margin-bottom: 15px; font-size: 1.5rem; }
+        .platform-desc p { color: var(--text-muted); margin-bottom: 15px; font-size: 1.05rem; }
+        .platform-desc ul { list-style: none; padding: 0; }
+        .platform-desc ul li { margin-bottom: 10px; padding-left: 25px; position: relative; color: var(--text-light); }
+        .platform-desc ul li::before { content: "✓"; position: absolute; left: 0; color: var(--primary-color); font-weight: bold; }
+        .platform-desc strong { color: var(--text-white); }
+
+        /* --- Footer --- */
+        footer {
+            background-color: #050508;
+            color: var(--text-muted);
+            padding: 50px 20px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+        }
+
+        footer h3 { color: var(--text-white); margin-bottom: 10px; }
+        footer a { color: var(--primary-color); text-decoration: none; }
+        footer a:hover { text-decoration: underline; color: var(--secondary-color); }
+        .legal-text { font-size: 0.8rem; margin-top: 20px; opacity: 0.6; }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 2.2rem; }
+            .grid, .steps-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div class="auth-card">
-        <h2 class="text-center brand mb-4">levelONE</h2>
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}<div class="alert alert-info py-2">{{ messages[0] }}</div>{% endif %}
-        {% endwith %}
-        <ul class="nav nav-tabs mb-3" id="authTab">
-            <li class="nav-item flex-fill"><button class="nav-link active w-100" data-bs-toggle="tab" data-bs-target="#login">Entrar</button></li>
-            <li class="nav-item flex-fill"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#register">Unirse</button></li>
-        </ul>
-        <div class="tab-content">
-            <div class="tab-pane fade show active" id="login">
-                <form action="/login" method="post">
-                    <input type="text" name="username" class="form-control mb-2" placeholder="Usuario" required>
-                    <input type="password" name="password" class="form-control mb-2" placeholder="Contraseña" required>
-                    <button class="btn btn-primary w-100">Iniciar Sesión</button>
-                </form>
-            </div>
-            <div class="tab-pane fade" id="register">
-                <form action="/register" method="post">
-                    <input type="text" name="username" class="form-control mb-2" placeholder="Usuario" required>
-                    <input type="email" name="email" class="form-control mb-2" placeholder="Email" required>
-                    <input type="password" name="password" class="form-control mb-2" placeholder="Contraseña" required>
-                    <input type="text" name="cbu" class="form-control mb-2" placeholder="Alias o CBU propio (para recibir $10)" required>
-                    <input type="text" name="ref_code" class="form-control mb-2" placeholder="Código de referido (opcional)" style="text-transform:uppercase">
-                    <button class="btn btn-success w-100">Registrarse</button>
-                </form>
+
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <h1>Aprendé. Ahorrá. Crecé.</h1>
+            <p>Bienvenido a <strong>LevelONE</strong>. Tu plataforma integral para capacitarte en ventas digitales, acceder a descuentos exclusivos y generar ingresos con un sistema estructurado.</p>
+            <a href="https://levelone.uno/ingresar" class="btn-main">Ingresar a la Plataforma</a>
+        </div>
+    </header>
+
+    <!-- Features -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">¿Por qué elegirnos?</h2>
+            <div class="grid">
+                <div class="card">
+                    <span class="icon">🎓</span>
+                    <h3>Capacitación Real</h3>
+                    <p>Cursos actualizados sobre marketing digital, ventas online y estrategias comerciales. Pasá de principiante a experto.</p>
+                </div>
+                <div class="card">
+                    <span class="icon">💸</span>
+                    <h3>Hasta 80% de Descuento</h3>
+                    <p>Al activar tu membresía, desbloqueás precios preferenciales en <strong>toda nuestra biblioteca de cursos</strong> presenciales y virtuales.</p>
+                </div>
+                <div class="card">
+                    <span class="icon">🚀</span>
+                    <h3>Sistema de Referidos</h3>
+                    <p>No solo aprendés, también podés generar ingresos recomendando la plataforma a otros usuarios activos.</p>
+                </div>
             </div>
         </div>
-        <div class="text-center mt-3"><a href="/admin" class="text-muted small">🔒 Acceso Admin</a></div>
+    </section>
+
+    <!-- Discount Banner -->
+    <div class="container">
+        <div class="discount-banner">
+            <h2>🎟️ Activá tu Sticker LevelONE</h2>
+            <p style="font-size: 1.1rem;">Tu llave de acceso a la comunidad privada y a los <strong>descuentos de hasta el 80%</strong>.</p>
+        </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Steps Section -->
+    <section class="steps-section">
+        <div class="container">
+            <h2 class="section-title">¿Cómo funciona el Sistema de Referidos?</h2>
+            
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h4>Adquirís tu Sticker</h4>
+                    <p>Comprás tu Sticker LevelONE y activás tu cuenta para acceder a todos los cursos y la comunidad.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h4>Recuperás tu Inversión</h4>
+                    <p>Invitás a 3 personas a unirse. Al vender tus primeros 3 stickers, <strong>recuperás el costo de tu inscripción</strong>.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h4>Ganancias Reales</h4>
+                    <p>Una vez completado el ciclo y al llegar a <strong>Nivel 1</strong>, empezás a generar ingresos adicionales con tu red.</p>
+                </div>
+            </div>
+
+            <!-- Caja de Compra Directa -->
+            <div class="cta-box">
+                <h3>🔥 Empezá tu camino hoy mismo</h3>
+                <p style="color: #718096; margin-bottom: 10px;">Sticker LevelONE (Acceso Vitalicio)</p>
+                
+                <span class="price-tag">$30.000</span>
+                
+                <a href="https://mpago.la/26ofKxu" class="btn-payment" target="_blank">
+                    Comprar Sticker Ahora 💳
+                </a>
+                
+                <div class="secure-badge">
+                    🔒 Pago 100% Seguro vía Mercado Pago
+                </div>
+                
+                <div class="waiting-notice">
+                    ⏳ Una vez realizado el pago recibirás tus credenciales de acceso (puede demorar).
+                </div>
+            </div>
+
+            <!-- Descripción de la Plataforma -->
+            <div class="platform-desc">
+                <h3>🌟 ¿Qué es LevelONE?</h3>
+                <p>
+                    LevelONE es una plataforma educativa y comercial diseñada para potenciar tu desarrollo profesional y financiero. Nuestro objetivo es brindarte las herramientas reales para triunfar en el mundo digital.
+                </p>
+                <ul>
+                    <li><strong>Educación de Calidad:</strong> Accedé a capacitaciones en ventas online, marketing digital y estrategias de crecimiento.</li>
+                    <li><strong>Comunidad de Apoyo:</strong> Formá parte de un grupo privado donde compartimos conocimientos y estrategias diarias.</li>
+                    <li><strong>Oportunidad de Negocio:</strong> Utilizá nuestro sistema de stickers para referir nuevos miembros y generar ingresos extra de manera transparente.</li>
+                    <li><strong>Beneficios Exclusivos:</strong> Disfrutá de descuentos masivos en cursos presenciales y virtuales de alta demanda.</li>
+                </ul>
+                <p style="margin-top: 20px; font-size: 0.95rem;">
+                    No es solo un curso, es un ecosistema completo para tu éxito. ¡Bienvenido al cambio! 🚀
+                </p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <h3>LevelONE</h3>
+            <p style="margin: 10px 0;">Plataforma Educativa y de Interacción Comercial.</p>
+            <p style="margin-bottom: 10px;">¿Tenés dudas? <a href="https://wa.me/TU_NUMERO_AQUI">Contactanos por WhatsApp</a></p>
+            
+            <p class="legal-text">
+                Aviso Legal: Los resultados pueden variar según la dedicación individual. LevelONE es una plataforma educativa y de interacción comercial, no promete ganancias automáticas.
+                <br>© 2026 LevelONE. Todos los derechos reservados.
+            </p>
+        </div>
+    </footer>
+
 </body>
 </html>
+
