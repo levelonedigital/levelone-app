@@ -53,6 +53,19 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
+    # 🟢 NUEVA TABLA: courses (solo si no existe)
+    cur.execute('''CREATE TABLE IF NOT EXISTS courses (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        image_url TEXT,
+        start_date DATE,
+        price DECIMAL(10,2),
+        discount_pct INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
         cur.execute('''INSERT INTO users (sticker_id, full_name, email, phone, cbu_alias, password_hash, current_level, is_level1, role, terms_accepted_at)
@@ -68,8 +81,12 @@ init_db()
 
 @app.route("/")
 def index(): 
-    """Muestra la Landing Page pública"""
-    return render_template("index.html")
+    """Muestra la Landing Page pública con cursos activos"""
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT title, description, image_url, start_date, price, discount_pct FROM courses WHERE status='active' ORDER BY start_date ASC")
+    cursos_activos = cur.fetchall()
+    conn.close()
+    return render_template("index.html", cursos=cursos_activos)
 
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
@@ -531,6 +548,129 @@ def enviar_datos_email(sticker_id):
 @app.route("/logout")
 def logout():
     session.clear(); return redirect("/ingresar")
+
+# =============================================================================
+# 🟢 MÓDULO ADITIVO: GESTIÓN DE CURSOS (Admin Only)
+# =============================================================================
+@app.route("/admin/cursos", methods=["GET", "POST"])
+def admin_cursos():
+    if "user_id" not in session: return redirect("/ingresar")
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
+    row = cur.fetchone()
+    if not row or row["sticker_id"] != "ADMIN001":
+        conn.close(); return redirect("/dashboard")
+
+    if request.method == "POST":
+        titulo = request.form.get("titulo", "").strip()
+        desc = request.form.get("descripcion", "").strip()
+        img = request.form.get("imagen", "").strip()
+        fecha = request.form.get("fecha_inicio", "").strip() or None
+        precio = request.form.get("precio", "").strip() or None
+        descuento = request.form.get("descuento", "0").strip() or 0
+        estado = request.form.get("estado", "active")
+        
+        if titulo:
+            cur.execute('''INSERT INTO courses (title, description, image_url, start_date, price, discount_pct, status) 
+                          VALUES (%s,%s,%s,%s,%s,%s,%s)''', 
+                       (titulo, desc, img, fecha, precio, descuento, estado))
+            conn.commit()
+            flash("✅ Curso agregado correctamente.")
+    
+    cur.execute("SELECT * FROM courses ORDER BY created_at DESC")
+    cursos = cur.fetchall()
+    conn.close()
+    
+    # Render simple admin UI inline (no need for new template file)
+    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Cursos</title>
+    <style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}
+    .card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}
+    input,select,textarea{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}
+    button{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:20px}
+    th,td{padding:12px;border-bottom:1px solid #333;text-align:left}
+    .badge{padding:4px 8px;border-radius:4px;font-size:0.8rem}
+    .active{background:#38a169}.inactive{background:#e53e3e}
+    a{color:#667eea;text-decoration:none;margin-right:15px}</style></head><body>
+    <h2>📚 Gestión de Cursos</h2><a href="/dashboard">← Volver</a>
+    <div class="card"><form method="POST"><h3>Agregar Curso</h3>
+    <input name="titulo" placeholder="Título *" required>
+    <textarea name="descripcion" placeholder="Descripción" rows="2"></textarea>
+    <input name="imagen" placeholder="URL de imagen (opcional)">
+    <input name="fecha_inicio" type="date" placeholder="Fecha de inicio">
+    <input name="precio" type="number" step="0.01" placeholder="Precio base">
+    <input name="descuento" type="number" min="0" max="100" placeholder="Descuento %">
+    <select name="estado"><option value="active">Activo</option><option value="inactive">Inactivo</option></select>
+    <button type="submit">Guardar</button></form></div>
+    <table><thead><tr><th>Título</th><th>Precio</th><th>Desc.</th><th>Inicio</th><th>Estado</th></tr></thead><tbody>"""
+    for c in cursos:
+        badge = f"<span class='badge {'active' if c['status']=='active' else 'inactive'}'>{c['status']}</span>"
+        html += f"<tr><td>{c['title']}</td><td>${c['price'] or '-'}</td><td>{c['discount_pct']}%</td><td>{c['start_date'] or '-'}</td><td>{badge}</td></tr>"
+    html += "</tbody></table></body></html>"
+    return render_template_string(html)
+
+# =============================================================================
+# 🟢 MÓDULO ADITIVO: VISOR DE RED ADMIN (Solo lectura)
+# =============================================================================
+@app.route("/admin/red")
+def admin_red():
+    if "user_id" not in session: return redirect("/ingresar")
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
+    row = cur.fetchone()
+    if not row or row["sticker_id"] != "ADMIN001":
+        conn.close(); return redirect("/dashboard")
+
+    query = request.args.get("q", "").strip()
+    arbol = []
+    usuario_base = None
+    
+    if query:
+        cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
+        usuario_base = cur.fetchone()
+        if usuario_base:
+            # BFS para recorrer toda la red descendente
+            queue = deque([(usuario_base["id"], 1)])
+            visitados = set([usuario_base["id"]])
+            while queue:
+                uid, nivel = queue.popleft()
+                cur.execute("SELECT sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (uid,))
+                u = cur.fetchone()
+                if u: arbol.append({**u, "nivel_red": nivel})
+                cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (uid,))
+                for r in cur.fetchall():
+                    cid = r["child_id"]
+                    if cid and cid not in visitados:
+                        visitados.add(cid)
+                        queue.append((cid, nivel + 1))
+    
+    conn.close()
+    
+    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title>
+    <style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}
+    .search{display:flex;gap:10px;margin-bottom:30px}
+    input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}
+    button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px;border-bottom:1px solid #333;text-align:left}
+    .nivel{background:#764ba2;color:#fff;padding:4px 10px;border-radius:20px;font-size:0.85rem}
+    a{color:#667eea;text-decoration:none}</style></head><body>
+    <h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a>
+    <form method="GET" class="search">
+        <input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\">
+        <button type="submit">Buscar</button>
+    </form>"""
+    
+    if usuario_base:
+        html += f"<p><strong>{usuario_base['full_name']}</strong> ({usuario_base['sticker_id']}) | Nivel actual: {usuario_base['current_level']}</p>"
+        html += "<table><thead><tr><th>Nivel en Red</th><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel Sistema</th></tr></thead><tbody>"
+        for r in arbol:
+            html += f"<tr><td><span class='nivel'>{r['nivel_red']}</span></td><td>{r['sticker_id']}</td><td>{r['full_name']}</td><td>{r['phone']}</td><td>{r['current_level']}</td></tr>"
+        html += "</tbody></table>"
+    elif query:
+        html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
+    html += "</body></html>"
+    return render_template_string(html)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
