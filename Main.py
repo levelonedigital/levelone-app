@@ -175,7 +175,6 @@ def dashboard():
     except: pass
     
     u = dict(row_u); uid = u.get("id"); role = u.get("role", "seller"); sticker = u.get("sticker_id", ""); level = u.get("current_level", 5)
-
     cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (uid,))
     cnt = cur.fetchone()["cnt"]
     u["can_sell"] = (cnt < 3)
@@ -452,26 +451,88 @@ def admin_red():
     cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
     row = cur.fetchone()
     if not row or row["sticker_id"] != "ADMIN001": conn.close(); return redirect("/dashboard")
-    query = request.args.get("q", "").strip(); arbol = []; usuario_base = None
+
+    query = request.args.get("q", "").strip()
+    target = None
+    ancestors = []
+    descendants = []
+
     if query:
-        cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%")); usuario_base = cur.fetchone()
-        if usuario_base:
-            queue = deque([(usuario_base["id"], 1)]); visitados = set([usuario_base["id"]])
-            while queue:
-                uid, nivel = queue.popleft()
-                cur.execute("SELECT sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (uid,)); u = cur.fetchone()
-                if u: arbol.append({**u, "nivel_red": nivel})
-                cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (uid,))
-                for r in cur.fetchall():
-                    cid = r["child_id"]
-                    if cid and cid not in visitados: visitados.add(cid); queue.append((cid, nivel + 1))
+        cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash, role FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
+        target = cur.fetchone()
+
+        if target:
+            tid = target["id"]
+            current = tid
+            while True:
+                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current,))
+                up = cur.fetchone()
+                if not up: break
+                pid = up["parent_id"]
+                cur.execute("SELECT sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (pid,))
+                parent_data = cur.fetchone()
+                if parent_data:
+                    ancestors.append(dict(parent_data))
+                    current = pid
+                else: break
+            ancestors.reverse()
+
+            cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (tid,))
+            hijos = [r["child_id"] for r in cur.fetchall()]
+            for h_id in hijos:
+                cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash FROM users WHERE id=%s", (h_id,))
+                h_data = cur.fetchone()
+                if h_data:
+                    descendants.append({"nivel": 1, "padre_stk": target["sticker_id"], "data": dict(h_data)})
+                    cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (h_id,))
+                    nietos = [r["child_id"] for r in cur.fetchall()]
+                    for n_id in nietos:
+                        cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash FROM users WHERE id=%s", (n_id,))
+                        n_data = cur.fetchone()
+                        if n_data:
+                            descendants.append({"nivel": 2, "padre_stk": h_data["sticker_id"], "data": dict(n_data)})
+
     conn.close()
-    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #333;text-align:left}.nivel{background:#764ba2;color:#fff;padding:4px 10px;border-radius:20px;font-size:0.85rem}a{color:#667eea;text-decoration:none}</style></head><body><h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
-    if usuario_base:
-        html += f"<p><strong>{usuario_base['full_name']}</strong> ({usuario_base['sticker_id']}) | Nivel actual: {usuario_base['current_level']}</p><table><thead><tr><th>Nivel en Red</th><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel Sistema</th></tr></thead><tbody>"
-        for r in arbol: html += f"<tr><td><span class='nivel'>{r['nivel_red']}</span></td><td>{r['sticker_id']}</td><td>{r['full_name']}</td><td>{r['phone']}</td><td>{r['current_level']}</td></tr>"
-        html += "</tbody></table>"
-    elif query: html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
+
+    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.tree{padding-left:20px;border-left:2px solid #444;margin-left:10px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.lvl1{border-left:3px solid #667eea;padding-left:15px}.lvl2{border-left:3px solid #38a169;padding-left:30px}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
+
+    if target:
+        if ancestors:
+            html += '<div class="section"><h3>🔝 Cadena de Ascendientes</h3>'
+            for a in ancestors:
+                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div></div>"""
+            html += '<div class="tree"><div class="node" style="border-left:3px solid #f6e05e;background:#1a1a1a;text-align:center;">⬇️ Conecta a tu usuario buscado</div></div></div>'
+
+        html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;">
+            <h3 style="margin:0 0 10px 0;color:#fff;">🎯 Usuario Buscado</h3>
+            <div class="info" style="font-size:1.1rem;">
+                <span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>
+                Tel: {target['phone']} | Nivel Actual: {target['current_level']} | Rol: {target['role']}
+            </div>
+        </div>"""
+
+        html += '<div class="section"><h3>🔽 Red de Ventas (Hijos y Nietos)</h3>'
+        if not descendants:
+            html += '<p class="info">No hay descendientes registrados aún.</p>'
+        else:
+            for d in descendants:
+                u = d["data"]
+                pwd_display = u['password_hash'][:15] + "..." if u['password_hash'] else "No definida"
+                if d["nivel"] == 1:
+                    html += f"""<div class="node lvl1">
+                        <div class="info">👤 <span>Hijo</span> (Vendido por: {d['padre_stk']})</div>
+                        <div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div>
+                        <div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_display}</code></div>
+                    </div>"""
+                else:
+                    html += f"""<div class="node lvl2">
+                        <div class="info">👶 <span>Nieto</span> (Vendido por: {d['padre_stk']})</div>
+                        <div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div>
+                        <div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_display}</code></div>
+                    </div>"""
+        html += '</div>'
+    elif query:
+        html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
     html += "</body></html>"
     return render_template_string(html)
 
