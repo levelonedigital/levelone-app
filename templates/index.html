@@ -376,15 +376,15 @@
                     {% endif %}
                     <h3>{{ c.title }}</h3>
                     <p>{{ c.description }}</p>
-                    {% if c.price and c.discount_pct %}
+                    {% if c.price > 0 and c.discount_pct > 0 %}
                     <p style="margin-top:10px;">
-                        <span style="text-decoration:line-through;color:#718096;">${{ c.price }}</span>
-                        <strong style="color:#38a169;margin-left:8px;">${{ c.price * (1 - c.discount_pct/100) }}</strong>
+                        <span style="text-decoration:line-through;color:#718096;">${{ "%.0f"|format(c.price) }}</span>
+                        <strong style="color:#38a169;margin-left:8px;">${{ "%.0f"|format(c.price * (1 - c.discount_pct/100)) }}</strong>
                         <span style="background:#38a169;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.8rem;margin-left:8px;">-{{ c.discount_pct }}%</span>
                     </p>
                     {% endif %}
                     {% if c.start_date %}
-                    <p style="font-size:0.9rem;color:#a0aec0;margin-top:5px;">🗓️ Inicio: {{ c.start_date.strftime('%d/%m/%Y') }}</p>
+                    <p style="font-size:0.9rem;color:#a0aec0;margin-top:5px;">🗓️ Inicio: {{ c.start_date }}</p>
                     {% endif %}
                 </div>
                 {% endfor %}
