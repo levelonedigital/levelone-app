@@ -166,21 +166,12 @@ def dashboard():
     except: pass
     
     u = dict(row_u); uid = u.get("id"); role = u.get("role", "seller"); sticker = u.get("sticker_id", ""); level = u.get("current_level", 5)
-
-    # 🔍 CALCULAR SI YA VENDIÓ 3 STICKERS (para ocultar el botón)
     cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (uid,))
     cnt = cur.fetchone()["cnt"]
-    u["can_sell"] = (cnt < 3)  # Solo podrá ver el formulario si tiene menos de 3 ventas entregadas
+    u["can_sell"] = (cnt < 3)
 
-    # 🔍 BUSCAR SOLO EL CICLO DONDE EL USUARIO ES NIVEL 5 (SU CICLO PRINCIPAL)
-    cur.execute("""
-        SELECT c.* FROM cycles c
-        JOIN cycle_levels cl ON c.id = cl.cycle_id
-        WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5
-        ORDER BY c.id DESC LIMIT 1
-    """, (uid, uid))
+    cur.execute("""SELECT c.* FROM cycles c JOIN cycle_levels cl ON c.id = cl.cycle_id WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5 ORDER BY c.id DESC LIMIT 1""", (uid, uid))
     active_cycle = cur.fetchone()
-    
     cycle_id = active_cycle["id"] if active_cycle else None
     
     cycle_level = level; is_graduated_cycle = False
@@ -198,15 +189,10 @@ def dashboard():
 
     pending_cbu = "No configurado"; pending_phone = "No configurado"
     if pending:
-        step = pending["step"]
-        cid = pending["cycle_id"] or cycle_id
-        # FLUJO DE CBU BASADO EN STEP (1=Admin, 2=Nivel1, 3=Vendedor)
-        if step == 1:
-            cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
-        elif step == 2:
-            cur.execute("SELECT u.cbu_alias FROM cycle_levels cl JOIN users u ON cl.user_id = u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1", (cid,)); row = cur.fetchone()
-        elif step == 3:
-            cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,)); row = cur.fetchone()
+        step = pending["step"]; cid = pending["cycle_id"] or cycle_id
+        if step == 1: cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
+        elif step == 2: cur.execute("SELECT u.cbu_alias FROM cycle_levels cl JOIN users u ON cl.user_id = u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1", (cid,)); row = cur.fetchone()
+        elif step == 3: cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,)); row = cur.fetchone()
         else: row = None
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
@@ -216,9 +202,7 @@ def dashboard():
         cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-        cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status 
-                      FROM stickers s JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
-                      WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
+        cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status FROM stickers s JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
         confirmations = cur.fetchall()
 
     participants = []
@@ -246,7 +230,6 @@ def dashboard():
         except: pass
 
     my_sales_history = []; income_history = []
-    # HISTORIAL GLOBAL (para que nunca se borren ventas)
     cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
     my_sales_history = [dict(s) for s in cur.fetchall()]
     
@@ -268,16 +251,11 @@ def dashboard():
     
     cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',))
     admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount > 0 else "No configurado"
-    
     cur.execute("SELECT mp_enabled, mp_payment_link FROM users WHERE sticker_id='ADMIN001'")
     mp_cfg = cur.fetchone()
     mp_enabled = mp_cfg["mp_enabled"] if mp_cfg else False
     mp_link = mp_cfg["mp_payment_link"] if mp_cfg else ""
-    
-    cur.execute("""SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.status
-        FROM stickers s JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id
-        WHERE cl.user_id = %s AND cl.level = 1 AND s.step = 2 AND s.status IN ('confirmed', 'entregado')
-        ORDER BY s.created_at DESC LIMIT 20""", (session["user_id"],))
+    cur.execute("""SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.status FROM stickers s JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id WHERE cl.user_id = %s AND cl.level = 1 AND s.step = 2 AND s.status IN ('confirmed', 'entregado') ORDER BY s.created_at DESC LIMIT 20""", (session["user_id"],))
     l1_payments = cur.fetchall()
     
     conn.close()
@@ -290,84 +268,48 @@ def crear_sticker():
     try:
         cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
         row_u = cur.fetchone()
-        
-        # VALIDAR SI YA COMPLETÓ 3 VENTAS ENTREGADAS
         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],))
         completed = cur.fetchone()["cnt"]
-        if completed >= 3:
-            flash("🎓 Ciclo completado. ¡Felicitaciones!")
-            conn.close()
-            return redirect("/dashboard")
-            
-        name = request.form.get("name","").strip(); phone = request.form.get("phone","").strip()
-        email = request.form.get("email","").strip(); cbu = request.form.get("cbu","").strip()
-        if not all([name, phone, email, cbu]):
-            flash("Todos los campos son obligatorios."); conn.close(); return redirect("/dashboard")
-
-        # CREAR NUEVO CICLO INDEPENDIENTE
-        cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
-        cycle_id = cur.fetchone()["id"]
-
-        # REGISTRAR NIVEL 5 EN ESTE CICLO
+        if completed >= 3: flash("🎓 Ciclo completado. ¡Felicitaciones!"); conn.close(); return redirect("/dashboard")
+        name = request.form.get("name","").strip(); phone = request.form.get("phone","").strip(); email = request.form.get("email","").strip(); cbu = request.form.get("cbu","").strip()
+        if not all([name, phone, email, cbu]): flash("Todos los campos son obligatorios."); conn.close(); return redirect("/dashboard")
+        cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],)); cycle_id = cur.fetchone()["id"]
         cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
         cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
-
-        # ASIGNAR NIVELES 4,3,2,1 SUBIENDO POR EL ÁRBOL
         current_parent = row_u["id"]
         for lvl in [4, 3, 2, 1]:
-            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,))
-            up = cur.fetchone()
+            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,)); up = cur.fetchone()
             if not up: break
             parent_id = up["parent_id"]
-            # Registrar en cycle_levels SIEMPRE (incluyendo ADMIN)
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
-            # Actualizar current_level global SOLO si NO es ADMIN
-            cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
-            p_data = cur.fetchone()
+            cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,)); p_data = cur.fetchone()
             if p_data and p_data["sticker_id"] == "ADMIN001": break
-            cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
-            current_parent = parent_id
-
-        # VERIFICAR PENDIENTE EN ESTE CICLO
+            cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id)); current_parent = parent_id
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
-        if cur.fetchone():
-            flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual.")
-            conn.close()
-            return redirect(url_for("dashboard", cycle_id=cycle_id))
-            
-        # ✅ RESTAURADO: Step se calcula según ventas entregadas (1, 2 o 3)
+        if cur.fetchone(): flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
         step = completed + 1
-
         code = "STK-"+str(uuid.uuid4())[:6].upper(); temp_pass = "Temp-"+str(uuid.uuid4())[:8]
-        cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) 
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', 
-                    (code,row_u["id"],cycle_id,name,phone,email,cbu, request.form.get("cbu_titular","").strip(), request.form.get("cbu_dni","").strip(), request.form.get("cbu_entidad","").strip(), step,str(uuid.uuid4())[:12],temp_pass,'pending'))
-        cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', 
-                    (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
+        cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', (code,row_u["id"],cycle_id,name,phone,email,cbu, request.form.get("cbu_titular","").strip(), request.form.get("cbu_dni","").strip(), request.form.get("cbu_entidad","").strip(), step,str(uuid.uuid4())[:12],temp_pass,'pending'))
+        cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
         new_id = cur.fetchone()["id"]
         if new_id: cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (row_u["id"], new_id))
         conn.commit(); flash("✅ Sticker creado."); return redirect(url_for("dashboard", cycle_id=cycle_id))
-    except Exception as e:
-        conn.rollback(); print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
+    except Exception as e: conn.rollback(); print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
     finally: conn.close()
     return redirect("/dashboard")
 
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
 def marcar_enviado(sticker_id):
     conn = get_db(); cur = get_cur(conn)
-    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-    s = cur.fetchone()
-    if s and s["status"] == "pending":
-        cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,))
-        conn.commit(); flash("📤 Marcado como enviado. Esperando confirmación de pago...")
+    cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
+    if s and s["status"] == "pending": cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash("📤 Marcado como enviado. Esperando confirmación de pago...")
     conn.close(); return redirect("/dashboard")
 
 @app.route("/resolver_confirmacion/<int:sticker_id>/<action>", methods=["POST"])
 def resolver_confirmacion(sticker_id, action):
     conn = get_db(); cur = get_cur(conn)
     try:
-        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-        s = cur.fetchone()
+        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm": cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,)); conn.commit(); flash("✅ Pago confirmado. Ahora podés enviar las credenciales.")
             else: cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,)); conn.commit(); flash("⚠️ Pago rechazado. Revisá con el comprador.")
@@ -404,134 +346,19 @@ def admin_mp_config():
 def enviar_datos_email(sticker_id):
     conn = get_db(); cur = get_cur(conn)
     try:
-        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,))
-        s = cur.fetchone()
+        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "confirmed":
             buyer_email = s["buyer_email"]; temp_pass = s["temp_pass"]; sticker_code = s["sticker_code"]; buyer_name = s["buyer_name"]
             app_terms_url = request.host_url.rstrip('/') + "/terminos"; app_url = request.host_url.rstrip('/') + "/ingresar"
             try:
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
-                payload = {
-                    "sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")},
-                    "to": [{"email": buyer_email, "name": buyer_name}],
-                    "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}",
-                    "htmlContent": f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bienvenido a LevelONE</title>
-<style>
-  @media only screen and (max-width: 600px) {{
-    body {{ background-color: #1a1a2e !important; }}
-    .container {{ width: 100% !important; border-radius: 0 !important; }}
-  }}
-</style>
-</head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;">
-  <div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);overflow:hidden;">
-    
-    <!-- Header -->
-    <div style="text-align:center;padding:24px 20px 16px;background:rgba(255,255,255,0.95);">
-      <h1 style="margin:0;color:#667eea;font-size:24px;font-weight:700;">🎉 ¡BIENVENIDO/A A LEVELONE!</h1>
-      <p style="margin:12px 0 0 0;color:#333;font-size:15px;">Tu sticker <strong>{sticker_code}</strong> ha sido activado correctamente ✅</p>
-      <p style="margin:8px 0 0 0;color:#555;font-size:14px;">Ahora ya formás parte de la comunidad LevelONE.</p>
-      <p style="margin:12px 0 0 0;color:#667eea;font-weight:600;font-size:14px;">🌟 Tu plataforma para aprender y crecer</p>
-    </div>
-
-    <!-- Contenido principal -->
-    <div style="padding:0 24px 24px 24px;">
-      
-      <!-- Imagen del sticker -->
-      <div style="background:#f8f9fa;border:2px dashed #667eea;padding:20px;border-radius:12px;text-align:center;margin:20px 0;">
-        <img src="https://levelone.uno/static/sticker.jpg" alt="Sticker levelONE" style="max-width:100%;height:auto;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-        <p style="margin:12px 0 0 0;color:#444;font-size:14px;font-weight:600;">🎟️ Tu Sticker LevelONE</p>
-        <p style="margin:4px 0 0 0;color:#666;font-size:13px;">Este es tu Sticker LevelONE</p>
-      </div>
-
-      <!-- Beneficios -->
-      <div style="margin:24px 0;">
-        <p style="color:#333;font-weight:600;margin:0 0 12px 0;font-size:15px;">👉 Es tu ingreso a una comunidad con beneficios reales:</p>
-        <ul style="color:#555;font-size:14px;margin:0 0 12px 0;padding-left:20px;line-height:1.8;">
-          <li>📲 Acceso a la comunidad privada de WhatsApp</li>
-          <li>🎓 Capacitaciones en ventas, marketing y ventas online</li>
-          <li>💸 Hasta 50% de descuento en cursos presenciales y virtuales</li>
-          <li>🚀 La posibilidad de participar en el sistema y generar ingresos</li>
-        </ul>
-        <p style="color:#555;font-size:14px;margin:0;">Tu sticker es la herramienta que te permite crecer, aprender y avanzar dentro de LevelONE.</p>
-      </div>
-
-      <!-- Credenciales -->
-      <div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;border-radius:0 8px 8px 0;">
-        <p style="margin:0 0 12px 0;color:#333;font-weight:600;font-size:15px;">🔐 Datos de acceso a la plataforma</p>
-        <p style="margin:8px 0;color:#555;font-size:14px;"><strong>Usuario:</strong> <code style="background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600;">{sticker_code}</code></p>
-        <p style="margin:8px 0;color:#555;font-size:14px;"><strong>Contraseña:</strong> <code style="background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600;">{temp_pass}</code></p>
-        <p style="margin:12px 0 0 0;color:#555;font-size:14px;"><strong>Link de acceso:</strong> <a href="{app_url}" style="color:#667eea;text-decoration:none;font-weight:600;">{app_url}</a></p>
-      </div>
-
-      <!-- Plazo de activación -->
-      <div style="background:#fff3cd;border:1px solid #ffeaa7;padding:16px;border-radius:8px;margin:24px 0;">
-        <p style="margin:0 0 10px 0;color:#856404;font-size:14px;font-weight:600;">⏳ Plazo de Activación</p>
-        <p style="margin:0 0 8px 0;color:#856404;font-size:13px;line-height:1.5;">Tenés 7 días desde la activación de tu sticker para completar tus primeras 3 ventas iniciales dentro del sistema.</p>
-        <p style="margin:0 0 8px 0;color:#856404;font-size:13px;line-height:1.5;">⚠️ Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin reintegro.</p>
-        <p style="margin:0;color:#856404;font-size:13px;line-height:1.5;">💡 Te recomendamos aprovechar desde el primer día la comunidad y las capacitaciones disponibles para avanzar más rápido.</p>
-      </div>
-
-      <!-- Comunidad -->
-      <div style="background:#e8f4fd;border-left:4px solid #0d6efd;padding:16px;margin:24px 0;border-radius:0 8px 8px 0;">
-        <p style="margin:0 0 10px 0;color:#0b5ed7;font-weight:600;font-size:15px;">🤝 Comunidad LevelONE</p>
-        <p style="margin:0 0 8px 0;color:#333;font-size:13px;line-height:1.5;">Desde este momento también podés acceder a nuestra comunidad privada, donde vas a encontrar:</p>
-        <p style="margin:0;color:#555;font-size:13px;">acompañamiento • seguimiento • soporte • estrategias de venta • información importante para tu crecimiento</p>
-      </div>
-
-      <!-- Importante -->
-      <div style="background:#f8f9fa;border:1px solid #dee2e6;padding:16px;border-radius:8px;margin:24px 0;">
-        <p style="margin:0 0 10px 0;color:#495057;font-weight:600;font-size:14px;">📜 Importante</p>
-        <p style="margin:0 0 6px 0;color:#6c757d;font-size:13px;line-height:1.5;">LevelONE no es un sistema de inversión ni promete ganancias automáticas.</p>
-        <p style="margin:0 0 6px 0;color:#6c757d;font-size:13px;line-height:1.5;">Los resultados dependen de tu actividad, compromiso y del acompañamiento de tu red.</p>
-        <p style="margin:0;color:#6c757d;font-size:13px;line-height:1.5;">Tu participación en el sistema es opcional: el sticker ya incluye beneficios reales desde el momento de la compra.</p>
-      </div>
-
-      <!-- Términos -->
-      <div style="text-align:center;margin:28px 0 20px 0;">
-        <p style="margin:0 0 6px 0;color:#333;font-weight:600;font-size:14px;">📄 Términos y Condiciones</p>
-        <p style="margin:0 0 10px 0;color:#555;font-size:13px;">Al activar tu sticker aceptás nuestras Bases y Condiciones de uso de la plataforma.</p>
-        <p style="margin:0;font-size:13px;">👉 Podés consultarlas aquí: <a href="{app_terms_url}" style="color:#667eea;text-decoration:underline;font-weight:600;">Bases y Condiciones</a></p>
-      </div>
-
-      <!-- Botón de ingreso -->
-      <div style="text-align:center;margin:32px 0 24px 0;">
-        <p style="margin:0 0 10px 0;color:#333;font-weight:600;font-size:16px;">🚀 Tu próximo paso</p>
-        <p style="margin:0 0 20px 0;color:#555;font-size:14px;line-height:1.5;">Ingresá ahora a tu plataforma, activá tu red y comenzá a avanzar.<br>Tu crecimiento empieza hoy. Bienvenido a LevelONE.</p>
-        <a href="{app_url}" style="display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:16px;box-shadow:0 4px 14px rgba(102,126,234,0.4);">Ingresar a la plataforma</a>
-      </div>
-
-    </div>
-
-    <!-- Footer -->
-    <div style="text-align:center;padding:20px;background:#f8f9fa;border-top:1px solid #e9ecef;color:#6c757d;font-size:12px;">
-      <p style="margin:0 0 6px 0;">© 2026 levelONE. Todos los derechos reservados.</p>
-      <p style="margin:0;color:#999;">Si no solicitaste este acceso, contactá a quien te vendió el sticker.</p>
-    </div>
-
-  </div>
-</body>
-</html>
-                    """
-                }
+                payload = {"sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")}, "to": [{"email": buyer_email, "name": buyer_name}], "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}", "htmlContent": f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Bienvenido a LevelONE</title><style>@media only screen and (max-width: 600px) {{ body {{ background-color: #1a1a2e !important; }} .container {{ width: 100% !important; border-radius: 0 !important; }} }}</style></head><body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);overflow:hidden;"><div style="text-align:center;padding:24px 20px 16px;background:rgba(255,255,255,0.95);"><h1 style="margin:0;color:#667eea;font-size:24px;font-weight:700;">🎉 ¡BIENVENIDO/A A LEVELONE!</h1><p style="margin:12px 0 0 0;color:#333;font-size:15px;">Tu sticker <strong>{sticker_code}</strong> ha sido activado correctamente ✅</p><p style="margin:8px 0 0 0;color:#555;font-size:14px;">Ahora ya formás parte de la comunidad LevelONE.</p><p style="margin:12px 0 0 0;color:#667eea;font-weight:600;font-size:14px;">🌟 Tu plataforma para aprender y crecer</p></div><div style="padding:0 24px 24px 24px;"><div style="background:#f8f9fa;border:2px dashed #667eea;padding:20px;border-radius:12px;text-align:center;margin:20px 0;"><img src="https://levelone.uno/static/sticker.jpg" alt="Sticker levelONE" style="max-width:100%;height:auto;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><p style="margin:12px 0 0 0;color:#444;font-size:14px;font-weight:600;">🎟️ Tu Sticker LevelONE</p><p style="margin:4px 0 0 0;color:#666;font-size:13px;">Este es tu Sticker LevelONE</p></div><div style="margin:24px 0;"><p style="color:#333;font-weight:600;margin:0 0 12px 0;font-size:15px;">👉 Es tu ingreso a una comunidad con beneficios reales:</p><ul style="color:#555;font-size:14px;margin:0 0 12px 0;padding-left:20px;line-height:1.8;"><li>📲 Acceso a la comunidad privada de WhatsApp</li><li>🎓 Capacitaciones en ventas, marketing y ventas online</li><li>💸 Hasta 50% de descuento en cursos presenciales y virtuales</li><li>🚀 La posibilidad de participar en el sistema y generar ingresos</li></ul><p style="color:#555;font-size:14px;margin:0;">Tu sticker es la herramienta que te permite crecer, aprender y avanzar dentro de LevelONE.</p></div><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;border-radius:0 8px 8px 0;"><p style="margin:0 0 12px 0;color:#333;font-weight:600;font-size:15px;">🔐 Datos de acceso a la plataforma</p><p style="margin:8px 0;color:#555;font-size:14px;"><strong>Usuario:</strong> <code style="background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600;">{sticker_code}</code></p><p style="margin:8px 0;color:#555;font-size:14px;"><strong>Contraseña:</strong> <code style="background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600;">{temp_pass}</code></p><p style="margin:12px 0 0 0;color:#555;font-size:14px;"><strong>Link de acceso:</strong> <a href="{app_url}" style="color:#667eea;text-decoration:none;font-weight:600;">{app_url}</a></p></div><div style="background:#fff3cd;border:1px solid #ffeaa7;padding:16px;border-radius:8px;margin:24px 0;"><p style="margin:0 0 10px 0;color:#856404;font-size:14px;font-weight:600;">⏳ Plazo de Activación</p><p style="margin:0 0 8px 0;color:#856404;font-size:13px;line-height:1.5;">Tenés 7 días desde la activación de tu sticker para completar tus primeras 3 ventas iniciales dentro del sistema.</p><p style="margin:0 0 8px 0;color:#856404;font-size:13px;line-height:1.5;">⚠️ Si no completás este proceso dentro del plazo establecido, el acceso al sistema podrá cancelarse sin reintegro.</p><p style="margin:0;color:#856404;font-size:13px;line-height:1.5;">💡 Te recomendamos aprovechar desde el primer día la comunidad y las capacitaciones disponibles para avanzar más rápido.</p></div><div style="background:#e8f4fd;border-left:4px solid #0d6efd;padding:16px;margin:24px 0;border-radius:0 8px 8px 0;"><p style="margin:0 0 10px 0;color:#0b5ed7;font-weight:600;font-size:15px;">🤝 Comunidad LevelONE</p><p style="margin:0 0 8px 0;color:#333;font-size:13px;line-height:1.5;">Desde este momento también podés acceder a nuestra comunidad privada, donde vas a encontrar:</p><p style="margin:0;color:#555;font-size:13px;">acompañamiento • seguimiento • soporte • estrategias de venta • información importante para tu crecimiento</p></div><div style="background:#f8f9fa;border:1px solid #dee2e6;padding:16px;border-radius:8px;margin:24px 0;"><p style="margin:0 0 10px 0;color:#495057;font-weight:600;font-size:14px;">📜 Importante</p><p style="margin:0 0 6px 0;color:#6c757d;font-size:13px;line-height:1.5;">LevelONE no es un sistema de inversión ni promete ganancias automáticas.</p><p style="margin:0 0 6px 0;color:#6c757d;font-size:13px;line-height:1.5;">Los resultados dependen de tu actividad, compromiso y del acompañamiento de tu red.</p><p style="margin:0;color:#6c757d;font-size:13px;line-height:1.5;">Tu participación en el sistema es opcional: el sticker ya incluye beneficios reales desde el momento de la compra.</p></div><div style="text-align:center;margin:28px 0 20px 0;"><p style="margin:0 0 6px 0;color:#333;font-weight:600;font-size:14px;">📄 Términos y Condiciones</p><p style="margin:0 0 10px 0;color:#555;font-size:13px;">Al activar tu sticker aceptás nuestras Bases y Condiciones de uso de la plataforma.</p><p style="margin:0;font-size:13px;">👉 Podés consultarlas aquí: <a href="{app_terms_url}" style="color:#667eea;text-decoration:underline;font-weight:600;">Bases y Condiciones</a></p></div><div style="text-align:center;margin:32px 0 24px 0;"><p style="margin:0 0 10px 0;color:#333;font-weight:600;font-size:16px;">🚀 Tu próximo paso</p><p style="margin:0 0 20px 0;color:#555;font-size:14px;line-height:1.5;">Ingresá ahora a tu plataforma, activá tu red y comenzá a avanzar.<br>Tu crecimiento empieza hoy. Bienvenido a LevelONE.</p><a href="{app_url}" style="display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:16px;box-shadow:0 4px 14px rgba(102,126,234,0.4);">Ingresar a la plataforma</a></div></div><div style="text-align:center;padding:20px;background:#f8f9fa;border-top:1px solid #e9ecef;color:#6c757d;font-size:12px;"><p style="margin:0 0 6px 0;">© 2026 levelONE. Todos los derechos reservados.</p><p style="margin:0;color:#999;">Si no solicitaste este acceso, contactá a quien te vendió el sticker.</p></div></div></body></html>"""}
                 response = requests.post(url, json=payload, headers=headers, timeout=10); response.raise_for_status()
                 print(f"[BREVO] ✅ Email enviado a {buyer_email}. Status: {response.status_code}", flush=True)
             except Exception as e: print(f"[BREVO] ❌ Error: {e}", flush=True); flash("⚠️ El email no pudo enviarse, pero el acceso está activado.")
-
-            cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,))
-            cid, sid = s["cycle_id"], s["seller_id"]
-            
-            # CIERRE ESPECÍFICO POR CICLO
-            cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE cycle_id=%s AND seller_id=%s AND status='entregado'", (cid, sid))
-            entregados = cur.fetchone()["cnt"]
-            
+            cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,)); cid, sid = s["cycle_id"], s["seller_id"]
+            cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE cycle_id=%s AND seller_id=%s AND status='entregado'", (cid, sid)); entregados = cur.fetchone()["cnt"]
             if entregados == 3:
                 cur.execute("UPDATE cycle_levels SET is_graduated = TRUE WHERE cycle_id = %s AND level = 1", (cid,))
                 cur.execute("UPDATE cycle_levels SET level = level - 1 WHERE cycle_id = %s AND level > 1", (cid,))
@@ -550,6 +377,17 @@ def logout():
     session.clear(); return redirect("/ingresar")
 
 # =============================================================================
+# 🔍 RUTA DE DEBUG: Para ver todas las rutas registradas
+# =============================================================================
+@app.route("/debug-rutas")
+def debug_rutas():
+    """Muestra todas las rutas registradas en Flask"""
+    rutas = []
+    for rule in app.url_map.iter_rules():
+        rutas.append(f"{sorted(rule.methods)} {rule.rule} → {rule.endpoint}")
+    return "<pre>" + "<br>".join(sorted(rutas)) + "</pre>"
+
+# =============================================================================
 # 🟢 MÓDULO ADITIVO: GESTIÓN DE CURSOS (Admin Only)
 # =============================================================================
 @app.route("/admin/cursos", methods=["GET", "POST"])
@@ -558,9 +396,7 @@ def admin_cursos():
     conn = get_db(); cur = get_cur(conn)
     cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
     row = cur.fetchone()
-    if not row or row["sticker_id"] != "ADMIN001":
-        conn.close(); return redirect("/dashboard")
-
+    if not row or row["sticker_id"] != "ADMIN001": conn.close(); return redirect("/dashboard")
     if request.method == "POST":
         titulo = request.form.get("titulo", "").strip()
         desc = request.form.get("descripcion", "").strip()
@@ -569,40 +405,11 @@ def admin_cursos():
         precio = request.form.get("precio", "").strip() or None
         descuento = request.form.get("descuento", "0").strip() or 0
         estado = request.form.get("estado", "active")
-        
         if titulo:
-            cur.execute('''INSERT INTO courses (title, description, image_url, start_date, price, discount_pct, status) 
-                          VALUES (%s,%s,%s,%s,%s,%s,%s)''', 
-                       (titulo, desc, img, fecha, precio, descuento, estado))
-            conn.commit()
-            flash("✅ Curso agregado correctamente.")
-    
-    cur.execute("SELECT * FROM courses ORDER BY created_at DESC")
-    cursos = cur.fetchall()
-    conn.close()
-    
-    # Render simple admin UI inline (no need for new template file)
-    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Cursos</title>
-    <style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}
-    .card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}
-    input,select,textarea{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}
-    button{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}
-    table{width:100%;border-collapse:collapse;margin-top:20px}
-    th,td{padding:12px;border-bottom:1px solid #333;text-align:left}
-    .badge{padding:4px 8px;border-radius:4px;font-size:0.8rem}
-    .active{background:#38a169}.inactive{background:#e53e3e}
-    a{color:#667eea;text-decoration:none;margin-right:15px}</style></head><body>
-    <h2>📚 Gestión de Cursos</h2><a href="/dashboard">← Volver</a>
-    <div class="card"><form method="POST"><h3>Agregar Curso</h3>
-    <input name="titulo" placeholder="Título *" required>
-    <textarea name="descripcion" placeholder="Descripción" rows="2"></textarea>
-    <input name="imagen" placeholder="URL de imagen (opcional)">
-    <input name="fecha_inicio" type="date" placeholder="Fecha de inicio">
-    <input name="precio" type="number" step="0.01" placeholder="Precio base">
-    <input name="descuento" type="number" min="0" max="100" placeholder="Descuento %">
-    <select name="estado"><option value="active">Activo</option><option value="inactive">Inactivo</option></select>
-    <button type="submit">Guardar</button></form></div>
-    <table><thead><tr><th>Título</th><th>Precio</th><th>Desc.</th><th>Inicio</th><th>Estado</th></tr></thead><tbody>"""
+            cur.execute('''INSERT INTO courses (title, description, image_url, start_date, price, discount_pct, status) VALUES (%s,%s,%s,%s,%s,%s,%s)''', (titulo, desc, img, fecha, precio, descuento, estado))
+            conn.commit(); flash("✅ Curso agregado correctamente.")
+    cur.execute("SELECT * FROM courses ORDER BY created_at DESC"); cursos = cur.fetchall(); conn.close()
+    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Cursos</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}input,select,textarea{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;border-bottom:1px solid #333;text-align:left}.badge{padding:4px 8px;border-radius:4px;font-size:0.8rem}.active{background:#38a169}.inactive{background:#e53e3e}a{color:#667eea;text-decoration:none;margin-right:15px}</style></head><body><h2>📚 Gestión de Cursos</h2><a href="/dashboard">← Volver</a><div class="card"><form method="POST"><h3>Agregar Curso</h3><input name="titulo" placeholder="Título *" required><textarea name="descripcion" placeholder="Descripción" rows="2"></textarea><input name="imagen" placeholder="URL de imagen (opcional)"><input name="fecha_inicio" type="date" placeholder="Fecha de inicio"><input name="precio" type="number" step="0.01" placeholder="Precio base"><input name="descuento" type="number" min="0" max="100" placeholder="Descuento %"><select name="estado"><option value="active">Activo</option><option value="inactive">Inactivo</option></select><button type="submit">Guardar</button></form></div><table><thead><tr><th>Título</th><th>Precio</th><th>Desc.</th><th>Inicio</th><th>Estado</th></tr></thead><tbody>"""
     for c in cursos:
         badge = f"<span class='badge {'active' if c['status']=='active' else 'inactive'}'>{c['status']}</span>"
         html += f"<tr><td>{c['title']}</td><td>${c['price'] or '-'}</td><td>{c['discount_pct']}%</td><td>{c['start_date'] or '-'}</td><td>{badge}</td></tr>"
@@ -618,57 +425,27 @@ def admin_red():
     conn = get_db(); cur = get_cur(conn)
     cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
     row = cur.fetchone()
-    if not row or row["sticker_id"] != "ADMIN001":
-        conn.close(); return redirect("/dashboard")
-
-    query = request.args.get("q", "").strip()
-    arbol = []
-    usuario_base = None
-    
+    if not row or row["sticker_id"] != "ADMIN001": conn.close(); return redirect("/dashboard")
+    query = request.args.get("q", "").strip(); arbol = []; usuario_base = None
     if query:
-        cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
-        usuario_base = cur.fetchone()
+        cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%")); usuario_base = cur.fetchone()
         if usuario_base:
-            # BFS para recorrer toda la red descendente
-            queue = deque([(usuario_base["id"], 1)])
-            visitados = set([usuario_base["id"]])
+            queue = deque([(usuario_base["id"], 1)]); visitados = set([usuario_base["id"]])
             while queue:
                 uid, nivel = queue.popleft()
-                cur.execute("SELECT sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (uid,))
-                u = cur.fetchone()
+                cur.execute("SELECT sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (uid,)); u = cur.fetchone()
                 if u: arbol.append({**u, "nivel_red": nivel})
                 cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (uid,))
                 for r in cur.fetchall():
                     cid = r["child_id"]
-                    if cid and cid not in visitados:
-                        visitados.add(cid)
-                        queue.append((cid, nivel + 1))
-    
+                    if cid and cid not in visitados: visitados.add(cid); queue.append((cid, nivel + 1))
     conn.close()
-    
-    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title>
-    <style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}
-    .search{display:flex;gap:10px;margin-bottom:30px}
-    input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}
-    button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:12px;border-bottom:1px solid #333;text-align:left}
-    .nivel{background:#764ba2;color:#fff;padding:4px 10px;border-radius:20px;font-size:0.85rem}
-    a{color:#667eea;text-decoration:none}</style></head><body>
-    <h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a>
-    <form method="GET" class="search">
-        <input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\">
-        <button type="submit">Buscar</button>
-    </form>"""
-    
+    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #333;text-align:left}.nivel{background:#764ba2;color:#fff;padding:4px 10px;border-radius:20px;font-size:0.85rem}a{color:#667eea;text-decoration:none}</style></head><body><h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
     if usuario_base:
-        html += f"<p><strong>{usuario_base['full_name']}</strong> ({usuario_base['sticker_id']}) | Nivel actual: {usuario_base['current_level']}</p>"
-        html += "<table><thead><tr><th>Nivel en Red</th><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel Sistema</th></tr></thead><tbody>"
-        for r in arbol:
-            html += f"<tr><td><span class='nivel'>{r['nivel_red']}</span></td><td>{r['sticker_id']}</td><td>{r['full_name']}</td><td>{r['phone']}</td><td>{r['current_level']}</td></tr>"
+        html += f"<p><strong>{usuario_base['full_name']}</strong> ({usuario_base['sticker_id']}) | Nivel actual: {usuario_base['current_level']}</p><table><thead><tr><th>Nivel en Red</th><th>Sticker</th><th>Nombre</th><th>Teléfono</th><th>Nivel Sistema</th></tr></thead><tbody>"
+        for r in arbol: html += f"<tr><td><span class='nivel'>{r['nivel_red']}</span></td><td>{r['sticker_id']}</td><td>{r['full_name']}</td><td>{r['phone']}</td><td>{r['current_level']}</td></tr>"
         html += "</tbody></table>"
-    elif query:
-        html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
+    elif query: html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
     html += "</body></html>"
     return render_template_string(html)
 
