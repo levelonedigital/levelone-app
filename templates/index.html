@@ -191,7 +191,6 @@
         .step-card h4 { font-size: 1.2rem; margin-bottom: 10px; color: var(--text-white); }
         .step-card p { color: var(--text-muted); font-size: 0.95rem; }
 
-        /* CTA Box (Modificado: Mensaje de Referido) */
         .cta-box {
             background: var(--bg-dark);
             border-radius: var(--card-radius);
@@ -199,7 +198,7 @@
             text-align: center;
             max-width: 700px;
             margin: 0 auto;
-            border: 2px solid var(--primary-color); /* Borde sólido para destacar */
+            border: 2px solid var(--primary-color);
             box-shadow: 0 4px 30px rgba(102, 126, 234, 0.15);
         }
 
@@ -326,7 +325,6 @@
                 </div>
             </div>
 
-            <!-- CAJA INFORMATIVA DE REFERIDOS (Reemplaza la compra directa) -->
             <div class="cta-box">
                 <h3>🤝 Crecimiento en Conjunto</h3>
                 <p>
@@ -365,6 +363,36 @@
         </div>
     </section>
 
+    <!-- 🟢 SECCIÓN ADITIVA: CURSOS ACTIVOS -->
+    {% if cursos %}
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">📚 Cursos Activos Disponibles</h2>
+            <div class="grid">
+                {% for c in cursos %}
+                <div class="card">
+                    {% if c.image_url %}
+                    <img src="{{ c.image_url }}" alt="{{ c.title }}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;margin-bottom:15px;">
+                    {% endif %}
+                    <h3>{{ c.title }}</h3>
+                    <p>{{ c.description }}</p>
+                    {% if c.price and c.discount_pct %}
+                    <p style="margin-top:10px;">
+                        <span style="text-decoration:line-through;color:#718096;">${{ c.price }}</span>
+                        <strong style="color:#38a169;margin-left:8px;">${{ c.price * (1 - c.discount_pct/100) }}</strong>
+                        <span style="background:#38a169;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.8rem;margin-left:8px;">-{{ c.discount_pct }}%</span>
+                    </p>
+                    {% endif %}
+                    {% if c.start_date %}
+                    <p style="font-size:0.9rem;color:#a0aec0;margin-top:5px;">🗓️ Inicio: {{ c.start_date.strftime('%d/%m/%Y') }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     <footer>
         <div class="container">
             <h3>LevelONE</h3>
@@ -381,4 +409,3 @@
 
 </body>
 </html>
-
