@@ -2,6 +2,7 @@ import os
 import uuid
 import traceback
 import requests
+import secrets
 from datetime import datetime, timedelta
 from collections import deque
 
@@ -444,6 +445,111 @@ def toggle_curso(course_id):
     flash("✅ Estado del curso actualizado.")
     return redirect("/admin/cursos")
 
+# =============================================================================
+# 🔐 NUEVA RUTA: Restablecer contraseña de usuario (Admin only)
+# =============================================================================
+@app.route("/admin/reset_password/<int:user_id>", methods=["POST"])
+def admin_reset_password(user_id):
+    if "user_id" not in session: return redirect("/ingresar")
+    conn = get_db(); cur = get_cur(conn)
+    
+    # Verificar que es ADMIN001
+    cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
+    row = cur.fetchone()
+    if not row or row["sticker_id"] != "ADMIN001":
+        conn.close(); return redirect("/dashboard")
+    
+    # Obtener datos del usuario a resetear
+    cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (user_id,))
+    target = cur.fetchone()
+    if not target:
+        conn.close(); flash("❌ Usuario no encontrado."); return redirect(request.referrer or "/dashboard")
+    
+    # Generar nueva contraseña temporal
+    new_pass = "Temp-" + ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
+    new_hash = generate_password_hash(new_pass, method='pbkdf2:sha256')
+    
+    # Actualizar SOLO el password_hash
+    cur.execute("UPDATE users SET password_hash=%s WHERE id=%s", (new_hash, user_id))
+    conn.commit()
+    
+    # Enviar email breve y motivador
+    try:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
+        app_url = request.host_url.rstrip('/') + "/ingresar"
+        
+        payload = {
+            "sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")},
+            "to": [{"email": target["email"], "name": target["full_name"]}],
+            "subject": f"🔐 Tu contraseña fue actualizada | {target['sticker_id']}",
+            "htmlContent": f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contraseña actualizada - LevelONE</title>
+<style>
+  body {{ margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh; }}
+  .container {{ max-width:520px;margin:20px auto;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);overflow:hidden; }}
+  .header {{ text-align:center;padding:24px 20px 16px;background:rgba(255,255,255,0.95); }}
+  .header h1 {{ margin:0;color:#667eea;font-size:24px;font-weight:700; }}
+  .content {{ padding:0 24px 24px 24px; }}
+  .credentials {{ background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;border-radius:0 8px 8px 0; }}
+  .credentials code {{ background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600; }}
+  .motivational {{ background:#e8f4fd;border-left:4px solid #0d6efd;padding:16px;margin:24px 0;border-radius:0 8px 8px 0; }}
+  .btn {{ display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:16px;box-shadow:0 4px 14px rgba(102,126,234,0.4); }}
+  .footer {{ text-align:center;padding:20px;background:#f8f9fa;border-top:1px solid #e9ecef;color:#6c757d;font-size:12px; }}
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 Contraseña actualizada</h1>
+      <p style="margin:12px 0 0 0;color:#333;font-size:15px;">Hola <strong>{target['full_name']}</strong>, tu acceso fue actualizado ✨</p>
+    </div>
+    <div class="content">
+      <p style="color:#555;font-size:14px;">Por seguridad, tu contraseña temporal ha sido restablecida por el equipo de administración.</p>
+      
+      <div class="credentials">
+        <p style="margin:0 0 12px 0;color:#333;font-weight:600;font-size:15px;">🔑 Tus nuevas credenciales</p>
+        <p style="margin:8px 0;color:#555;font-size:14px;"><strong>Usuario:</strong> <code>{target['sticker_id']}</code></p>
+        <p style="margin:8px 0;color:#555;font-size:14px;"><strong>Contraseña:</strong> <code>{new_pass}</code></p>
+        <p style="margin:12px 0 0 0;color:#555;font-size:14px;"><strong>Link de acceso:</strong> <a href="{app_url}" style="color:#667eea;text-decoration:none;font-weight:600;">{app_url}</a></p>
+      </div>
+      
+      <div class="motivational">
+        <p style="margin:0 0 10px 0;color:#0b5ed7;font-weight:600;font-size:15px;">💪 Frase del día</p>
+        <p style="margin:0;color:#333;font-size:14px;">"Cada sticker que vendés te acerca más a tu meta. ¡Seguí creciendo y construyendo tu red!"</p>
+      </div>
+      
+      <div style="text-align:center;margin:32px 0 24px 0;">
+        <a href="{app_url}" class="btn">Ingresar a la plataforma</a>
+      </div>
+      
+      <p style="color:#6c757d;font-size:13px;text-align:center;">
+        ⚠️ Por seguridad, te recomendamos cambiar esta contraseña temporal desde tu perfil al ingresar.
+      </p>
+    </div>
+    <div class="footer">
+      <p style="margin:0 0 6px 0;">© 2026 levelONE. Todos los derechos reservados.</p>
+      <p style="margin:0;color:#999;">Si no solicitaste este cambio, contactá a admin@levelone.com</p>
+    </div>
+  </div>
+</body>
+</html>
+            """
+        }
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+        print(f"[BREVO] ✅ Email de reset enviado a {target['email']}. Status: {response.status_code}", flush=True)
+    except Exception as e:
+        print(f"[BREVO] ❌ Error enviando email de reset: {e}", flush=True)
+        flash("⚠️ Contraseña actualizada, pero el email no pudo enviarse.")
+    
+    conn.close()
+    flash(f"✅ Contraseña restablecida para {target['full_name']} ({target['sticker_id']}). Nueva clave: {new_pass}")
+    return redirect(request.referrer or "/admin/red")
+
 @app.route("/admin/red")
 def admin_red():
     if "user_id" not in session: return redirect("/ingresar")
@@ -458,78 +564,104 @@ def admin_red():
     descendants = []
 
     if query:
+        # Buscar usuario objetivo
         cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash, role FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
         target = cur.fetchone()
 
         if target:
             tid = target["id"]
-            current = tid
-            while True:
-                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current,))
-                up = cur.fetchone()
-                if not up: break
-                pid = up["parent_id"]
-                cur.execute("SELECT sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (pid,))
-                parent_data = cur.fetchone()
-                if parent_data:
-                    ancestors.append(dict(parent_data))
-                    current = pid
-                else: break
-            ancestors.reverse()
-
-            cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (tid,))
-            hijos = [r["child_id"] for r in cur.fetchall()]
-            for h_id in hijos:
-                cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash FROM users WHERE id=%s", (h_id,))
-                h_data = cur.fetchone()
-                if h_data:
-                    descendants.append({"nivel": 1, "padre_stk": target["sticker_id"], "data": dict(h_data)})
-                    cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (h_id,))
-                    nietos = [r["child_id"] for r in cur.fetchall()]
-                    for n_id in nietos:
-                        cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash FROM users WHERE id=%s", (n_id,))
-                        n_data = cur.fetchone()
-                        if n_data:
-                            descendants.append({"nivel": 2, "padre_stk": h_data["sticker_id"], "data": dict(n_data)})
+            
+            # 🔝 ASCENDIENTES: Solo del ciclo específico donde el usuario está en su nivel actual
+            # Primero encontramos el cycle_id donde este usuario tiene su nivel actual
+            cur.execute("SELECT cycle_id, level FROM cycle_levels WHERE user_id=%s ORDER BY id DESC LIMIT 1", (tid,))
+            user_cycle = cur.fetchone()
+            
+            if user_cycle:
+                cycle_id = user_cycle["cycle_id"]
+                user_level_in_cycle = user_cycle["level"]
+                
+                # Obtenemos los ascendentes de este ciclo específico (niveles superiores)
+                for target_level in range(user_level_in_cycle - 1, 0, -1):  # De nivel inferior a 1
+                    cur.execute("""
+                        SELECT u.sticker_id, u.full_name, u.phone, u.current_level 
+                        FROM cycle_levels cl 
+                        JOIN users u ON cl.user_id = u.id 
+                        WHERE cl.cycle_id = %s AND cl.level = %s
+                    """, (cycle_id, target_level))
+                    ancestor_data = cur.fetchone()
+                    if ancestor_data:
+                        ancestors.append(dict(ancestor_data))
+            
+            # 🔽 DESCENDIENTES: Hasta 3 niveles desde el usuario buscado (global, no por ciclo)
+            def get_descendants(parent_id, current_depth, max_depth, parent_sticker):
+                if current_depth > max_depth:
+                    return []
+                results = []
+                cur.execute("SELECT child_id FROM referral_tree WHERE parent_id=%s", (parent_id,))
+                children = [r["child_id"] for r in cur.fetchall()]
+                for child_id in children:
+                    cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash FROM users WHERE id=%s", (child_id,))
+                    child_data = cur.fetchone()
+                    if child_data:
+                        results.append({
+                            "nivel": current_depth,
+                            "padre_stk": parent_sticker,
+                            "data": dict(child_data)
+                        })
+                        # Recursivo para siguientes niveles
+                        results.extend(get_descendants(child_id, current_depth + 1, max_depth, child_data["sticker_id"]))
+                return results
+            
+            descendants = get_descendants(tid, 1, 3, target["sticker_id"])
 
     conn.close()
 
-    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.tree{padding-left:20px;border-left:2px solid #444;margin-left:10px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.lvl1{border-left:3px solid #667eea;padding-left:15px}.lvl2{border-left:3px solid #38a169;padding-left:30px}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
+    # Función auxiliar para renderizar botón de reset con confirmación JS
+    def reset_btn(user_id, user_name):
+        return f"""<a href="/admin/reset_password/{user_id}" onclick="return confirm('⚠️ ¿Seguro que querés restablecer la contraseña de {user_name}? Se generará una clave temporal y se enviará por email.')" style="background:#f6e05e;color:#1a1a2e;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;font-weight:600;display:inline-block;margin-top:5px">🔑 Reset Pass</a>"""
+
+    html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.tree{padding-left:20px;border-left:2px solid #444;margin-left:10px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.lvl1{border-left:3px solid #667eea;padding-left:15px}.lvl2{border-left:3px solid #38a169;padding-left:30px}.lvl3{border-left:3px solid #f6e05e;padding-left:45px}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Red Completa</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
 
     if target:
+        # 🔝 Sección de Ascendientes (solo del ciclo específico)
         if ancestors:
-            html += '<div class="section"><h3>🔝 Cadena de Ascendientes</h3>'
+            html += '<div class="section"><h3>🔝 Ascendientes de este Ciclo</h3>'
             for a in ancestors:
-                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div></div>"""
+                html += f"""<div class="node">
+                    <div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div>
+                    {reset_btn(a['id'], a['full_name'])}
+                </div>"""
             html += '<div class="tree"><div class="node" style="border-left:3px solid #f6e05e;background:#1a1a1a;text-align:center;">⬇️ Conecta a tu usuario buscado</div></div></div>'
 
+        # 🎯 Usuario buscado (centro)
+        pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
         html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;">
             <h3 style="margin:0 0 10px 0;color:#fff;">🎯 Usuario Buscado</h3>
             <div class="info" style="font-size:1.1rem;">
                 <span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>
                 Tel: {target['phone']} | Nivel Actual: {target['current_level']} | Rol: {target['role']}
             </div>
+            <div class="info" style="margin-top:10px;">Pass: <code style="color:#f6e05e">{pwd_display}</code></div>
+            {reset_btn(target['id'], target['full_name'])}
         </div>"""
 
-        html += '<div class="section"><h3>🔽 Red de Ventas (Hijos y Nietos)</h3>'
+        # 🔽 Sección de Descendientes (hasta 3 niveles)
+        html += '<div class="section"><h3>🔽 Red de Ventas (Hijos → Nietos → Bisnietos)</h3>'
         if not descendants:
             html += '<p class="info">No hay descendientes registrados aún.</p>'
         else:
             for d in descendants:
                 u = d["data"]
-                pwd_display = u['password_hash'][:15] + "..." if u['password_hash'] else "No definida"
-                if d["nivel"] == 1:
-                    html += f"""<div class="node lvl1">
-                        <div class="info">👤 <span>Hijo</span> (Vendido por: {d['padre_stk']})</div>
-                        <div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div>
-                        <div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_display}</code></div>
-                    </div>"""
-                else:
-                    html += f"""<div class="node lvl2">
-                        <div class="info">👶 <span>Nieto</span> (Vendido por: {d['padre_stk']})</div>
-                        <div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div>
-                        <div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_display}</code></div>
-                    </div>"""
+                pwd_disp = u['password_hash'][:15] + "..." if u['password_hash'] else "No definida"
+                nivel_label = {1: "👤 Hijo", 2: "👶 Nieto", 3: "👣 Bisnieto"}.get(d["nivel"], "Descendiente")
+                nivel_class = {1: "lvl1", 2: "lvl2", 3: "lvl3"}.get(d["nivel"], "")
+                
+                html += f"""<div class="node {nivel_class}">
+                    <div class="info">{nivel_label} (Vendido por: {d['padre_stk']})</div>
+                    <div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div>
+                    <div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_disp}</code></div>
+                    {reset_btn(u['id'], u['full_name'])}
+                </div>"""
         html += '</div>'
     elif query:
         html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
