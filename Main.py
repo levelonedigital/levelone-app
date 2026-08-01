@@ -450,27 +450,22 @@ def admin_reset_password(user_id):
     if "user_id" not in session: return redirect("/ingresar")
     conn = get_db(); cur = get_cur(conn)
     
-    # Verificar que es ADMIN001
     cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
     row = cur.fetchone()
     if not row or row["sticker_id"] != "ADMIN001":
         conn.close(); return redirect("/dashboard")
     
-    # Obtener datos del usuario a resetear
     cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (user_id,))
     target = cur.fetchone()
     if not target:
         conn.close(); flash("❌ Usuario no encontrado."); return redirect(request.referrer or "/dashboard")
     
-    # Generar nueva contraseña temporal
     new_pass = "Temp-" + ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
     new_hash = generate_password_hash(new_pass, method='pbkdf2:sha256')
     
-    # Actualizar SOLO el password_hash
     cur.execute("UPDATE users SET password_hash=%s WHERE id=%s", (new_hash, user_id))
     conn.commit()
     
-    # Enviar email breve y motivador
     try:
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
@@ -547,6 +542,86 @@ def admin_reset_password(user_id):
     flash(f"✅ Contraseña restablecida para {target['full_name']} ({target['sticker_id']}). Nueva clave: {new_pass}")
     return redirect(request.referrer or "/admin/red")
 
+# =============================================================================
+# 🟢 NUEVA RUTA: Gestionar/Editar datos de usuario (Admin only)
+# =============================================================================
+@app.route("/admin/edit_user/<int:user_id>", methods=["GET", "POST"])
+def admin_edit_user(user_id):
+    if "user_id" not in session: return redirect("/ingresar")
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],))
+    row = cur.fetchone()
+    if not row or row["sticker_id"] != "ADMIN001": conn.close(); return redirect("/dashboard")
+
+    cur.execute("SELECT sticker_id, full_name, phone, email, address, cbu_alias FROM users WHERE id=%s", (user_id,))
+    user = cur.fetchone()
+    if not user: conn.close(); return redirect("/admin/red")
+
+    if request.method == "POST":
+        new_name = request.form.get("full_name", "").strip()
+        new_phone = request.form.get("phone", "").strip()
+        new_email = request.form.get("email", "").strip()
+        new_address = request.form.get("address", "").strip()
+        new_cbu = request.form.get("cbu_alias", "").strip()
+
+        if not all([new_name, new_phone, new_email]):
+            conn.close(); flash("❌ Nombre, teléfono y email son obligatorios."); return redirect("/admin/red")
+
+        new_pass = "Temp-" + ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
+        new_hash = generate_password_hash(new_pass, method='pbkdf2:sha256')
+
+        cur.execute('''UPDATE users SET full_name=%s, phone=%s, email=%s, address=%s, cbu_alias=%s, password_hash=%s WHERE id=%s''',
+                    (new_name, new_phone, new_email, new_address, new_cbu, new_hash, user_id))
+        conn.commit()
+
+        try:
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
+            app_url = request.host_url.rstrip('/') + "/ingresar"
+            
+            payload = {
+                "sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")},
+                "to": [{"email": new_email, "name": new_name}],
+                "subject": f"📝 Datos actualizados y nueva contraseña | {user['sticker_id']}",
+                "htmlContent": f"""
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Datos actualizados - LevelONE</title>
+<style>body{{margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;}}.container{{max-width:520px;margin:20px auto;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);overflow:hidden;}}.header{{text-align:center;padding:24px 20px 16px;background:rgba(255,255,255,0.95);}}.header h1{{margin:0;color:#667eea;font-size:24px;font-weight:700;}}.content{{padding:0 24px 24px 24px;}}.credentials{{background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;border-radius:0 8px 8px 0;}}.credentials code{{background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600;}}.motivational{{background:#e8f4fd;border-left:4px solid #0d6efd;padding:16px;margin:24px 0;border-radius:0 8px 8px 0;}}.btn{{display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:16px;box-shadow:0 4px 14px rgba(102,126,234,0.4);}}.footer{{text-align:center;padding:20px;background:#f8f9fa;border-top:1px solid #e9ecef;color:#6c757d;font-size:12px;}}</style></head>
+<body><div class="container"><div class="header"><h1>📝 Datos actualizados</h1><p style="margin:12px 0 0 0;color:#333;font-size:15px;">Hola <strong>{new_name}</strong>, tu perfil fue actualizado ✨</p></div>
+<div class="content"><p style="color:#555;font-size:14px;">Tus datos de contacto han sido modificados por administración. Tu acceso sigue vinculado al sticker <strong>{user['sticker_id']}</strong>.</p>
+<div class="credentials"><p style="margin:0 0 12px 0;color:#333;font-weight:600;font-size:15px;">🔑 Nuevas credenciales</p>
+<p style="margin:8px 0;color:#555;font-size:14px;"><strong>Usuario:</strong> <code>{user['sticker_id']}</code></p>
+<p style="margin:8px 0;color:#555;font-size:14px;"><strong>Contraseña:</strong> <code>{new_pass}</code></p>
+<p style="margin:12px 0 0 0;color:#555;font-size:14px;"><strong>Link de acceso:</strong> <a href="{app_url}" style="color:#667eea;text-decoration:none;font-weight:600;">{app_url}</a></p></div>
+<div class="motivational"><p style="margin:0 0 10px 0;color:#0b5ed7;font-weight:600;font-size:15px;">💪 Frase del día</p><p style="margin:0;color:#333;font-size:14px;">"Tu crecimiento no tiene límites. Aprovechá esta nueva etapa y seguí construyendo tu red con todo."</p></div>
+<div style="text-align:center;margin:32px 0 24px 0;"><a href="{app_url}" class="btn">Ingresar a la plataforma</a></div>
+<p style="color:#6c757d;font-size:13px;text-align:center;">⚠️ Por seguridad, te recomendamos cambiar esta contraseña temporal al ingresar.</p></div>
+<div class="footer"><p style="margin:0 0 6px 0;">© 2026 levelONE. Todos los derechos reservados.</p><p style="margin:0;color:#999;">Si no solicitaste este cambio, contactá a admin@levelone.com</p></div></div></body></html>"""
+            }
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            print(f"[BREVO] ✅ Email de actualización enviado a {new_email}. Status: {response.status_code}", flush=True)
+        except Exception as e:
+            print(f"[BREVO] ❌ Error enviando email de actualización: {e}", flush=True)
+            flash("⚠️ Datos actualizados, pero el email no pudo enviarse.")
+
+        conn.close()
+        flash(f"✅ Datos de {user['sticker_id']} actualizados. Nueva clave: {new_pass}")
+        return redirect("/admin/red")
+
+    conn.close()
+    form_html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Gestionar Usuario</title><style>body{{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}}.card{{background:#1a1a2e;padding:25px;border-radius:12px;border:1px solid #333}}input{{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}}button{{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}}a{{color:#667eea;text-decoration:none}}</style></head><body>
+    <h2>✏️ Gestionar Usuario</h2><a href="/admin/red">← Volver</a>
+    <div class="card"><form method="POST" onsubmit="return confirm('⚠️ ¿Estás seguro? Se actualizarán todos los datos de {user['sticker_id']} y se enviará una nueva contraseña al email nuevo.');">
+        <h3>Editar datos de {user['sticker_id']}</h3>
+        <label>Nombre completo</label><input name="full_name" value="{user['full_name'] or ''}" required>
+        <label>Teléfono</label><input name="phone" value="{user['phone'] or ''}" required>
+        <label>Email (se enviarán las credenciales aquí)</label><input name="email" value="{user['email'] or ''}" type="email" required>
+        <label>Dirección</label><input name="address" value="{user['address'] or ''}">
+        <label>CBU / Alias</label><input name="cbu_alias" value="{user['cbu_alias'] or ''}">
+        <button type="submit">💾 Guardar cambios y generar nueva clave</button>
+    </form></div></body></html>"""
+    return render_template_string(form_html)
+
 @app.route("/admin/red")
 def admin_red():
     if "user_id" not in session: return redirect("/ingresar")
@@ -562,14 +637,12 @@ def admin_red():
 
     try:
         if query:
-            # Buscar usuario objetivo
             cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash, role FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
             target = cur.fetchone()
 
             if target:
                 tid = target["id"]
                 
-                # 🔝 ASCENDIENTES: Solo del ciclo específico
                 try:
                     cur.execute("SELECT cycle_id, level FROM cycle_levels WHERE user_id=%s ORDER BY id DESC LIMIT 1", (tid,))
                     user_cycle = cur.fetchone()
@@ -578,11 +651,9 @@ def admin_red():
                         cycle_id = user_cycle["cycle_id"]
                         user_level_in_cycle = user_cycle["level"] or 5
                         
-                        # Solo si el usuario está en nivel > 1, buscamos ascendientes
                         if user_level_in_cycle > 1:
                             for target_level in range(user_level_in_cycle - 1, 0, -1):
                                 try:
-                                    # ✅ FIX: Agregamos u.id al SELECT para que reset_btn funcione
                                     cur.execute("""
                                         SELECT u.id, u.sticker_id, u.full_name, u.phone, u.current_level 
                                         FROM cycle_levels cl 
@@ -598,12 +669,11 @@ def admin_red():
                 except Exception as e:
                     print(f"[DEBUG] Error buscando ciclo del usuario: {e}", flush=True)
                 
-                # 🔽 DESCENDIENTES: Hasta 3 niveles (enfoque iterativo seguro)
                 try:
-                    queue = [(tid, 1, target["sticker_id"])]  # (user_id, depth, parent_sticker)
+                    queue = [(tid, 1, target["sticker_id"])]
                     visited = set()
                     
-                    while queue and len(descendants) < 50:  # Límite de seguridad
+                    while queue and len(descendants) < 50:
                         parent_id, depth, parent_stk = queue.pop(0)
                         if depth > 3 or parent_id in visited: continue
                         visited.add(parent_id)
@@ -630,9 +700,13 @@ def admin_red():
     finally:
         conn.close()
 
-    # Función auxiliar para botón de reset con confirmación
-    def reset_btn(user_id, user_name):
-        return f"""<a href="/admin/reset_password/{user_id}" onclick="return confirm('⚠️ ¿Seguro que querés restablecer la contraseña de {user_name}?')" style="background:#f6e05e;color:#1a1a2e;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;font-weight:600;display:inline-block;margin-top:5px">🔑 Reset</a>"""
+    def user_buttons(user_id, user_name):
+        return f"""
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            <a href="/admin/edit_user/{user_id}" style="background:#38a169;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;font-weight:600;">✏️ Gestionar</a>
+            <a href="/admin/reset_password/{user_id}" onclick="return confirm('⚠️ ¿Seguro que querés restablecer la contraseña de {user_name}?')" style="background:#f6e05e;color:#1a1a2e;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;font-weight:600;">🔑 Reset</a>
+        </div>
+        """
 
     html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.lvl1{border-left:3px solid #667eea;padding-left:15px}.lvl2{border-left:3px solid #38a169;padding-left:30px}.lvl3{border-left:3px solid #f6e05e;padding-left:45px}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Ciclo</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
 
@@ -640,7 +714,7 @@ def admin_red():
         if ancestors:
             html += '<div class="section"><h3>🔝 Ascendientes de este Ciclo</h3>'
             for a in ancestors:
-                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div>{reset_btn(a['id'], a['full_name'])}</div>"""
+                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
             html += '</div>'
 
         pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
@@ -648,7 +722,7 @@ def admin_red():
             <h3 style="margin:0 0 10px 0;color:#fff;">🎯 Usuario Buscado</h3>
             <div class="info" style="font-size:1.1rem;"><span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>Tel: {target['phone']} | Nivel: {target['current_level']} | Rol: {target['role']}</div>
             <div class="info" style="margin-top:10px;">Pass: <code style="color:#f6e05e">{pwd_display}</code></div>
-            {reset_btn(target['id'], target['full_name'])}
+            {user_buttons(target['id'], target['full_name'])}
         </div>"""
 
         html += '<div class="section"><h3>🔽 Red de Ventas (Hijos → Nietos → Bisnietos)</h3>'
@@ -659,7 +733,7 @@ def admin_red():
                 u = d["data"]; pwd_disp = u['password_hash'][:15] + "..." if u['password_hash'] else "No definida"
                 nivel_label = {1: "👤 Hijo", 2: "👶 Nieto", 3: "👣 Bisnieto"}.get(d["nivel"], "Descendiente")
                 nivel_class = {1: "lvl1", 2: "lvl2", 3: "lvl3"}.get(d["nivel"], "")
-                html += f"""<div class="node {nivel_class}"><div class="info">{nivel_label} (Vendido por: {d['padre_stk']})</div><div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div><div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_disp}</code></div>{reset_btn(u['id'], u['full_name'])}</div>"""
+                html += f"""<div class="node {nivel_class}"><div class="info">{nivel_label} (Vendido por: {d['padre_stk']})</div><div class="info">STK: {u['sticker_id']} | Nombre: {u['full_name']} | Tel: {u['phone']}</div><div class="info">Nivel: {u['current_level']} | Pass: <code style="color:#f6e05e">{pwd_disp}</code></div>{user_buttons(u['id'], u['full_name'])}</div>"""
         html += '</div>'
     elif query:
         html += "<p style='color:#e53e3e'>❌ Usuario no encontrado.</p>"
