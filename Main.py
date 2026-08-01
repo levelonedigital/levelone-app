@@ -3,6 +3,7 @@ import uuid
 import traceback
 import requests
 import secrets
+import re
 from datetime import datetime, timedelta
 from collections import deque
 
@@ -281,8 +282,34 @@ def crear_sticker():
         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],))
         completed = cur.fetchone()["cnt"]
         if completed >= 3: flash("🎓 Ciclo completado. ¡Felicitaciones!"); conn.close(); return redirect("/dashboard")
-        name = request.form.get("name","").strip(); phone = request.form.get("phone","").strip(); email = request.form.get("email","").strip(); cbu = request.form.get("cbu","").strip()
-        if not all([name, phone, email, cbu]): flash("Todos los campos son obligatorios."); conn.close(); return redirect("/dashboard")
+        
+        name = request.form.get("name","").strip()
+        phone = request.form.get("phone","").strip()
+        email = request.form.get("email","").strip()
+        cbu = request.form.get("cbu","").strip()
+        
+        # 🟢 NUEVO: Capturar nombre personalizado para el sticker
+        sticker_name = request.form.get("sticker_name", "").strip()
+        
+        if not all([name, phone, email, cbu]):
+            flash("Todos los campos son obligatorios."); conn.close(); return redirect("/dashboard")
+        
+        # 🟢 VALIDACIÓN: Formato del nombre personalizado (solo letras, números y _)
+        if sticker_name:
+            if not re.match(r'^[a-zA-Z0-9_]+$', sticker_name):
+                flash("❌ El nombre del sticker solo puede contener letras, números y guión bajo (_). Sin espacios ni símbolos."); conn.close(); return redirect("/dashboard")
+            
+            # 🟢 VALIDACIÓN: Unicidad global
+            cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sticker_name,))
+            if cur.fetchone():
+                flash(f"❌ El nombre '{sticker_name}' ya está en uso. Elegí otro."); conn.close(); return redirect("/dashboard")
+            
+            # Usar el nombre personalizado como sticker_id y sticker_code
+            code = sticker_name
+        else:
+            # Fallback: generar código automático STK-XXXX si no se proporcionó nombre
+            code = "STK-"+str(uuid.uuid4())[:6].upper()
+        
         cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],)); cycle_id = cur.fetchone()["id"]
         cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
         cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
@@ -298,12 +325,12 @@ def crear_sticker():
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone(): flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
         step = completed + 1
-        code = "STK-"+str(uuid.uuid4())[:6].upper(); temp_pass = "Temp-"+str(uuid.uuid4())[:8]
+        temp_pass = "Temp-"+str(uuid.uuid4())[:8]
         cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', (code,row_u["id"],cycle_id,name,phone,email,cbu, request.form.get("cbu_titular","").strip(), request.form.get("cbu_dni","").strip(), request.form.get("cbu_entidad","").strip(), step,str(uuid.uuid4())[:12],temp_pass,'pending'))
         cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
         new_id = cur.fetchone()["id"]
         if new_id: cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (row_u["id"], new_id))
-        conn.commit(); flash("✅ Sticker creado."); return redirect(url_for("dashboard", cycle_id=cycle_id))
+        conn.commit(); flash(f"✅ Sticker creado: {code}"); return redirect(url_for("dashboard", cycle_id=cycle_id))
     except Exception as e: conn.rollback(); print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
     finally: conn.close()
     return redirect("/dashboard")
@@ -542,9 +569,6 @@ def admin_reset_password(user_id):
     flash(f"✅ Contraseña restablecida para {target['full_name']} ({target['sticker_id']}). Nueva clave: {new_pass}")
     return redirect(request.referrer or "/admin/red")
 
-# =============================================================================
-# 🟢 NUEVA RUTA: Gestionar/Editar datos de usuario (Admin only)
-# =============================================================================
 @app.route("/admin/edit_user/<int:user_id>", methods=["GET", "POST"])
 def admin_edit_user(user_id):
     if "user_id" not in session: return redirect("/ingresar")
