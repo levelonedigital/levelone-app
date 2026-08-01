@@ -108,6 +108,13 @@
         <div class="card-body">
           <form method="POST" action="/crear_sticker">
             <div class="row g-3">
+              <!-- 🟢 NUEVO CAMPO: Nombre personalizado para el sticker (usuario de login) -->
+              <div class="col-12">
+                <label class="form-label text-readable small fw-medium">🏷️ Nombre de Usuario para el Sticker</label>
+                <input type="text" name="sticker_name" class="form-control" required placeholder="Ej: salomon_ventas" pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guión bajo (_). Sin espacios ni símbolos.">
+                <small class="text-muted">Este será tu usuario para ingresar al sistema. Solo letras, números y guión bajo (_). Sin espacios ni símbolos.</small>
+              </div>
+              
               <div class="col-md-4"><label class="form-label text-readable small fw-medium">Nombre Completo</label><input type="text" name="name" class="form-control" required placeholder="Ej: Juan Pérez"></div>
               <div class="col-md-4">
                 <label class="form-label text-readable small fw-medium">Teléfono (con código país)</label>
