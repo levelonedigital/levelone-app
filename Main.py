@@ -761,6 +761,7 @@ def admin_red():
             if target:
                 tid = target["id"]
                 
+                # 🔝 ASCENDIENTES: Solo del ciclo específico, ordenados de Nivel 4 → 3 → 2 → 1
                 try:
                     cur.execute("SELECT cycle_id, level FROM cycle_levels WHERE user_id=%s ORDER BY id DESC LIMIT 1", (tid,))
                     user_cycle = cur.fetchone()
@@ -769,24 +770,28 @@ def admin_red():
                         cycle_id = user_cycle["cycle_id"]
                         user_level_in_cycle = user_cycle["level"] or 5
                         
-                        if user_level_in_cycle > 1:
-                            for target_level in range(user_level_in_cycle - 1, 0, -1):
-                                try:
-                                    cur.execute("""
-                                        SELECT u.id, u.sticker_id, u.full_name, u.phone, u.current_level 
-                                        FROM cycle_levels cl 
-                                        JOIN users u ON cl.user_id = u.id 
-                                        WHERE cl.cycle_id = %s AND cl.level = %s
-                                    """, (cycle_id, target_level))
-                                    ancestor_data = cur.fetchone()
-                                    if ancestor_data:
-                                        ancestors.append(dict(ancestor_data))
-                                except Exception as e:
-                                    print(f"[DEBUG] Error buscando ascendiente nivel {target_level}: {e}", flush=True)
-                                    continue
+                        # Buscar todos los niveles superiores (4,3,2,1) en orden descendente
+                        # Esto garantiza que si existe Nivel 1, aparezca sí o sí
+                        for target_level in range(4, 0, -1):  # De 4 a 1
+                            if target_level >= user_level_in_cycle:
+                                continue  # Saltar niveles iguales o superiores al usuario
+                            try:
+                                cur.execute("""
+                                    SELECT u.id, u.sticker_id, u.full_name, u.phone, u.current_level 
+                                    FROM cycle_levels cl 
+                                    JOIN users u ON cl.user_id = u.id 
+                                    WHERE cl.cycle_id = %s AND cl.level = %s
+                                """, (cycle_id, target_level))
+                                ancestor_data = cur.fetchone()
+                                if ancestor_data:
+                                    ancestors.append(dict(ancestor_data))
+                            except Exception as e:
+                                print(f"[DEBUG] Error buscando ascendiente nivel {target_level}: {e}", flush=True)
+                                continue
                 except Exception as e:
                     print(f"[DEBUG] Error buscando ciclo del usuario: {e}", flush=True)
                 
+                # 🔽 DESCENDIENTES: Hasta 3 niveles (enfoque iterativo seguro)
                 try:
                     queue = [(tid, 1, target["sticker_id"])]
                     visited = set()
@@ -829,12 +834,7 @@ def admin_red():
     html = """<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.lvl1{border-left:3px solid #667eea;padding-left:15px}.lvl2{border-left:3px solid #38a169;padding-left:30px}.lvl3{border-left:3px solid #f6e05e;padding-left:45px}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Ciclo</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar por Sticker o Nombre..." value=\"""" + query + """\"><button type="submit">Buscar</button></form>"""
 
     if target:
-        if ancestors:
-            html += '<div class="section"><h3>🔝 Ascendientes de este Ciclo</h3>'
-            for a in ancestors:
-                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
-            html += '</div>'
-
+        # 🎯 PRIMERO: Usuario buscado (centro)
         pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
         html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;">
             <h3 style="margin:0 0 10px 0;color:#fff;">🎯 Usuario Buscado</h3>
@@ -843,6 +843,14 @@ def admin_red():
             {user_buttons(target['id'], target['full_name'])}
         </div>"""
 
+        # 🔝 LUEGO: Ascendientes (Nivel 4 → 3 → 2 → 1)
+        if ancestors:
+            html += '<div class="section"><h3>🔝 Ascendientes de este Ciclo</h3>'
+            for a in ancestors:
+                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
+            html += '</div>'
+
+        # 🔽 ÚLTIMO: Descendientes (Hijos → Nietos → Bisnietos)
         html += '<div class="section"><h3>🔽 Red de Ventas (Hijos → Nietos → Bisnietos)</h3>'
         if not descendants:
             html += '<p class="info">No hay descendientes registrados aún.</p>'
