@@ -339,8 +339,102 @@ def crear_sticker():
 def marcar_enviado(sticker_id):
     conn = get_db(); cur = get_cur(conn)
     cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
-    if s and s["status"] == "pending": cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash("📤 Marcado como enviado. Esperando confirmación de pago...")
-    conn.close(); return redirect("/dashboard")
+    if s and s["status"] == "pending":
+        # 🟢 NUEVO: Enviar email de confirmación al responsable correspondiente
+        try:
+            step = s["step"]; cid = s["cycle_id"]
+            responsable = None
+            
+            # Determinar a quién enviar según el step
+            if step == 1:
+                cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE sticker_id='ADMIN001'")
+                responsable = cur.fetchone()
+            elif step == 2:
+                cur.execute("""
+                    SELECT u.sticker_id, u.full_name, u.email, u.password_hash 
+                    FROM cycle_levels cl 
+                    JOIN users u ON cl.user_id = u.id 
+                    WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1
+                """, (cid,))
+                responsable = cur.fetchone()
+            elif step == 3:
+                cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (s["seller_id"],))
+                responsable = cur.fetchone()
+            
+            if responsable and responsable["email"]:
+                app_url = request.host_url.rstrip('/') + "/dashboard"
+                # Extraer solo los primeros 15 caracteres del hash para mostrar (no es la contraseña real)
+                pwd_display = responsable["password_hash"][:15] + "..." if responsable["password_hash"] else "No definida"
+                
+                url = "https://api.brevo.com/v3/smtp/email"
+                headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
+                payload = {
+                    "sender": {"name": os.environ.get("BREVO_SENDER_NAME", "levelONE"), "email": os.environ.get("BREVO_SENDER_EMAIL", "notificaciones@levelone.uno")},
+                    "to": [{"email": responsable["email"], "name": responsable["full_name"]}],
+                    "subject": f"🔔 Confirmación de pago requerida | Sticker {s['sticker_code']}",
+                    "htmlContent": f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirmación de pago - LevelONE</title>
+<style>
+  body {{ margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh; }}
+  .container {{ max-width:520px;margin:20px auto;background:white;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);overflow:hidden; }}
+  .header {{ text-align:center;padding:24px 20px 16px;background:rgba(255,255,255,0.95); }}
+  .header h1 {{ margin:0;color:#667eea;font-size:24px;font-weight:700; }}
+  .content {{ padding:0 24px 24px 24px; }}
+  .credentials {{ background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;border-radius:0 8px 8px 0; }}
+  .credentials code {{ background:#eef2ff;padding:4px 10px;border-radius:4px;color:#667eea;font-weight:600; }}
+  .btn {{ display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:16px;box-shadow:0 4px 14px rgba(102,126,234,0.4); }}
+  .footer {{ text-align:center;padding:20px;background:#f8f9fa;border-top:1px solid #e9ecef;color:#6c757d;font-size:12px; }}
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔔 Confirmación de pago</h1>
+      <p style="margin:12px 0 0 0;color:#333;font-size:15px;">Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente de confirmar ✨</p>
+    </div>
+    <div class="content">
+      <p style="color:#555;font-size:14px;">El sticker <strong>{s['sticker_code']}</strong> ({s['buyer_name']}) ha sido marcado como enviado. Por favor, confirmá que recibiste el pago para continuar con el proceso.</p>
+      
+      <div class="credentials">
+        <p style="margin:0 0 12px 0;color:#333;font-weight:600;font-size:15px;">🔑 Tus credenciales de acceso</p>
+        <p style="margin:8px 0;color:#555;font-size:14px;"><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p>
+        <p style="margin:8px 0;color:#555;font-size:14px;"><strong>Contraseña:</strong> <code>{pwd_display}</code> <small style="color:#718096">(la real está encriptada)</small></p>
+        <p style="margin:12px 0 0 0;color:#555;font-size:14px;"><strong>Link de acceso:</strong> <a href="{app_url}" style="color:#667eea;text-decoration:none;font-weight:600;">{app_url}</a></p>
+      </div>
+      
+      <div style="text-align:center;margin:32px 0 24px 0;">
+        <a href="{app_url}" class="btn">Ir a Pagos por Confirmar</a>
+      </div>
+      
+      <p style="color:#6c757d;font-size:13px;text-align:center;">
+        💡 Una vez en el dashboard, buscá la sección "📥 Pagos por Confirmar" para gestionar este pago.
+      </p>
+    </div>
+    <div class="footer">
+      <p style="margin:0 0 6px 0;">© 2026 levelONE. Todos los derechos reservados.</p>
+      <p style="margin:0;color:#999;">Si no solicitaste esta notificación, contactá a admin@levelone.com</p>
+    </div>
+  </div>
+</body>
+</html>
+                    """
+                }
+                response = requests.post(url, json=payload, headers=headers, timeout=10)
+                response.raise_for_status()
+                print(f"[BREVO] ✅ Email de confirmación enviado a {responsable['email']}. Status: {response.status_code}", flush=True)
+        except Exception as e:
+            print(f"[BREVO] ❌ Error enviando email de confirmación: {e}", flush=True)
+            # No interrumpimos el flujo principal si falla el email
+        
+        # Lógica original: actualizar estado a 'sent'
+        cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,))
+        conn.commit()
+        flash("📤 Marcado como enviado. Esperando confirmación de pago...")
+    conn.close()
+    return redirect("/dashboard")
 
 @app.route("/resolver_confirmacion/<int:sticker_id>/<action>", methods=["POST"])
 def resolver_confirmacion(sticker_id, action):
