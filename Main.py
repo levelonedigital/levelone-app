@@ -210,7 +210,19 @@ def dashboard():
 
     confirmations = []
     if sticker == 'ADMIN001':
-        cur.execute("SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status FROM stickers WHERE step=1 AND status='sent' ORDER BY created_at DESC")
+        # 🟢 BLOQUE 1: ADMIN001 ve step 1 (como antes) + step 2 de ciclos donde él es L1 (Pool Admin)
+        cur.execute("""
+            SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status 
+            FROM stickers 
+            WHERE status='sent' AND (
+                step=1 
+                OR (step=2 AND cycle_id IN (
+                    SELECT cycle_id FROM cycle_levels 
+                    WHERE user_id = (SELECT id FROM users WHERE sticker_id='ADMIN001') AND level=1
+                ))
+            )
+            ORDER BY created_at DESC
+        """)
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
         cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status FROM stickers s JOIN cycle_levels cl ON s.cycle_id = cl.cycle_id WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
@@ -322,6 +334,17 @@ def crear_sticker():
             cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,)); p_data = cur.fetchone()
             if p_data and p_data["sticker_id"] == "ADMIN001": break
             cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id)); current_parent = parent_id
+        
+        # 🟢 BLOQUE 1: Si no hay Nivel 1 en el ciclo (compra directa sin referente), asignar ADMIN001 como L1
+        cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1", (cycle_id,))
+        if not cur.fetchone():
+            cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'")
+            admin_row = cur.fetchone()
+            if admin_row:
+                admin_id = admin_row["id"]
+                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_id, cycle_id, 1))
+                print(f"[POOL ADMIN] Ciclo {cycle_id} sin L1 real → ADMIN001 asignado como Nivel 1", flush=True)
+        
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending', 'sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone(): flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
         step = completed + 1
