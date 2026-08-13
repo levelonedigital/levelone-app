@@ -17,6 +17,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "levelone_produccion_segura_2026")
 
+# 🟢 BLOQUE 2: Monto fijo de cada venta (Mercado Pago)
+MP_MONTO_VENTA = 30000.0
+
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = False
@@ -24,6 +27,41 @@ def get_db():
 
 def get_cur(conn):
     return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+# 🟢 BLOQUE 2: Genera un link de pago único en Mercado Pago para una venta.
+# Devuelve (preference_id, init_point) o (None, None) si falla (el flujo manual de CBU sigue intacto).
+def crear_pago_mp(sticker_code, step, buyer_name=None, buyer_email=None):
+    token = os.environ.get("MP_ACCESS_TOKEN")
+    if not token:
+        print("[MP] ⚠️ No hay MP_ACCESS_TOKEN cargado. Se omite el link de pago.", flush=True)
+        return None, None
+    try:
+        headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+        payload = {
+            "items": [{
+                "title": f"levelONE - Venta #{step} ({sticker_code})",
+                "quantity": 1,
+                "unit_price": MP_MONTO_VENTA,
+                "currency_id": "ARS"
+            }],
+            "external_reference": f"{sticker_code}-P{step}",
+            "statement_descriptor": "LEVELONE",
+            "back_urls": {
+                "success": "https://levelone.uno/dashboard",
+                "pending": "https://levelone.uno/dashboard",
+                "failure": "https://levelone.uno/dashboard"
+            }
+        }
+        if buyer_email:
+            payload["payer"] = {"email": buyer_email, "name": buyer_name or ""}
+        r = requests.post("https://api.mercadopago.com/checkout/preferences", json=payload, headers=headers, timeout=10)
+        print(f"[MP] Respuesta preferencia {sticker_code}-P{step}: {r.status_code}", flush=True)
+        r.raise_for_status()
+        data = r.json()
+        return data.get("id"), data.get("init_point")
+    except Exception as e:
+        print(f"[MP] ❌ Error creando link de pago: {e}", flush=True)
+        return None, None
 
 def init_db():
     conn = get_db()
@@ -66,6 +104,13 @@ def init_db():
         status TEXT DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    
+    # 🟢 BLOQUE 2 (Paso 2.1): Columnas para el link de pago único de Mercado Pago por venta
+    try:
+        cur.execute("ALTER TABLE stickers ADD COLUMN IF NOT EXISTS mp_link TEXT")
+        cur.execute("ALTER TABLE stickers ADD COLUMN IF NOT EXISTS mp_payment_id TEXT")
+    except Exception as e:
+        print(f"[DB] Nota al agregar columnas MP: {e}", flush=True)
     
     cur.execute("SELECT id FROM users WHERE sticker_id=%s", ('ADMIN001',))
     if not cur.fetchone():
@@ -349,7 +394,15 @@ def crear_sticker():
         if cur.fetchone(): flash("⏳ Esperá a que se confirme y envíen los datos del sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
         step = completed + 1
         temp_pass = "Temp-"+str(uuid.uuid4())[:8]
-        cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''', (code,row_u["id"],cycle_id,name,phone,email,cbu, request.form.get("cbu_titular","").strip(), request.form.get("cbu_dni","").strip(), request.form.get("cbu_entidad","").strip(), step,str(uuid.uuid4())[:12],temp_pass,'pending'))
+        cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,row_u["id"],cycle_id,name,phone,email,cbu, request.form.get("cbu_titular","").strip(), request.form.get("cbu_dni","").strip(), request.form.get("cbu_entidad","").strip(), step,str(uuid.uuid4())[:12],temp_pass,'pending'))
+        sticker_new_id = cur.fetchone()["id"]
+        
+        # 🟢 BLOQUE 2 (Paso 2.2): Generar link de pago único de Mercado Pago para la 1° venta (step 1)
+        if step == 1:
+            mp_pref_id, mp_link_gen = crear_pago_mp(code, 1, name, email)
+            if mp_link_gen:
+                cur.execute("UPDATE stickers SET mp_link=%s, mp_payment_id=%s WHERE id=%s", (mp_link_gen, mp_pref_id, sticker_new_id))
+        
         cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
         new_id = cur.fetchone()["id"]
         if new_id: cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (row_u["id"], new_id))
