@@ -775,6 +775,7 @@ def admin_red():
     target = None
     ancestors = []
     descendants = []
+    sin_ciclo = False
 
     try:
         if query:
@@ -794,7 +795,6 @@ def admin_red():
                         user_level_in_cycle = user_cycle["level"] or 5
                         
                         # Buscar todos los niveles superiores (4,3,2,1) en orden descendente
-                        # Esto garantiza que si existe Nivel 1, aparezca sí o sí
                         for target_level in range(4, 0, -1):  # De 4 a 1
                             if target_level >= user_level_in_cycle:
                                 continue  # Saltar niveles iguales o superiores al usuario
@@ -807,10 +807,43 @@ def admin_red():
                                 """, (cycle_id, target_level))
                                 ancestor_data = cur.fetchone()
                                 if ancestor_data:
-                                    ancestors.append(dict(ancestor_data))
+                                    a = dict(ancestor_data)
+                                    a["nivel_ciclo"] = target_level
+                                    ancestors.append(a)
                             except Exception as e:
                                 print(f"[DEBUG] Error buscando ascendiente nivel {target_level}: {e}", flush=True)
                                 continue
+                    else:
+                        # 🟢 FIX VISOR: El usuario aún no tiene ciclo (comprador que todavía no vendió).
+                        # Mostramos su cadena real de referidos como ascendientes del ciclo futuro:
+                        # 1er padre = Nivel 4, 2do = 3, 3ro = 2, 4to = 1 (igual que crear_sticker).
+                        sin_ciclo = True
+                        current = tid
+                        for target_level in [4, 3, 2, 1]:
+                            cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current,))
+                            up = cur.fetchone()
+                            if not up or not up["parent_id"]:
+                                break
+                            parent_id = up["parent_id"]
+                            cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE id=%s", (parent_id,))
+                            pdata = cur.fetchone()
+                            if not pdata:
+                                break
+                            a = dict(pdata)
+                            a["nivel_ciclo"] = target_level
+                            ancestors.append(a)
+                            if pdata["sticker_id"] == "ADMIN001":
+                                break
+                            current = parent_id
+                        # 🟢 Regla Pool: si la cadena se cortó y el Nivel 1 quedó vacío, lo muestra la Plataforma
+                        if not any(x.get("nivel_ciclo") == 1 for x in ancestors):
+                            cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE sticker_id='ADMIN001'")
+                            admin_data = cur.fetchone()
+                            if admin_data:
+                                a = dict(admin_data)
+                                a["nivel_ciclo"] = 1
+                                a["full_name"] = "🏢 Plataforma (Admin)"
+                                ancestors.append(a)
                 except Exception as e:
                     print(f"[DEBUG] Error buscando ciclo del usuario: {e}", flush=True)
                 
@@ -868,9 +901,12 @@ def admin_red():
 
         # 🔝 LUEGO: Ascendientes (Nivel 4 → 3 → 2 → 1)
         if ancestors:
-            html += '<div class="section"><h3>🔝 Ascendientes de este Ciclo</h3>'
+            titulo_asc = "🔝 Ascendientes de este Ciclo" if not sin_ciclo else "🔝 Ascendientes (cadena de referidos)"
+            html += f'<div class="section"><h3>{titulo_asc}</h3>'
             for a in ancestors:
-                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | Nivel: {a['current_level']}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
+                nivel_txt = a.get("nivel_ciclo")
+                nivel_show = f"Nivel en ciclo: {nivel_txt}" if nivel_txt else f"Nivel: {a['current_level']}"
+                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Tel: {a['phone']} | {nivel_show}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
             html += '</div>'
 
         # 🔽 ÚLTIMO: Descendientes (Hijos → Nietos → Bisnietos)
