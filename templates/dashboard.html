@@ -63,6 +63,18 @@
       <div class="card border-primary">
         <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configuración Administrativa</div>
         <div class="card-body">
+          <!-- 🟢 NUEVO: ACCESOS RÁPIDOS DEL ADMIN -->
+          <h6 class="fw-bold mb-2">🚀 Accesos Rápidos</h6>
+          <div class="d-flex gap-2 flex-wrap mb-4">
+            <a href="/admin/red" class="btn btn-outline-info btn-sm fw-semibold">
+              <i class="bi bi-diagram-3-fill me-1"></i> 🌳 Visor de Ciclos
+            </a>
+            <a href="/admin/cursos" class="btn btn-outline-warning btn-sm fw-semibold">
+              <i class="bi bi-book-fill me-1"></i> 📚 Gestión de Cursos
+            </a>
+          </div>
+          <!-- FIN ACCESOS RÁPIDOS -->
+
           <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
           <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap mb-3" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
             <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias" required>
