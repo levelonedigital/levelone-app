@@ -411,6 +411,62 @@ def crear_sticker():
     finally: conn.close()
     return redirect("/dashboard")
 
+# 🟢 BLOQUE 2 (Paso 2.3): WEBHOOK de Mercado Pago.
+# Mercado Pago avisa acá cada vez que un pago cambia de estado (aprobado, rechazado, pendiente).
+# Solo los pagos APPROVED con referencia -P1 auto-confirman el sticker. Todo lo demás queda en el log.
+@app.route("/mp/webhook", methods=["GET", "POST"])
+def mp_webhook():
+    if request.method == "GET":
+        return jsonify({"status": "ok", "msg": "Webhook levelONE activo"}), 200
+    try:
+        data = request.get_json(silent=True) or {}
+        print(f"[MP-WEBHOOK] Notificación recibida: {data}", flush=True)
+        token = os.environ.get("MP_ACCESS_TOKEN")
+        if not token:
+            return jsonify({"status": "ok"}), 200
+
+        # Extraer el id del pago (compatible formato nuevo y legacy)
+        payment_id = None
+        tipo = data.get("type") or data.get("topic")
+        if tipo in ("payment", "payment.updated"):
+            payment_id = (data.get("data") or {}).get("id")
+            if not payment_id:
+                resource = data.get("resource") or ""
+                if "/payments/" in resource:
+                    payment_id = resource.split("/payments/")[-1]
+            if not payment_id:
+                payment_id = data.get("id")
+        if not payment_id:
+            return jsonify({"status": "ok"}), 200
+
+        # Consultar el pago DIRECTO a la API de MP (anti-falsificación)
+        headers = {"Authorization": "Bearer " + token}
+        r = requests.get(f"https://api.mercadopago.com/v1/payments/{payment_id}", headers=headers, timeout=10)
+        r.raise_for_status()
+        pago = r.json()
+        status = pago.get("status")
+        ref = pago.get("external_reference") or ""
+        print(f"[MP-WEBHOOK] Pago {payment_id} | status={status} | ref={ref}", flush=True)
+
+        # Solo actuamos sobre pagos APROBADOS de la 1° venta (referencia XXX-P1)
+        if status == "approved" and ref.endswith("-P1"):
+            code = ref[:-3]
+            conn = get_db(); cur = get_cur(conn)
+            try:
+                cur.execute("SELECT id, status FROM stickers WHERE sticker_code=%s", (code,))
+                s = cur.fetchone()
+                if s and s["status"] in ("pending", "sent"):
+                    cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],))
+                    conn.commit()
+                    print(f"[MP-WEBHOOK] ✅ {code} auto-confirmado por pago aprobado.", flush=True)
+                else:
+                    print(f"[MP-WEBHOOK] {code} sin cambios (status actual: {s['status'] if s else 'sticker no encontrado'}).", flush=True)
+            finally:
+                conn.close()
+    except Exception as e:
+        print(f"[MP-WEBHOOK] ❌ Error procesando notificación: {e}", flush=True)
+    return jsonify({"status": "ok"}), 200
+
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
 def marcar_enviado(sticker_id):
     conn = get_db(); cur = get_cur(conn)
