@@ -45,6 +45,8 @@ def crear_pago_mp(sticker_code, step, buyer_name=None, buyer_email=None):
                 "currency_id": "ARS"
             }],
             "external_reference": f"{sticker_code}-P{step}",
+            # 🟢 BLOQUE 2.3: MP avisa a esta URL cada vez que este pago cambie de estado (sin depender del panel)
+            "notification_url": "https://levelone.uno/mp/webhook",
             "statement_descriptor": "LEVELONE",
             "back_urls": {
                 "success": "https://levelone.uno/dashboard",
