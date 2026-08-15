@@ -129,7 +129,6 @@ def index():
         })
     return render_template("index.html", cursos=cursos)
 
-# 🟢 CORREGIDO: procesar_compra maneja correctamente ambos casos
 @app.route("/procesar_compra", methods=["POST"])
 def procesar_compra():
     conn = get_db(); cur = get_cur(conn)
@@ -191,7 +190,6 @@ def procesar_compra():
         else:
             monto = MP_MONTO_LICENCIA_DIRECTA
         
-        # Crear usuario comprador
         temp_pass = "Temp-" + str(uuid.uuid4())[:8]
         cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role, terms_accepted_at) 
                        VALUES (%s,%s,%s,%s,%s,%s,'seller',%s) RETURNING id''',
@@ -200,16 +198,10 @@ def procesar_compra():
         buyer_id = cur.fetchone()["id"]
         
         if use_referral:
-            # 🟢 CASO A: Compra con código de referido
-            # El comprador NO tiene ciclo propio todavía (arranca cuando venda)
-            # El sticker es una venta del referente
-            
-            # Calcular step del referente
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (referrer_id,))
             completed = cur.fetchone()["cnt"]
             step = completed + 1
             
-            # Buscar ciclo activo del referente (si tiene)
             cur.execute("""SELECT c.id FROM cycles c 
                          JOIN cycle_levels cl ON c.id = cl.cycle_id 
                          WHERE c.l5_user_id = %s AND cl.user_id = %s AND cl.level = 5 
@@ -220,13 +212,11 @@ def procesar_compra():
             if cycle_row:
                 cycle_id = cycle_row["id"]
             else:
-                # Crear nuevo ciclo para el referente
                 cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (referrer_id,))
                 cycle_id = cur.fetchone()["id"]
                 cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5)", (referrer_id, cycle_id))
                 cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (referrer_id,))
                 
-                # Construir cadena L4→L1
                 current_parent = referrer_id
                 for lvl in [4, 3, 2, 1]:
                     cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,))
@@ -240,7 +230,6 @@ def procesar_compra():
                     cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
                     current_parent = parent_id
                 
-                # Pool Admin si falta L1
                 cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1", (cycle_id,))
                 if not cur.fetchone():
                     cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'")
@@ -248,7 +237,6 @@ def procesar_compra():
                     if admin_row:
                         cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,1)", (admin_row["id"], cycle_id))
             
-            # Crear sticker como venta del referente
             cur.execute('''INSERT INTO stickers (sticker_code, seller_id, cycle_id, buyer_name, buyer_phone, buyer_email, 
                            buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, step, confirmation_token, temp_pass, status)
                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending') RETURNING id''',
@@ -256,29 +244,21 @@ def procesar_compra():
                          step, str(uuid.uuid4())[:12], temp_pass))
             sticker_new_id = cur.fetchone()["id"]
             
-            # 🟢 IMPORTANTE: registrar en referral_tree (padre=referente, hijo=comprador)
             cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT DO NOTHING", (referrer_id, buyer_id))
             
-            # Link MP con ref_prefix="REF"
             mp_pref_id, mp_link_gen = crear_pago_mp(sticker_name, step, monto, name, email, ref_prefix="REF")
             
         else:
-            # 🟢 CASO B: Compra directa (sin código)
-            # El comprador entra como raíz con ciclo Pool, contador 0/3
-            # Se crea sticker de "activación" con seller=ADMIN001
-            
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (buyer_id,))
             cycle_id = cur.fetchone()["id"]
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5)", (buyer_id, cycle_id))
             cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (buyer_id,))
             
-            # L1 = ADMIN001
             cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'")
             admin_row = cur.fetchone()
             if admin_row:
                 cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,1)", (admin_row["id"], cycle_id))
             
-            # Sticker de activación: seller = ADMIN001 (plataforma)
             cur.execute('''INSERT INTO stickers (sticker_code, seller_id, cycle_id, buyer_name, buyer_phone, buyer_email, 
                            buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, step, confirmation_token, temp_pass, status)
                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending') RETURNING id''',
@@ -485,7 +465,6 @@ def dashboard():
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
-    # 🟢 FLUJO MANUAL INTACTO - NO SE TOCA
     if "user_id" not in session: return redirect("/login")
     conn = get_db(); cur = get_cur(conn)
     try:
@@ -563,7 +542,6 @@ def crear_sticker():
     finally: conn.close()
     return redirect("/dashboard")
 
-# 🟢 CORREGIDO: webhook maneja 3 casos (STK, WEB, REF)
 @app.route("/mp/webhook", methods=["GET", "POST"])
 def mp_webhook():
     if request.method == "GET":
@@ -599,7 +577,7 @@ def mp_webhook():
         if status != "approved":
             return jsonify({"status": "ok"}), 200
 
-        # 🟢 CASO 1: Compra directa WEB-XXXX-P1
+        # CASO 1: Compra directa WEB-XXXX-P1
         if ref.startswith("WEB-") and ref.endswith("-P1"):
             code = ref[4:-3]
             conn = get_db(); cur = get_cur(conn)
@@ -627,7 +605,7 @@ def mp_webhook():
                 conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # 🟢 CASO 2: STK-XXXX-P1 (step 1 interno, siempre auto-confirma)
+        # CASO 2: STK-XXXX-P1
         if ref.startswith("STK-") and ref.endswith("-P1"):
             code = ref[4:-3]
             conn = get_db(); cur = get_cur(conn)
@@ -642,7 +620,7 @@ def mp_webhook():
                 conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # 🟢 CASO 3: STK-XXXX-P2 (step 2 interno, auto-confirma solo si L1 = ADMIN001)
+        # CASO 3: STK-XXXX-P2 (auto solo si L1 = ADMIN001)
         if ref.startswith("STK-") and ref.endswith("-P2"):
             code = ref[4:-3]
             conn = get_db(); cur = get_cur(conn)
@@ -664,28 +642,20 @@ def mp_webhook():
                 conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # 🟢 CASO 4: REF-XXXX-Pn (compra con código de referido)
+        # CASO 4: REF-XXXX-Pn
         if ref.startswith("REF-") and "-P" in ref:
-            # REF-<sticker_code>-P<step>
             parts = ref[4:].rsplit("-P", 1)
             if len(parts) == 2:
                 code = parts[0]
-                try:
-                    step = int(parts[1])
-                except:
-                    step = 0
                 conn = get_db(); cur = get_cur(conn)
                 try:
                     cur.execute("""SELECT s.id, s.status, s.seller_id, s.cycle_id, s.buyer_email, s.buyer_name, s.temp_pass, s.sticker_code
                                   FROM stickers s WHERE s.sticker_code=%s""", (code,))
                     s = cur.fetchone()
                     if s and s["status"] in ("pending", "sent"):
-                        # Marcar como entregado (suma al contador del referente)
                         cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (s["id"],))
                         conn.commit()
-                        print(f"[MP-WEBHOOK] ✅ REF {code} (step {step}) entregada. Seller: {s['seller_id']}", flush=True)
-                        
-                        # Enviar email de bienvenida
+                        print(f"[MP-WEBHOOK] ✅ REF {code} entregada. Seller: {s['seller_id']}", flush=True)
                         try:
                             url_brevo = "https://api.brevo.com/v3/smtp/email"
                             headers_brevo = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
@@ -699,8 +669,6 @@ def mp_webhook():
                             print(f"[BREVO] ✅ Email REF enviado a {s['buyer_email']}. Status: {resp.status_code}", flush=True)
                         except Exception as e:
                             print(f"[BREVO] ❌ Error email REF: {e}", flush=True)
-                        
-                        # Verificar si el referente completó 3 ventas
                         seller_id = s["seller_id"]
                         cid = s["cycle_id"]
                         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE cycle_id=%s AND seller_id=%s AND status='entregado'", (cid, seller_id))
@@ -725,7 +693,6 @@ def mp_webhook():
 
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
 def marcar_enviado(sticker_id):
-    # 🟢 FLUJO MANUAL INTACTO
     conn = get_db(); cur = get_cur(conn)
     cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
     if s and s["status"] == "pending":
@@ -763,7 +730,6 @@ def marcar_enviado(sticker_id):
 
 @app.route("/resolver_confirmacion/<int:sticker_id>/<action>", methods=["POST"])
 def resolver_confirmacion(sticker_id, action):
-    # 🟢 FLUJO MANUAL INTACTO
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
@@ -801,7 +767,6 @@ def admin_mp_config():
 
 @app.route("/enviar_datos_email/<int:sticker_id>", methods=["POST"])
 def enviar_datos_email(sticker_id):
-    # 🟢 FLUJO MANUAL INTACTO
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
@@ -947,6 +912,7 @@ def admin_edit_user(user_id):
     conn.close()
     return render_template_string(f"""<!DOCTYPE html><html><head><title>Editar</title><style>body{{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}}.card{{background:#1a1a2e;padding:25px;border-radius:12px}}input{{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}}button{{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px}}a{{color:#667eea}}</style></head><body><h2>✏️ Editar</h2><a href="/admin/red">← Volver</a><div class="card"><form method="POST"><label>Nombre</label><input name="full_name" value="{user['full_name'] or ''}" required><label>Teléfono</label><input name="phone" value="{user['phone'] or ''}" required><label>Email</label><input name="email" value="{user['email'] or ''}" required><label>Dirección</label><input name="address" value="{user['address'] or ''}"><label>CBU</label><input name="cbu_alias" value="{user['cbu_alias'] or ''}"><button type="submit">💾 Guardar</button></form></div></body></html>""")
 
+# 🟢 VISOR DE CICLOS con asientos VACANTES
 @app.route("/admin/red")
 def admin_red():
     if "user_id" not in session: return redirect("/ingresar")
@@ -956,6 +922,7 @@ def admin_red():
     if not row or row["sticker_id"] != "ADMIN001": conn.close(); return redirect("/dashboard")
     query = request.args.get("q", "").strip()
     target = None; ancestors = []; descendants = []; sin_ciclo = False
+    niveles_candidatos = []
     try:
         if query:
             cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash, role FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
@@ -969,6 +936,7 @@ def admin_red():
                         cycle_id = user_cycle["cycle_id"]; user_level_in_cycle = user_cycle["level"] or 5
                         for target_level in range(4, 0, -1):
                             if target_level >= user_level_in_cycle: continue
+                            niveles_candidatos.append(target_level)
                             try:
                                 cur.execute("""SELECT u.id, u.sticker_id, u.full_name, u.phone, u.current_level FROM cycle_levels cl JOIN users u ON cl.user_id = u.id WHERE cl.cycle_id = %s AND cl.level = %s""", (cycle_id, target_level))
                                 ancestor_data = cur.fetchone()
@@ -977,6 +945,7 @@ def admin_red():
                             except: continue
                     else:
                         sin_ciclo = True; current = tid
+                        niveles_candidatos = [4, 3, 2, 1]
                         for target_level in [4, 3, 2, 1]:
                             cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current,)); up = cur.fetchone()
                             if not up or not up["parent_id"]: break
@@ -1013,16 +982,20 @@ def admin_red():
     finally: conn.close()
     def user_buttons(user_id, user_name):
         return f"""<div style="display:flex;gap:8px;margin-top:8px;"><a href="/admin/edit_user/{user_id}" style="background:#38a169;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;">✏️ Gestionar</a><a href="/admin/reset_password/{user_id}" onclick="return confirm('¿Resetear?')" style="background:#f6e05e;color:#1a1a2e;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;">🔑 Reset</a></div>"""
-    html = """<!DOCTYPE html><html><head><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Ciclo</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar..." value=\"""" + query + """"><button type="submit">Buscar</button></form>"""
+    html = """<!DOCTYPE html><html><head><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.vacante{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px;border:1px dashed #444;opacity:0.6}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Ciclo</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar..." value=\"""" + query + """"><button type="submit">Buscar</button></form>"""
     if target:
         pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
         html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;"><h3>🎯 Buscado</h3><div class="info"><span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>Tel: {target['phone']} | Nivel: {target['current_level']}</div><div class="info">Pass: <code style="color:#f6e05e">{pwd_display}</code></div>{user_buttons(target['id'], target['full_name'])}</div>"""
-        if ancestors:
-            titulo_asc = "🔝 Ascendientes" if not sin_ciclo else "🔝 Ascendientes (referidos)"
+        if niveles_candidatos:
+            titulo_asc = "🔝 Ascendientes del Ciclo" if not sin_ciclo else "🔝 Ascendientes (referidos)"
             html += f'<div class="section"><h3>{titulo_asc}</h3>'
-            for a in ancestors:
-                nivel_txt = a.get("nivel_ciclo"); nivel_show = f"Nivel ciclo: {nivel_txt}" if nivel_txt else f"Nivel: {a['current_level']}"
-                html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | {nivel_show}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
+            by_level = {a["nivel_ciclo"]: a for a in ancestors}
+            for lvl in niveles_candidatos:
+                a = by_level.get(lvl)
+                if a:
+                    html += f"""<div class="node"><div class="info"><span>{a['full_name']}</span> | STK: {a['sticker_id']} | Nivel ciclo: {lvl}</div>{user_buttons(a['id'], a['full_name'])}</div>"""
+                else:
+                    html += f"""<div class="vacante"><div class="info">— Vacante — | Nivel ciclo: {lvl}</div></div>"""
             html += '</div>'
         html += '<div class="section"><h3>🔽 Red de Ventas</h3>'
         if not descendants: html += '<p class="info">No hay descendientes.</p>'
