@@ -176,7 +176,7 @@ def procesar_compra():
 
             # ciclo nuevo con el VENDEDOR en L5 (igual que crear_sticker)
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (seller_id,)); cycle_id = cur.fetchone()["id"]
-            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (seller_id, cycle_id, 5))
+            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (seller_id, cycle_id, 5))
             cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (seller_id,))
             current_parent = seller_id
             for lvl in [4, 3, 2, 1]:
@@ -191,7 +191,7 @@ def procesar_compra():
             if not cur.fetchone():
                 cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'"); admin_row = cur.fetchone()
                 if admin_row:
-                    cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,1) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
+                    cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
 
             # vínculo padre->hijo
             cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (seller_id, buyer_id))
@@ -407,7 +407,7 @@ def crear_sticker():
         else:
             code = "STK-"+str(uuid.uuid4())[:6].upper()
         cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],)); cycle_id = cur.fetchone()["id"]
-        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
+        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id, 5))
         cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
         current_parent = row_u["id"]
         for lvl in [4, 3, 2, 1]:
@@ -422,7 +422,7 @@ def crear_sticker():
         if not cur.fetchone():
             cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'"); admin_row = cur.fetchone()
             if admin_row:
-                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,1) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
+                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending','sent') LIMIT 1", (row_u["id"], cycle_id))
         if cur.fetchone(): flash("⏳ Esperá a que se confirme el sticker actual."); conn.close(); return redirect(url_for("dashboard", cycle_id=cycle_id))
         step = completed + 1
