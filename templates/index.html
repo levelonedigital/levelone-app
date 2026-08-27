@@ -22,13 +22,22 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-white); line-height: 1.6; }
-        header { background: var(--primary-gradient); color: var(--text-white); padding: 100px 20px 80px; text-align: center; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4); position: relative; overflow: hidden; }
-        header::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%); pointer-events: none; }
+
+        /* Barra superior con logo */
+        .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(10,10,10,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); }
+        .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .brand-logo { height: 40px; display: block; }
+        .btn-login { color: var(--text-white); text-decoration: none; font-weight: 600; font-size: 0.95rem; padding: 8px 18px; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; transition: all .3s; }
+        .btn-login:hover { background: rgba(255,255,255,0.1); }
+
         .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+        header { background: var(--primary-gradient); color: var(--text-white); padding: 150px 20px 90px; text-align: center; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4); position: relative; overflow: hidden; }
+        header::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%); pointer-events: none; }
         header h1 { font-size: 3rem; font-weight: 700; margin-bottom: 20px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
         header p { font-size: 1.2rem; margin-bottom: 35px; opacity: 0.95; max-width: 700px; margin-left: auto; margin-right: auto; font-weight: 300; }
         .btn-main { display: inline-block; background-color: var(--text-white); color: var(--secondary-color); padding: 16px 40px; border-radius: var(--btn-radius); text-decoration: none; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: all 0.3s ease; }
         .btn-main:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+
         .features { padding: 80px 0 60px; }
         .section-title { text-align: center; font-size: 2rem; font-weight: 700; margin-bottom: 50px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
@@ -37,52 +46,36 @@
         .icon { font-size: 3rem; margin-bottom: 20px; display: block; }
         .card h3 { margin-bottom: 15px; font-size: 1.3rem; }
         .card p { color: var(--text-muted); font-size: 0.95rem; }
-        
-        .buy-section { padding: 60px 0; }
-        .buy-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 50px 40px; border-radius: 20px; box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4); max-width: 700px; margin: 0 auto; text-align: center; }
-        .buy-card h2 { font-size: 2.2rem; margin-bottom: 15px; }
-        .buy-card .price { font-size: 3rem; font-weight: 800; margin: 20px 0; color: #fff; }
-        .buy-card .price small { font-size: 1rem; font-weight: 400; opacity: 0.85; display: block; }
-        .buy-card .benefits { list-style: none; text-align: left; margin: 25px auto; max-width: 400px; }
-        .buy-card .benefits li { margin-bottom: 10px; padding-left: 30px; position: relative; color: #fff; }
-        .buy-card .benefits li::before { content: "✓"; position: absolute; left: 0; color: #38a169; font-weight: bold; font-size: 1.3rem; }
-        .btn-buy { display: inline-block; background: #fff; color: #764ba2; padding: 18px 50px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1.2rem; box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: all 0.3s; border: none; cursor: pointer; }
-        .btn-buy:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
-        
-        .buy-form { background: var(--bg-card); padding: 40px; border-radius: var(--card-radius); margin-top: 30px; max-width: 700px; margin-left: auto; margin-right: auto; border: 2px solid var(--primary-color); }
-        .buy-form h3 { text-align: center; margin-bottom: 25px; color: var(--text-white); }
-        .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; margin-bottom: 6px; color: var(--text-light); font-weight: 600; font-size: 0.95rem; }
-        .form-group input { width: 100%; padding: 12px 15px; background: var(--bg-dark); color: var(--text-white); border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; font-family: inherit; }
-        .form-group input:focus { outline: none; border-color: var(--primary-color); }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
-        .ref-info { background: rgba(102, 126, 234, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color); margin: 15px 0; font-size: 0.9rem; color: var(--text-light); }
-        .price-display { text-align: center; padding: 20px; margin: 20px 0; border-radius: 10px; }
-        .price-display.with-ref { background: rgba(56, 161, 105, 0.15); border: 2px solid #38a169; }
-        .price-display.no-ref { background: rgba(102, 126, 234, 0.15); border: 2px solid var(--primary-color); }
-        .price-display .amount { font-size: 2.5rem; font-weight: 800; color: #fff; }
-        .price-display .label { font-size: 0.9rem; color: var(--text-light); margin-top: 5px; }
-        
-        .discount-banner { background: var(--bg-card); border: 2px solid var(--primary-color); border-radius: var(--card-radius); padding: 40px; text-align: center; margin: 0 auto 60px; max-width: 800px; }
-        .discount-banner h2 { font-size: 1.8rem; margin-bottom: 10px; }
-        .discount-banner p { color: var(--text-light); }
+
+        .intro-box { background: var(--bg-card); padding: 45px; border-radius: var(--card-radius); border: 1px solid var(--border-color); max-width: 850px; margin: 0 auto; text-align: center; }
+        .intro-box img { height: 60px; margin-bottom: 20px; }
+        .intro-box h2 { font-size: 1.9rem; margin-bottom: 18px; }
+        .intro-box p { color: var(--text-light); font-size: 1.05rem; margin-bottom: 12px; }
+
         .steps-section { background-color: var(--bg-card); padding: 80px 0; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
-        .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; margin-bottom: 50px; text-align: center; }
+        .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; margin-bottom: 20px; text-align: center; }
         .step-number { background: var(--primary-gradient); color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.5rem; margin: 0 auto 20px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5); }
         .step-card h4 { font-size: 1.2rem; margin-bottom: 10px; }
         .step-card p { color: var(--text-muted); font-size: 0.95rem; }
-        .cta-box { background: var(--bg-dark); border-radius: var(--card-radius); padding: 40px; text-align: center; max-width: 700px; margin: 0 auto; border: 2px solid var(--primary-color); }
-        .cta-box h3 { margin-bottom: 15px; font-size: 1.5rem; }
-        .cta-box p { color: var(--text-muted); margin-bottom: 20px; font-size: 1.1rem; }
-        .highlight-box { background: rgba(102, 126, 234, 0.1); padding: 15px; border-radius: 10px; border-left: 4px solid var(--primary-color); margin-bottom: 20px; text-align: left; }
-        .highlight-box p { margin: 0; color: var(--text-light); font-size: 1rem; }
-        .platform-desc { background: var(--bg-card); padding: 40px; border-radius: var(--card-radius); margin: 40px auto 0; max-width: 800px; border: 1px solid var(--border-color); text-align: left; }
-        .platform-desc h3 { margin-bottom: 15px; font-size: 1.5rem; }
-        .platform-desc p { color: var(--text-muted); margin-bottom: 15px; font-size: 1.05rem; }
-        .platform-desc ul { list-style: none; padding: 0; }
-        .platform-desc ul li { margin-bottom: 10px; padding-left: 25px; position: relative; color: var(--text-light); }
-        .platform-desc ul li::before { content: "✓"; position: absolute; left: 0; color: var(--primary-color); font-weight: bold; }
+
+        .buy-section { padding: 70px 0; }
+        .buy-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 50px 40px; border-radius: 20px; box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4); max-width: 700px; margin: 0 auto 40px; text-align: center; }
+        .buy-card h2 { font-size: 2.1rem; margin-bottom: 15px; }
+        .buy-card .price { font-size: 3rem; font-weight: 800; margin: 18px 0; color: #fff; }
+        .buy-card .price small { font-size: 1rem; font-weight: 400; opacity: 0.85; display: block; }
+        .buy-card .benefits { list-style: none; text-align: left; margin: 22px auto; max-width: 420px; }
+        .buy-card .benefits li { margin-bottom: 10px; padding-left: 30px; position: relative; color: #fff; }
+        .buy-card .benefits li::before { content: "✓"; position: absolute; left: 0; color: #38a169; font-weight: bold; font-size: 1.3rem; }
+        .btn-buy { display: inline-block; background: #fff; color: #764ba2; padding: 16px 44px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1.15rem; box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: all 0.3s; }
+        .btn-buy:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+        .ref-card { background: var(--bg-card); border: 2px solid #38a169; padding: 45px 40px; border-radius: 20px; max-width: 700px; margin: 0 auto; text-align: center; }
+        .ref-card h2 { font-size: 1.9rem; margin-bottom: 12px; }
+        .ref-card .price { font-size: 2.6rem; font-weight: 800; color: #38a169; margin: 14px 0; }
+        .ref-card .price s { color: var(--text-muted); font-size: 1.4rem; font-weight: 400; margin-right: 12px; }
+        .ref-card p { color: var(--text-light); margin-bottom: 20px; }
+        .btn-ref { display: inline-block; background: #38a169; color: #fff; padding: 16px 44px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1.15rem; box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: all 0.3s; }
+        .btn-ref:hover { transform: translateY(-3px); }
+
         footer { background-color: #050508; color: var(--text-muted); padding: 50px 20px; text-align: center; border-top: 1px solid var(--border-color); }
         footer h3 { color: var(--text-white); margin-bottom: 10px; }
         footer a { color: var(--primary-color); text-decoration: none; }
@@ -94,70 +87,44 @@
 
 {% with messages = get_flashed_messages() %}
 {% if messages %}
-<div style="
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999;
-    max-width: 650px;
-    width: calc(100% - 40px);
-">
+<div style="position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;max-width:650px;width:calc(100% - 40px);">
     {% for message in messages %}
-    <div style="
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: #fff;
-        padding: 16px 20px;
-        border-radius: 12px;
-        margin-bottom: 10px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-        font-weight: 600;
-        text-align: center;
-        border: 1px solid rgba(255,255,255,0.18);
-    ">
-        {{ message }}
-    </div>
+    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:10px;box-shadow:0 10px 30px rgba(0,0,0,0.35);font-weight:600;text-align:center;border:1px solid rgba(255,255,255,0.18);">{{ message }}</div>
     {% endfor %}
 </div>
-<script>
-    setTimeout(function() {
-        const flashBox = document.querySelector('div[style*="position: fixed"]');
-        if (flashBox) flashBox.style.display = 'none';
-    }, 6500);
-</script>
 {% endif %}
 {% endwith %}
+
+    <div class="topbar">
+        <div class="topbar-inner">
+            <a href="/"><img src="/static/logo.png" alt="levelONE" class="brand-logo"></a>
+            <a href="/ingresar" class="btn-login">Ingresar</a>
+        </div>
+    </div>
 
     <header>
         <div class="container">
             <h1>Aprendé. Ahorrá. Crecé.</h1>
-            <p>Bienvenido a <strong>LevelONE</strong>. Tu plataforma integral para capacitarte en ventas digitales, acceder a descuentos exclusivos y generar ingresos con un sistema estructurado.</p>
-            <a href="https://levelone.uno/ingresar" class="btn-main">Ingresar a la Plataforma</a>
+            <p>Tu plataforma integral para capacitarte en ventas digitales, acceder a descuentos exclusivos y generar ingresos con un sistema estructurado.</p>
+            <a href="/comprar" class="btn-main">🎟️ Quiero mi Licencia</a>
         </div>
     </header>
 
-    <section class="buy-section">
+    <!-- 1) ¿Qué es levelONE? -->
+    <section class="features">
         <div class="container">
-            <div class="buy-card">
-                <h2>🎟️ Adquirí tu Licencia LevelONE</h2>
-                <p style="opacity:0.95;font-size:1.1rem;">Tu llave de acceso a la comunidad privada, capacitaciones y la oportunidad de generar ingresos.</p>
-                <div class="price" id="buyPriceDisplay">
-                    <span id="priceAmount">$30.000</span>
-                    <small id="priceLabel">Con código de referido</small>
-                </div>
-                <ul class="benefits">
-                    <li>Comunidad privada de WhatsApp</li>
-                    <li>Capacitaciones en marketing y ventas digitales</li>
-                    <li>Hasta 80% de descuento en cursos</li>
-                    <li>Sistema estructurado de referidos</li>
-                    <li>Acompañamiento desde el día uno</li>
-                </ul>
-                <a href="#comprar" class="btn-buy">Comprar Licencia Ahora</a>
+            <div class="intro-box">
+                <img src="/static/logo.png" alt="levelONE">
+                <h2>¿Qué es levelONE?</h2>
+                <p>levelONE es una plataforma educativa y comercial diseñada para impulsar tu crecimiento profesional y financiero.</p>
+                <p>Acá aprendés a vender online con capacitaciones reales, accedés a cursos con descuentos de hasta el 80% y construís tu propia red de ingresos con un sistema de referidos transparente y ordenado.</p>
+                <p>No es solo un curso: es una comunidad que te acompaña desde el día uno para que pasés de principiante a experto.</p>
             </div>
         </div>
     </section>
 
-    <section class="features">
+    <!-- 2) ¿Por qué elegirnos? -->
+    <section class="features" style="padding-top:20px;">
         <div class="container">
             <h2 class="section-title">¿Por qué elegirnos?</h2>
             <div class="grid">
@@ -180,85 +147,7 @@
         </div>
     </section>
 
-    <section id="comprar" style="padding: 60px 0;">
-        <div class="container">
-            <h2 class="section-title">📝 Completá tus datos</h2>
-            
-            <form class="buy-form" method="POST" action="/procesar_compra" onsubmit="return validarCompra()">
-                
-                <div class="form-group">
-                    <label>🔑 Código de referido (opcional)</label>
-                    <input type="text" name="ref_code" id="ref_code" placeholder="Ej: marcos_ventas" oninput="actualizarPrecio()">
-                    <div class="ref-info" id="refInfoBox">
-                        💡 Si tenés un código de referido, ingresalo y pagás <strong>$30.000</strong>. Si no tenés, dejalo vacío y comprás directo a la plataforma por <strong>$60.000</strong>.
-                    </div>
-                </div>
-
-                <div id="priceDisplayBox" class="price-display with-ref">
-                    <div class="amount" id="formPriceAmount">$30.000</div>
-                    <div class="label" id="formPriceLabel">Precio con código de referido</div>
-                </div>
-
-                <div class="form-group">
-                    <label>🏷️ Elegí tu usuario (será tu código de referido)</label>
-                    <input type="text" name="sticker_name" required placeholder="Ej: tu_nombre_ventas" pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guión bajo. Sin espacios.">
-                    <small style="color:var(--text-muted);font-size:0.85rem;">Solo letras, números y guión bajo (_). Sin espacios ni símbolos. Este será tu usuario para ingresar y tu código para referir a otros.</small>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>👤 Nombre Completo</label>
-                        <input type="text" name="name" required placeholder="Ej: Juan Pérez">
-                    </div>
-                    <div class="form-group">
-                        <label>📱 Teléfono (con código país)</label>
-                        <input type="text" name="phone" required placeholder="+54911...">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>✉️ Email</label>
-                    <input type="email" name="email" required placeholder="email@ejemplo.com">
-                </div>
-
-                <div style="margin-top:25px;padding-top:25px;border-top:1px solid var(--border-color);">
-                    <label style="color:var(--text-white);font-weight:700;margin-bottom:15px;display:block;">🏦 Datos Bancarios (para recibir pagos)</label>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>CBU / Alias</label>
-                        <input type="text" name="cbu" required placeholder="Tu CBU o Alias">
-                    </div>
-                    <div class="form-group">
-                        <label>Titular de la cuenta</label>
-                        <input type="text" name="cbu_titular" required placeholder="Nombre del titular">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>DNI / CUIT</label>
-                        <input type="text" name="cbu_dni" required placeholder="DNI o CUIT">
-                    </div>
-                    <div class="form-group">
-                        <label>Entidad bancaria</label>
-                        <input type="text" name="cbu_entidad" required placeholder="Ej: Banco Galicia">
-                    </div>
-                </div>
-
-                <div style="text-align:center;margin-top:30px;">
-                    <button type="submit" class="btn-buy" style="width:100%;font-size:1.2rem;padding:18px;">
-                        💳 Continuar a Mercado Pago
-                    </button>
-                    <p style="margin-top:15px;color:var(--text-muted);font-size:0.85rem;">
-                        🔒 Pago seguro a través de Mercado Pago. Tus datos están protegidos.
-                    </p>
-                </div>
-            </form>
-        </div>
-    </section>
-
+    <!-- 3) ¿Cómo funciona el sistema de referidos? -->
     <section class="steps-section">
         <div class="container">
             <h2 class="section-title">¿Cómo funciona el Sistema de Referidos?</h2>
@@ -279,26 +168,32 @@
                     <p>Una vez completado el ciclo y al llegar a <strong>Nivel 1</strong>, empezás a generar ingresos adicionales con tu red.</p>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <div class="cta-box">
-                <h3>🤝 Crecimiento en Conjunto</h3>
-                <p>En LevelONE creemos en la fuerza de la comunidad y el crecimiento compartido.</p>
-                <div class="highlight-box">
-                    <p>✅ ¿Tenés un código de referido? Ingresalo en el formulario y accedé al precio especial.<br>
-                    ✅ ¿No tenés código? Comprá directo a la plataforma.<br>
-                    ✅ ¿Ya sos usuario? Compartí tu código y generá ingresos!</p>
-                </div>
+    <!-- 4) Adquirí tu licencia -->
+    <section class="buy-section">
+        <div class="container">
+            <div class="buy-card">
+                <h2>🎟️ Adquirí tu Licencia LevelONE</h2>
+                <p style="opacity:0.95;font-size:1.05rem;">Tu llave de acceso a la comunidad privada, capacitaciones y la oportunidad de generar ingresos.</p>
+                <div class="price">$60.000<small>Precio oficial</small></div>
+                <ul class="benefits">
+                    <li>Comunidad privada de WhatsApp</li>
+                    <li>Capacitaciones en marketing y ventas digitales</li>
+                    <li>Hasta 80% de descuento en cursos</li>
+                    <li>Sistema estructurado de referidos</li>
+                    <li>Acompañamiento desde el día uno</li>
+                </ul>
+                <a href="/comprar" class="btn-buy">Comprar Licencia</a>
             </div>
 
-            <div class="platform-desc">
-                <h3>🌟 ¿Qué es LevelONE?</h3>
-                <p>LevelONE es una plataforma educativa y comercial diseñada para potenciar tu desarrollo profesional y financiero.</p>
-                <ul>
-                    <li><strong>Educación de Calidad:</strong> Capacitaciones en ventas online, marketing digital y estrategias.</li>
-                    <li><strong>Comunidad de Apoyo:</strong> Grupo privado con conocimientos y estrategias diarias.</li>
-                    <li><strong>Oportunidad de Negocio:</strong> Sistema de licencias para referir miembros y generar ingresos.</li>
-                    <li><strong>Beneficios Exclusivos:</strong> Descuentos masivos en cursos presenciales y virtuales.</li>
-                </ul>
+            <!-- 5) ¿Tenés código de referido? -->
+            <div class="ref-card">
+                <h2>🎁 ¿Tenés un código de referido?</h2>
+                <p>Si un miembro activo te compartió su código, obtenés tu licencia por la mitad de precio.</p>
+                <div class="price"><s>$60.000</s>$30.000</div>
+                <a href="/comprar?con_codigo=1" class="btn-ref" id="btnRef">Tengo un código de referido</a>
             </div>
         </div>
     </section>
@@ -333,7 +228,7 @@
 
     <footer>
         <div class="container">
-            <h3>LevelONE</h3>
+            <img src="/static/logo.png" alt="levelONE" style="height:44px;margin-bottom:14px;">
             <p style="margin: 10px 0;">Plataforma Educativa y de Interacción Comercial.</p>
             <p style="margin-bottom: 10px;">¿Tenés dudas? <a href="mailto:level.one.digital2000@gmail.com">Contactanos</a></p>
             <p class="legal-text">
@@ -344,52 +239,12 @@
     </footer>
 
 <script>
-function actualizarPrecio() {
-    const refCode = document.getElementById('ref_code').value.trim();
-    const priceAmount = document.getElementById('priceAmount');
-    const priceLabel = document.getElementById('priceLabel');
-    const formPriceAmount = document.getElementById('formPriceAmount');
-    const formPriceLabel = document.getElementById('formPriceLabel');
-    const priceDisplayBox = document.getElementById('priceDisplayBox');
-    
-    if (refCode.length > 0) {
-        priceAmount.textContent = '$30.000';
-        priceLabel.textContent = 'Con código de referido';
-        formPriceAmount.textContent = '$30.000';
-        formPriceLabel.textContent = 'Precio con código de referido';
-        priceDisplayBox.className = 'price-display with-ref';
-    } else {
-        priceAmount.textContent = '$60.000';
-        priceLabel.textContent = 'Compra directa a la plataforma';
-        formPriceAmount.textContent = '$60.000';
-        formPriceLabel.textContent = 'Compra directa a la plataforma (sin código)';
-        priceDisplayBox.className = 'price-display no-ref';
-    }
-}
-
-function validarCompra() {
-    const stickerName = document.querySelector('input[name="sticker_name"]').value.trim();
-    const pattern = /^[a-zA-Z0-9_]+$/;
-    if (!pattern.test(stickerName)) {
-        alert('❌ El usuario solo puede contener letras, números y guión bajo (_). Sin espacios ni símbolos.');
-        return false;
-    }
-    return true;
-}
-
+// Si la landing se abre con ?ref=CODE (link compartido), el botón de referido lo lleva cargado
 window.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
-
     if (ref) {
-        document.getElementById('ref_code').value = ref;
-        actualizarPrecio();
-
-        setTimeout(() => {
-            document.getElementById('comprar').scrollIntoView({behavior: 'smooth'});
-        }, 300);
-    } else {
-        actualizarPrecio();
+        document.getElementById('btnRef').href = '/comprar?ref=' + encodeURIComponent(ref);
     }
 });
 </script>
