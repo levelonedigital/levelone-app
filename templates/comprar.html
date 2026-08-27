@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprar Licencia | LevelONE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --bg-dark: #0a0a0a;
+            --bg-card: #1a1a2e;
+            --text-white: #ffffff;
+            --text-light: #e2e8f0;
+            --text-muted: #a0aec0;
+            --border-color: rgba(255,255,255,0.08);
+            --card-radius: 16px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-white); line-height: 1.6; }
+        .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(10,10,10,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); }
+        .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .brand-logo { height: 40px; display: block; }
+        .btn-login { color: var(--text-white); text-decoration: none; font-weight: 600; font-size: 0.95rem; padding: 8px 18px; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; }
+        .container { max-width: 760px; margin: 0 auto; padding: 110px 20px 60px; }
+        .page-title { text-align: center; margin-bottom: 26px; }
+        .page-title h1 { font-size: 2rem; margin-bottom: 8px; }
+        .page-title p { color: var(--text-muted); }
+        .price-display { text-align: center; padding: 20px; margin: 0 0 26px; border-radius: 12px; }
+        .price-display.with-ref { background: rgba(56,161,105,0.15); border: 2px solid #38a169; }
+        .price-display.no-ref { background: rgba(102,126,234,0.15); border: 2px solid var(--primary-color); }
+        .price-display .amount { font-size: 2.5rem; font-weight: 800; color: #fff; }
+        .price-display .label { font-size: 0.9rem; color: var(--text-light); margin-top: 5px; }
+        .buy-form { background: var(--bg-card); padding: 40px; border-radius: var(--card-radius); border: 2px solid var(--primary-color); }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; margin-bottom: 6px; color: var(--text-light); font-weight: 600; font-size: 0.95rem; }
+        .form-group input { width: 100%; padding: 12px 15px; background: var(--bg-dark); color: var(--text-white); border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; font-family: inherit; }
+        .form-group input:focus { outline: none; border-color: var(--primary-color); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+        .ref-info { background: rgba(102,126,234,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-color); margin: 10px 0 0; font-size: 0.9rem; color: var(--text-light); }
+        .bank-title { color: var(--text-white); font-weight: 700; margin: 22px 0 14px; display: block; padding-top: 22px; border-top: 1px solid var(--border-color); }
+        .btn-buy { display: block; width: 100%; background: #fff; color: #764ba2; padding: 18px; border-radius: 12px; border: none; font-weight: 700; font-size: 1.2rem; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .secure { margin-top: 15px; color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+    </style>
+</head>
+<body>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div style="position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:9999;max-width:650px;width:calc(100% - 40px);">
+    {% for message in messages %}
+    <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:10px;box-shadow:0 10px 30px rgba(0,0,0,0.35);font-weight:600;text-align:center;border:1px solid rgba(255,255,255,0.18);">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+    <div class="topbar">
+        <div class="topbar-inner">
+            <a href="/"><img src="/static/logo.png" alt="levelONE" class="brand-logo"></a>
+            <a href="/ingresar" class="btn-login">Ingresar</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-title">
+            <h1>🎟️ Completá tus datos</h1>
+            <p>Un paso más para acceder a levelONE.</p>
+        </div>
+
+        <div id="priceDisplayBox" class="price-display no-ref">
+            <div class="amount" id="formPriceAmount">$60.000</div>
+            <div class="label" id="formPriceLabel">Compra directa a la plataforma</div>
+        </div>
+
+        <form class="buy-form" method="POST" action="/procesar_compra" onsubmit="return validarCompra()">
+
+            <div class="form-group">
+                <label>🔑 Código de referido (opcional)</label>
+                <input type="text" name="ref_code" id="ref_code" value="{{ ref_code }}" placeholder="Ej: marcos_ventas" oninput="actualizarPrecio()">
+                <div class="ref-info">💡 Si tenés un código, pagás <strong>$30.000</strong>. Si lo dejás vacío, comprás directo por <strong>$60.000</strong>.</div>
+            </div>
+
+            <div class="form-group">
+                <label>🏷️ Elegí tu usuario (será tu código de referido)</label>
+                <input type="text" name="sticker_name" required placeholder="Ej: tu_nombre_ventas" pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guión bajo. Sin espacios.">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>👤 Nombre Completo</label>
+                    <input type="text" name="name" required placeholder="Ej: Juan Pérez">
+                </div>
+                <div class="form-group">
+                    <label>📱 Teléfono (con código país)</label>
+                    <input type="text" name="phone" required placeholder="+54911...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>✉️ Email</label>
+                <input type="email" name="email" required placeholder="email@ejemplo.com">
+            </div>
+
+            <label class="bank-title">🏦 Datos Bancarios (para recibir pagos)</label>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>CBU / Alias</label>
+                    <input type="text" name="cbu" required placeholder="Tu CBU o Alias">
+                </div>
+                <div class="form-group">
+                    <label>Titular de la cuenta</label>
+                    <input type="text" name="cbu_titular" required placeholder="Nombre del titular">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>DNI / CUIT</label>
+                    <input type="text" name="cbu_dni" required placeholder="DNI o CUIT">
+                </div>
+                <div class="form-group">
+                    <label>Entidad bancaria</label>
+                    <input type="text" name="cbu_entidad" required placeholder="Ej: Banco Galicia">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-buy">💳 Continuar a Mercado Pago</button>
+            <p class="secure">🔒 Pago seguro a través de Mercado Pago. Tus datos están protegidos.</p>
+        </form>
+    </div>
+
+<script>
+function actualizarPrecio() {
+    const refCode = document.getElementById('ref_code').value.trim();
+    const box = document.getElementById('priceDisplayBox');
+    const amount = document.getElementById('formPriceAmount');
+    const label = document.getElementById('formPriceLabel');
+    if (refCode.length > 0) {
+        amount.textContent = '$30.000';
+        label.textContent = 'Precio con código de referido';
+        box.className = 'price-display with-ref';
+    } else {
+        amount.textContent = '$60.000';
+        label.textContent = 'Compra directa a la plataforma';
+        box.className = 'price-display no-ref';
+    }
+}
+function validarCompra() {
+    const stickerName = document.querySelector('input[name="sticker_name"]').value.trim();
+    if (!/^[a-zA-Z0-9_]+$/.test(stickerName)) {
+        alert('❌ El usuario solo puede contener letras, números y guión bajo (_). Sin espacios ni símbolos.');
+        return false;
+    }
+    return true;
+}
+window.addEventListener('DOMContentLoaded', function() {
+    actualizarPrecio();
+    {% if con_codigo %}
+    document.getElementById('ref_code').focus();
+    {% endif %}
+});
+</script>
+
+</body>
+</html>
