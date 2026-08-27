@@ -122,7 +122,6 @@ def index():
             'price': float(r['price']) if r['price'] else 0, 'discount_pct': int(r['discount_pct']) if r['discount_pct'] else 0})
     return render_template("index.html", cursos=cursos)
 
-# 🟢 COMPRA WEB: replica EXACTAMENTE la lógica de crear_sticker (venta interna)
 @app.route("/procesar_compra", methods=["POST"])
 def procesar_compra():
     conn = get_db(); cur = get_cur(conn)
@@ -162,19 +161,16 @@ def procesar_compra():
         temp_pass = "Temp-" + str(uuid.uuid4())[:8]
 
         if use_referral:
-            # === ESPEJO EXACTO de crear_sticker: vendedor=referente ===
             seller_id = referrer_id
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (seller_id,))
             completed = cur.fetchone()["cnt"]
             step = completed + 1
 
-            # comprador como usuario (hijo del referente)
             cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role, terms_accepted_at)
                            VALUES (%s,%s,%s,%s,%s,%s,'inactive',%s) RETURNING id''',
                         (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256'), datetime.now()))
             buyer_id = cur.fetchone()["id"]
 
-            # ciclo nuevo con el VENDEDOR en L5 (igual que crear_sticker)
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (seller_id,)); cycle_id = cur.fetchone()["id"]
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (seller_id, cycle_id, 5))
             cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (seller_id,))
@@ -193,16 +189,13 @@ def procesar_compra():
                 if admin_row:
                     cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
 
-            # vínculo padre->hijo
             cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (seller_id, buyer_id))
 
-            # sticker con vendedor=referente
             cur.execute('''INSERT INTO stickers (sticker_code, seller_id, cycle_id, buyer_name, buyer_phone, buyer_email, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, step, confirmation_token, temp_pass, status)
                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'pending') RETURNING id''',
                         (sticker_name, seller_id, cycle_id, name, phone, email, cbu, cbu_titular, cbu_dni, cbu_entidad, step, str(uuid.uuid4())[:12], temp_pass))
             sticker_new_id = cur.fetchone()["id"]
 
-            # link MP con las mismas reglas que crear_sticker
             should_generate_mp = False
             if step == 1: should_generate_mp = True
             elif step == 2:
@@ -218,7 +211,6 @@ def procesar_compra():
             else:
                 conn.commit(); flash(f"✅ Usuario '{sticker_name}' creado. Contraseña: {temp_pass}"); conn.close(); return redirect("/ingresar")
         else:
-            # === COMPRA DIRECTA (sin cambios): comprador raíz, ciclo Pool ===
             cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role, terms_accepted_at)
                            VALUES (%s,%s,%s,%s,%s,%s,'seller',%s) RETURNING id''',
                         (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256'), datetime.now()))
@@ -383,7 +375,6 @@ def dashboard():
     conn.close()
     return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link, referral_link=referral_link)
 
-# 🟢 VENTA INTERNA: SIN CAMBIOS (fuente de verdad)
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
     if "user_id" not in session: return redirect("/login")
@@ -479,41 +470,57 @@ def mp_webhook():
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # STK-XXXX-P1
+        # STK-XXXX-P1 (venta interna paso 1)
         if ref.startswith("STK-") and ref.endswith("-P1"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
-                cur.execute("SELECT id, status FROM stickers WHERE sticker_code=%s", (code,)); s = cur.fetchone()
+                cur.execute("SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code, u.full_name, u.email FROM stickers s JOIN users u ON u.id=s.seller_id WHERE s.sticker_code=%s", (code,)); s = cur.fetchone()
                 if s and s["status"] in ("pending","sent"):
                     cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],)); conn.commit()
                     print(f"[MP-WEBHOOK] ✅ STK-P1 {code} confirmado.", flush=True)
+                    # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado
+                    if s["email"]:
+                        _avisar_vendedor_credenciales(s["email"], s["full_name"], s["sticker_code"], s["buyer_name"])
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # STK-XXXX-P2
+        # STK-XXXX-P2 (venta interna paso 2)
         if ref.startswith("STK-") and ref.endswith("-P2"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
-                cur.execute("""SELECT s.id, s.status, u.sticker_id AS l1 FROM stickers s LEFT JOIN cycle_levels cl ON cl.cycle_id=s.cycle_id AND cl.level=1 LEFT JOIN users u ON u.id=cl.user_id WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
+                cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code, u.sticker_id AS l1,
+                              v.full_name AS seller_name, v.email AS seller_email
+                              FROM stickers s
+                              LEFT JOIN cycle_levels cl ON cl.cycle_id=s.cycle_id AND cl.level=1
+                              LEFT JOIN users u ON u.id=cl.user_id
+                              LEFT JOIN users v ON v.id=s.seller_id
+                              WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
                 if s and s["status"] in ("pending","sent"):
                     if s["l1"] == "ADMIN001":
                         cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],)); conn.commit()
                         print(f"[MP-WEBHOOK] ✅ STK-P2 {code} confirmado (L1 plataforma).", flush=True)
+                        # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado
+                        if s["seller_email"]:
+                            _avisar_vendedor_credenciales(s["seller_email"], s["seller_name"], s["sticker_code"], s["buyer_name"])
                     else:
                         print(f"[MP-WEBHOOK] ⏸️ STK-P2 {code} espera confirmación manual.", flush=True)
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # REF-XXXX-Pn (compra web con código): igual que interna -> confirmed, y al entregar suma al vendedor
+        # REF-XXXX-Pn (compra web con código)
         if ref.startswith("REF-") and "-P" in ref:
             parts = ref[4:].rsplit("-P", 1)
             if len(parts) == 2:
                 code = parts[0]; conn = get_db(); cur = get_cur(conn)
                 try:
-                    cur.execute("SELECT id, status, seller_id, cycle_id, buyer_email, buyer_name, temp_pass, sticker_code FROM stickers WHERE sticker_code=%s", (code,)); s = cur.fetchone()
+                    cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code, u.full_name AS seller_name, u.email AS seller_email
+                                  FROM stickers s JOIN users u ON u.id=s.seller_id WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
                     if s and s["status"] in ("pending","sent"):
                         cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],)); conn.commit()
                         print(f"[MP-WEBHOOK] ✅ REF {code} confirmado (paso {parts[1]}).", flush=True)
+                        # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado
+                        if s["seller_email"]:
+                            _avisar_vendedor_credenciales(s["seller_email"], s["seller_name"], s["sticker_code"], s["buyer_name"])
                 finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
@@ -533,6 +540,19 @@ def _enviar_bienvenida(buyer_email, buyer_name, sticker_code, temp_pass):
         print(f"[BREVO] ✅ Email WEB enviado a {buyer_email}. Status: {resp.status_code}", flush=True)
     except Exception as e:
         print(f"[BREVO] ❌ Error email WEB: {e}", flush=True)
+
+# 🟢 NUEVO: avisa al vendedor que el pago fue aprobado y puede enviar credenciales
+def _avisar_vendedor_credenciales(email, nombre, sticker_code, buyer_name):
+    try:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
+        payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": email, "name": nombre}],
+            "subject": f"✅ Pago aprobado | {sticker_code}",
+            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><h1 style="color:#667eea;">✅ Pago aprobado</h1><p>Hola <strong>{nombre}</strong>, el pago de tu licencia <strong>{sticker_code}</strong> fue confirmado.</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Comprador:</strong> {buyer_name}</p><p>El pago ya está acreditado por Mercado Pago.</p><p>Ya podés enviar las credenciales al comprador desde tu dashboard.</p></div><div style="text-align:center;"><a href="https://levelone.uno/dashboard" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Enviar credenciales</a></div></div></div></body></html>"""}
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        print(f"[BREVO] ✅ Aviso al vendedor enviado a {email}. Status: {resp.status_code}", flush=True)
+    except Exception as e:
+        print(f"[BREVO] ❌ Error aviso vendedor: {e}", flush=True)
 
 @app.route("/marcar_enviado/<int:sticker_id>", methods=["POST"])
 def marcar_enviado(sticker_id):
@@ -562,7 +582,13 @@ def resolver_confirmacion(sticker_id, action):
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "sent":
-            if action == "confirm": cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,)); conn.commit(); flash("✅ Pago confirmado.")
+            if action == "confirm":
+                cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,)); conn.commit(); flash("✅ Pago confirmado.")
+                # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado (confirmación manual)
+                cur.execute("SELECT u.full_name, u.email FROM users u WHERE u.id=%s", (s["seller_id"],))
+                vend = cur.fetchone()
+                if vend and vend["email"]:
+                    _avisar_vendedor_credenciales(vend["email"], vend["full_name"], s["sticker_code"], s["buyer_name"])
             else: cur.execute("UPDATE stickers SET status='pending' WHERE id=%s", (sticker_id,)); conn.commit(); flash("⚠️ Pago rechazado.")
         if s and s["cycle_id"]: return redirect(url_for("dashboard", cycle_id=s["cycle_id"]))
     finally: cur.close(); conn.close()
