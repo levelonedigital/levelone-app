@@ -122,6 +122,13 @@ def index():
             'price': float(r['price']) if r['price'] else 0, 'discount_pct': int(r['discount_pct']) if r['discount_pct'] else 0})
     return render_template("index.html", cursos=cursos)
 
+# 🟢 NUEVO: página del formulario de compra (separada de la landing)
+@app.route("/comprar")
+def comprar():
+    ref = request.args.get("ref","").strip()
+    con_codigo = request.args.get("con_codigo","").strip()
+    return render_template("comprar.html", ref_code=ref, con_codigo=con_codigo)
+
 @app.route("/procesar_compra", methods=["POST"])
 def procesar_compra():
     conn = get_db(); cur = get_cur(conn)
@@ -132,28 +139,32 @@ def procesar_compra():
         cbu_entidad = request.form.get("cbu_entidad","").strip(); sticker_name = request.form.get("sticker_name","").strip()
         ref_code = request.form.get("ref_code","").strip()
 
+        def volver():
+            if ref_code: return redirect("/comprar?ref=" + ref_code)
+            return redirect("/comprar")
+
         if not all([name, phone, email, cbu, sticker_name]):
-            flash("❌ Nombre, teléfono, email, CBU y usuario son obligatorios."); conn.close(); return redirect("/#comprar")
+            flash("❌ Nombre, teléfono, email, CBU y usuario son obligatorios."); conn.close(); return volver()
         if not re.match(r'^[a-zA-Z0-9_]+$', sticker_name):
-            flash("❌ El usuario solo puede contener letras, números y guión bajo."); conn.close(); return redirect("/#comprar")
+            flash("❌ El usuario solo puede contener letras, números y guión bajo."); conn.close(); return volver()
         cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sticker_name,))
         if cur.fetchone():
-            flash(f"❌ El usuario '{sticker_name}' ya está en uso."); conn.close(); return redirect("/#comprar")
+            flash(f"❌ El usuario '{sticker_name}' ya está en uso."); conn.close(); return volver()
 
         referrer_id = None; use_referral = False
         if ref_code:
             cur.execute("SELECT id, sticker_id, full_name, current_level, role FROM users WHERE sticker_id=%s", (ref_code,))
             referrer_data = cur.fetchone()
             if not referrer_data:
-                flash(f"❌ El código '{ref_code}' no existe. Podés comprar directo o probar otro."); conn.close(); return redirect("/#comprar")
+                flash(f"❌ El código '{ref_code}' no existe. Podés comprar directo o probar otro."); conn.close(); return volver()
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (referrer_data["id"],))
             if referrer_data["role"] == "graduated" or cur.fetchone()["cnt"] >= 3:
-                flash(f"⚠️ El código '{ref_code}' ya completó su ciclo. Podés comprar directo a la plataforma."); conn.close(); return redirect("/#comprar")
+                flash(f"⚠️ El código '{ref_code}' ya completó su ciclo. Podés comprar directo a la plataforma."); conn.close(); return volver()
             cur.execute("""SELECT s.id FROM cycles c JOIN cycle_levels cl ON c.id=cl.cycle_id JOIN stickers s ON s.cycle_id=c.id
                          WHERE c.l5_user_id=%s AND cl.user_id=%s AND cl.level=5 AND s.status IN ('pending','sent','confirmed') LIMIT 1""",
                          (referrer_data["id"], referrer_data["id"]))
             if cur.fetchone():
-                flash(f"⚠️ El código '{ref_code}' tiene una venta en curso."); conn.close(); return redirect("/#comprar")
+                flash(f"⚠️ El código '{ref_code}' tiene una venta en curso."); conn.close(); return volver()
             referrer_id = referrer_data["id"]; use_referral = True; monto = MP_MONTO_VENTA
         else:
             monto = MP_MONTO_LICENCIA_DIRECTA
@@ -236,7 +247,7 @@ def procesar_compra():
     finally:
         try: conn.close()
         except: pass
-    return redirect("/")
+    return redirect("/comprar")
 
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
@@ -257,8 +268,10 @@ def login():
 @app.route("/terminos")
 def terminos():
     return render_template_string("""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bases y Condiciones</title>
-    <style>body{font-family:'Segoe UI',sans-serif;background:#f4f7f6;color:#333;line-height:1.6;margin:0;padding:20px}.container{max-width:800px;margin:0 auto;background:#fff;padding:40px;border-radius:12px}h1{color:#4a5568}h2{color:#2d3748;margin-top:30px}.alert{background:#fff3cd;color:#856404;padding:15px;border-radius:8px;margin:20px 0}.btn-back{display:inline-block;background:#667eea;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;margin-top:20px}</style>
-    </head><body><div class="container"><h1>📄 Bases y Condiciones</h1><p>Última actualización: Abril 2026.</p>
+    <style>body{font-family:'Segoe UI',sans-serif;background:#f4f7f6;color:#333;line-height:1.6;margin:0;padding:20px}.container{max-width:800px;margin:0 auto;background:#fff;padding:40px;border-radius:12px}h1{color:#4a5568;border-bottom:2px solid #e2e8f0;padding-bottom:10px}h2{color:#2d3748;margin-top:30px}.alert{background:#fff3cd;color:#856404;padding:15px;border-radius:8px;margin:20px 0}.btn-back{display:inline-block;background:#667eea;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;margin-top:20px}</style>
+    </head><body><div class="container">
+    <div style="text-align:center;margin-bottom:20px;"><img src="/static/logo.png" alt="levelONE" style="height:56px;"></div>
+    <h1>📄 Bases y Condiciones</h1><p>Última actualización: Abril 2026.</p>
     <h2>1. Activación y Acceso</h2><p>El acceso se otorga mediante la compra de una Licencia levelONE.</p>
     <h2>2. Plazo de Actividad</h2><p>Dispone de 7 días para completar sus 3 ventas iniciales.</p>
     <div class="alert">⚠️ Si no completa el proceso en el plazo, el acceso podrá cancelarse sin reintegro.</div>
@@ -470,7 +483,7 @@ def mp_webhook():
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # STK-XXXX-P1 (venta interna paso 1)
+        # STK-XXXX-P1
         if ref.startswith("STK-") and ref.endswith("-P1"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
@@ -478,13 +491,12 @@ def mp_webhook():
                 if s and s["status"] in ("pending","sent"):
                     cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],)); conn.commit()
                     print(f"[MP-WEBHOOK] ✅ STK-P1 {code} confirmado.", flush=True)
-                    # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado
                     if s["email"]:
                         _avisar_vendedor_credenciales(s["email"], s["full_name"], s["sticker_code"], s["buyer_name"])
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # STK-XXXX-P2 (venta interna paso 2)
+        # STK-XXXX-P2
         if ref.startswith("STK-") and ref.endswith("-P2"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
@@ -499,7 +511,6 @@ def mp_webhook():
                     if s["l1"] == "ADMIN001":
                         cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],)); conn.commit()
                         print(f"[MP-WEBHOOK] ✅ STK-P2 {code} confirmado (L1 plataforma).", flush=True)
-                        # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado
                         if s["seller_email"]:
                             _avisar_vendedor_credenciales(s["seller_email"], s["seller_name"], s["sticker_code"], s["buyer_name"])
                     else:
@@ -507,7 +518,7 @@ def mp_webhook():
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # REF-XXXX-Pn (compra web con código)
+        # REF-XXXX-Pn
         if ref.startswith("REF-") and "-P" in ref:
             parts = ref[4:].rsplit("-P", 1)
             if len(parts) == 2:
@@ -518,7 +529,6 @@ def mp_webhook():
                     if s and s["status"] in ("pending","sent"):
                         cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (s["id"],)); conn.commit()
                         print(f"[MP-WEBHOOK] ✅ REF {code} confirmado (paso {parts[1]}).", flush=True)
-                        # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado
                         if s["seller_email"]:
                             _avisar_vendedor_credenciales(s["seller_email"], s["seller_name"], s["sticker_code"], s["buyer_name"])
                 finally: conn.close()
@@ -535,20 +545,19 @@ def _enviar_bienvenida(buyer_email, buyer_name, sticker_code, temp_pass):
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
         payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": buyer_email, "name": buyer_name}],
             "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}",
-            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><h1 style="color:#667eea;">🎉 ¡BIENVENIDO/A!</h1><p>Tu licencia <strong>{sticker_code}</strong> está activa ✅</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Usuario:</strong> <code>{sticker_code}</code></p><p><strong>Contraseña:</strong> <code>{temp_pass}</code></p><p><strong>Link:</strong> <a href="https://levelone.uno/ingresar">levelone.uno/ingresar</a></p></div><div style="text-align:center;"><a href="https://levelone.uno/ingresar" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Ingresar</a></div></div></div></body></html>"""}
+            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><img src="https://levelone.uno/static/logo.png" alt="levelONE" style="height:52px;margin-bottom:12px;"><h1 style="color:#667eea;">🎉 ¡BIENVENIDO/A!</h1><p>Tu licencia <strong>{sticker_code}</strong> está activa ✅</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Usuario:</strong> <code>{sticker_code}</code></p><p><strong>Contraseña:</strong> <code>{temp_pass}</code></p><p><strong>Link:</strong> <a href="https://levelone.uno/ingresar">levelone.uno/ingresar</a></p></div><div style="text-align:center;"><a href="https://levelone.uno/ingresar" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Ingresar</a></div></div></div></body></html>"""}
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         print(f"[BREVO] ✅ Email WEB enviado a {buyer_email}. Status: {resp.status_code}", flush=True)
     except Exception as e:
         print(f"[BREVO] ❌ Error email WEB: {e}", flush=True)
 
-# 🟢 NUEVO: avisa al vendedor que el pago fue aprobado y puede enviar credenciales
 def _avisar_vendedor_credenciales(email, nombre, sticker_code, buyer_name):
     try:
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
         payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": email, "name": nombre}],
             "subject": f"✅ Pago aprobado | {sticker_code}",
-            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><h1 style="color:#667eea;">✅ Pago aprobado</h1><p>Hola <strong>{nombre}</strong>, el pago de tu licencia <strong>{sticker_code}</strong> fue confirmado.</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Comprador:</strong> {buyer_name}</p><p>El pago ya está acreditado por Mercado Pago.</p><p>Ya podés enviar las credenciales al comprador desde tu dashboard.</p></div><div style="text-align:center;"><a href="https://levelone.uno/dashboard" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Enviar credenciales</a></div></div></div></body></html>"""}
+            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><img src="https://levelone.uno/static/logo.png" alt="levelONE" style="height:52px;margin-bottom:12px;"><h1 style="color:#667eea;">✅ Pago aprobado</h1><p>Hola <strong>{nombre}</strong>, el pago de tu licencia <strong>{sticker_code}</strong> fue confirmado.</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Comprador:</strong> {buyer_name}</p><p>El pago ya está acreditado por Mercado Pago.</p><p>Ya podés enviar las credenciales al comprador desde tu dashboard.</p></div><div style="text-align:center;"><a href="https://levelone.uno/dashboard" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Enviar credenciales</a></div></div></div></body></html>"""}
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         print(f"[BREVO] ✅ Aviso al vendedor enviado a {email}. Status: {resp.status_code}", flush=True)
     except Exception as e:
@@ -570,7 +579,7 @@ def marcar_enviado(sticker_id):
                 headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
                 payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": responsable["email"], "name": responsable["full_name"]}],
                     "subject": f"🔔 Confirmación de pago | {s['sticker_code']}",
-                    "htmlContent": f"<html><body style='font-family:sans-serif;padding:20px;'><h2>🔔 Confirmación de pago</h2><p>Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente.</p><p>Sticker: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p><p><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p><p><strong>Link:</strong> <a href='{app_url}'>{app_url}</a></p></body></html>"}
+                    "htmlContent": f"<html><body style='font-family:sans-serif;padding:20px;'><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/logo.png' alt='levelONE' style='height:48px;'></div><h2>🔔 Confirmación de pago</h2><p>Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente.</p><p>Sticker: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p><p><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p><p><strong>Link:</strong> <a href='{app_url}'>{app_url}</a></p></body></html>"}
                 requests.post(url, json=payload, headers=headers, timeout=10)
         except Exception as e: print(f"[BREVO] Error: {e}", flush=True)
         cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash("📤 Marcado como enviado.")
@@ -584,7 +593,6 @@ def resolver_confirmacion(sticker_id, action):
         if s and s["status"] == "sent":
             if action == "confirm":
                 cur.execute("UPDATE stickers SET status='confirmed' WHERE id=%s", (sticker_id,)); conn.commit(); flash("✅ Pago confirmado.")
-                # 🟢 NUEVO: avisar al vendedor que el pago fue aprobado (confirmación manual)
                 cur.execute("SELECT u.full_name, u.email FROM users u WHERE u.id=%s", (s["seller_id"],))
                 vend = cur.fetchone()
                 if vend and vend["email"]:
@@ -630,7 +638,7 @@ def enviar_datos_email(sticker_id):
             try:
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
-                payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": buyer_email, "name": buyer_name}], "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}", "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><h1 style="color:#667eea;">🎉 ¡BIENVENIDO/A!</h1><p>Tu licencia <strong>{sticker_code}</strong> está activa ✅</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Usuario:</strong> <code>{sticker_code}</code></p><p><strong>Contraseña:</strong> <code>{temp_pass}</code></p><p><strong>Link:</strong> <a href="{app_url}">{app_url}</a></p></div><div style="text-align:center;"><a href="{app_url}" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Ingresar</a></div><p style="margin-top:20px;"><a href="{app_terms_url}">Términos</a></p></div></div></body></html>"""}
+                payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": buyer_email, "name": buyer_name}], "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}", "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><img src="https://levelone.uno/static/logo.png" alt="levelONE" style="height:52px;margin-bottom:12px;"><h1 style="color:#667eea;">🎉 ¡BIENVENIDO/A!</h1><p>Tu licencia <strong>{sticker_code}</strong> está activa ✅</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Usuario:</strong> <code>{sticker_code}</code></p><p><strong>Contraseña:</strong> <code>{temp_pass}</code></p><p><strong>Link:</strong> <a href="{app_url}">{app_url}</a></p></div><div style="text-align:center;"><a href="{app_url}" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Ingresar</a></div><p style="margin-top:20px;"><a href="{app_terms_url}">Términos</a></p></div></div></body></html>"""}
                 response = requests.post(url, json=payload, headers=headers, timeout=10); print(f"[BREVO] Email enviado: {response.status_code}", flush=True)
             except Exception as e: print(f"[BREVO] Error: {e}", flush=True); flash("⚠️ Email no enviado.")
             cur.execute("UPDATE stickers SET status='entregado' WHERE id=%s", (sticker_id,)); cid, sid = s["cycle_id"], s["seller_id"]
