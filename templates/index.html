@@ -23,7 +23,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-white); line-height: 1.6; }
 
-        /* Barra superior con logo */
         .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(10,10,10,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); }
         .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
         .brand-logo { height: 40px; display: block; }
@@ -97,8 +96,8 @@
 
     <div class="topbar">
         <div class="topbar-inner">
-            <a href="/"><img src="/static/logo.png" alt="levelONE" class="brand-logo"></a>
-            <a href="/ingresar" class="btn-login">Ingresar</a>
+            <a href="/"><img src="/static/Logo.png" alt="levelONE" class="brand-logo"></a>
+            <a href="/ingresar" class="btn-login">Ingresar a mi cuenta</a>
         </div>
     </div>
 
@@ -110,11 +109,10 @@
         </div>
     </header>
 
-    <!-- 1) ¿Qué es levelONE? -->
     <section class="features">
         <div class="container">
             <div class="intro-box">
-                <img src="/static/logo.png" alt="levelONE">
+                <img src="/static/Logo.png" alt="levelONE">
                 <h2>¿Qué es levelONE?</h2>
                 <p>levelONE es una plataforma educativa y comercial diseñada para impulsar tu crecimiento profesional y financiero.</p>
                 <p>Acá aprendés a vender online con capacitaciones reales, accedés a cursos con descuentos de hasta el 80% y construís tu propia red de ingresos con un sistema de referidos transparente y ordenado.</p>
@@ -123,7 +121,6 @@
         </div>
     </section>
 
-    <!-- 2) ¿Por qué elegirnos? -->
     <section class="features" style="padding-top:20px;">
         <div class="container">
             <h2 class="section-title">¿Por qué elegirnos?</h2>
@@ -147,7 +144,6 @@
         </div>
     </section>
 
-    <!-- 3) ¿Cómo funciona el sistema de referidos? -->
     <section class="steps-section">
         <div class="container">
             <h2 class="section-title">¿Cómo funciona el Sistema de Referidos?</h2>
@@ -171,7 +167,6 @@
         </div>
     </section>
 
-    <!-- 4) Adquirí tu licencia -->
     <section class="buy-section">
         <div class="container">
             <div class="buy-card">
@@ -188,7 +183,6 @@
                 <a href="/comprar" class="btn-buy">Comprar Licencia</a>
             </div>
 
-            <!-- 5) ¿Tenés código de referido? -->
             <div class="ref-card">
                 <h2>🎁 ¿Tenés un código de referido?</h2>
                 <p>Si un miembro activo te compartió su código, obtenés tu licencia por la mitad de precio.</p>
@@ -198,10 +192,10 @@
         </div>
     </section>
 
-    {% if cursos %}
     <section class="features">
         <div class="container">
             <h2 class="section-title">📚 Cursos Activos Disponibles</h2>
+            {% if cursos %}
             <div class="grid">
                 {% for c in cursos %}
                 <div class="card">
@@ -222,13 +216,18 @@
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <div class="intro-box">
+                <h2>📚 Por el momento no hay cursos disponibles.</h2>
+                <p>Estamos preparando nuevas capacitaciones. En breve las publicamos acá, y con tu Licencia levelONE vas a acceder con hasta 80% de descuento.</p>
+            </div>
+            {% endif %}
         </div>
     </section>
-    {% endif %}
 
     <footer>
         <div class="container">
-            <img src="/static/logo.png" alt="levelONE" style="height:44px;margin-bottom:14px;">
+            <img src="/static/Logo.png" alt="levelONE" style="height:44px;margin-bottom:14px;">
             <p style="margin: 10px 0;">Plataforma Educativa y de Interacción Comercial.</p>
             <p style="margin-bottom: 10px;">¿Tenés dudas? <a href="mailto:level.one.digital2000@gmail.com">Contactanos</a></p>
             <p class="legal-text">
@@ -239,7 +238,6 @@
     </footer>
 
 <script>
-// Si la landing se abre con ?ref=CODE (link compartido), el botón de referido lo lleva cargado
 window.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
