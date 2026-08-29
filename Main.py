@@ -176,9 +176,10 @@ def procesar_compra():
             completed = cur.fetchone()["cnt"]
             step = completed + 1
 
-            cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role, terms_accepted_at)
-                           VALUES (%s,%s,%s,%s,%s,%s,'inactive',%s) RETURNING id''',
-                        (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256'), datetime.now()))
+            # 🟢 CORREGIDO: terms_accepted_at queda NULL para que acepte términos en el primer ingreso
+            cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role)
+                           VALUES (%s,%s,%s,%s,%s,%s,'inactive') RETURNING id''',
+                        (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256')))
             buyer_id = cur.fetchone()["id"]
 
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (seller_id,)); cycle_id = cur.fetchone()["id"]
@@ -221,9 +222,10 @@ def procesar_compra():
             else:
                 conn.commit(); flash(f"✅ Usuario '{sticker_name}' creado. Contraseña: {temp_pass}"); conn.close(); return redirect("/ingresar")
         else:
-            cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role, terms_accepted_at)
-                           VALUES (%s,%s,%s,%s,%s,%s,'seller',%s) RETURNING id''',
-                        (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256'), datetime.now()))
+            # 🟢 CORREGIDO: terms_accepted_at queda NULL para que acepte términos en el primer ingreso
+            cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role)
+                           VALUES (%s,%s,%s,%s,%s,%s,'seller') RETURNING id''',
+                        (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256')))
             buyer_id = cur.fetchone()["id"]
             cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (buyer_id,)); cycle_id = cur.fetchone()["id"]
             cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5)", (buyer_id, cycle_id))
@@ -550,7 +552,6 @@ def _enviar_bienvenida(buyer_email, buyer_name, sticker_code, temp_pass):
     except Exception as e:
         print(f"[BREVO] ❌ Error email WEB: {e}", flush=True)
 
-# 🟢 CORREGIDO: texto del mail al vendedor cuando se confirma el pago de una venta
 def _avisar_vendedor_credenciales(email, nombre, sticker_code, buyer_name):
     try:
         url = "https://api.brevo.com/v3/smtp/email"
