@@ -28,6 +28,28 @@ def get_db():
 def get_cur(conn):
     return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+# 🟢 NUEVO: elimina una venta pendiente y todo lo que creó (usuario, vínculo, ciclo)
+def _eliminar_venta_pendiente(cur, sticker_id, code, cid):
+    cur.execute("SELECT id FROM users WHERE sticker_id=%s", (code,)); bu = cur.fetchone()
+    if bu:
+        cur.execute("DELETE FROM referral_tree WHERE child_id=%s", (bu["id"],))
+        cur.execute("DELETE FROM users WHERE id=%s", (bu["id"],))
+    cur.execute("DELETE FROM stickers WHERE id=%s", (sticker_id,))
+    if cid:
+        cur.execute("DELETE FROM cycle_levels WHERE cycle_id=%s", (cid,))
+        cur.execute("DELETE FROM cycles WHERE id=%s", (cid,))
+
+# 🟢 NUEVO: auto-limpia ventas pending con más de 12hs (se llama al interactuar)
+def limpiar_pendientes_viejas(cur, conn):
+    limite = datetime.now() - timedelta(hours=12)
+    cur.execute("SELECT id, sticker_code, cycle_id FROM stickers WHERE status='pending' AND created_at < %s", (limite,))
+    viejas = cur.fetchall()
+    for s in viejas:
+        _eliminar_venta_pendiente(cur, s["id"], s["sticker_code"], s["cycle_id"])
+    if viejas:
+        conn.commit()
+        print(f"[LIMPIEZA] 🗑️ {len(viejas)} venta(s) pendiente(s) de +12hs eliminada(s).", flush=True)
+
 def crear_pago_mp(sticker_code, step, monto, buyer_name=None, buyer_email=None, ref_prefix="STK"):
     token = os.environ.get("MP_ACCESS_TOKEN")
     if not token:
@@ -132,6 +154,7 @@ def comprar():
 def procesar_compra():
     conn = get_db(); cur = get_cur(conn)
     try:
+        limpiar_pendientes_viejas(cur, conn)
         name = request.form.get("name","").strip(); phone = request.form.get("phone","").strip()
         email = request.form.get("email","").strip(); cbu = request.form.get("cbu","").strip()
         cbu_titular = request.form.get("cbu_titular","").strip(); cbu_dni = request.form.get("cbu_dni","").strip()
@@ -248,6 +271,26 @@ def procesar_compra():
         except: pass
     return redirect("/comprar")
 
+# 🟢 NUEVO: el vendedor cancela una venta pendiente (antes de que el comprador pague)
+@app.route("/cancelar_venta/<int:sticker_id>", methods=["POST"])
+def cancelar_venta(sticker_id):
+    if "user_id" not in session: return redirect("/login")
+    conn = get_db(); cur = get_cur(conn)
+    try:
+        cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
+        if not s:
+            conn.close(); flash("⚠️ Venta no encontrada."); return redirect("/dashboard")
+        if s["seller_id"] != session["user_id"]:
+            conn.close(); flash("⛔ No podés cancelar esta venta."); return redirect("/dashboard")
+        if s["status"] != "pending":
+            conn.close(); flash("⚠️ Solo se pueden cancelar ventas pendientes de pago."); return redirect("/dashboard")
+        _eliminar_venta_pendiente(cur, s["id"], s["sticker_code"], s["cycle_id"])
+        conn.commit(); flash("🗑️ Venta cancelada y usuario liberado.")
+    except Exception as e:
+        conn.rollback(); print(f"[CANCELAR] ❌ Error: {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
+    finally: conn.close()
+    return redirect("/dashboard")
+
 @app.route("/ingresar", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -264,7 +307,6 @@ def login():
         flash("Sticker o contraseña incorrectos."); conn.close()
     return render_template("login.html")
 
-# 🟢 ACTUALIZADO: Términos y Condiciones con texto legal nuevo (licencia, 80%, flujo sin MP, etc.)
 @app.route("/terminos")
 def terminos():
     return render_template_string("""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Términos y Condiciones - levelONE</title>
@@ -355,6 +397,7 @@ def terminos():
     <h2>10. Plazos y cancelaciones</h2>
     <ul>
       <li>El usuario dispone de un plazo de <strong>7 días corridos</strong> para completar sus 3 ventas iniciales dentro del sistema.</li>
+      <li>Una venta iniciada que no se paga dentro de las <strong>12 horas</strong> se cancela y libera automáticamente.</li>
       <li>En caso de no cumplir, la participación podrá ser cancelada</li>
       <li>No se garantizan reintegros</li>
       <li>Se anula su membresía / licencia en LevelONE</li>
@@ -449,6 +492,7 @@ def api_accept_terms():
 def dashboard():
     if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db(); cur = get_cur(conn)
+    limpiar_pendientes_viejas(cur, conn)
     cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],)); row_u = cur.fetchone()
     if not row_u: session.clear(); conn.close(); return redirect(url_for("login"))
     try:
@@ -538,6 +582,7 @@ def crear_sticker():
     if "user_id" not in session: return redirect("/login")
     conn = get_db(); cur = get_cur(conn)
     try:
+        limpiar_pendientes_viejas(cur, conn)
         cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],)); row_u = cur.fetchone()
         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],)); completed = cur.fetchone()["cnt"]
         if completed >= 3: flash("🎓 Ciclo completado."); conn.close(); return redirect("/dashboard")
