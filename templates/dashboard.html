@@ -223,6 +223,10 @@
             <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
               <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Marcar Enviado / Solicitar Confirmación</button>
             </form>
+            <!-- 🟢 AGREGADO: Botón para cancelar venta pendiente (antes de que el comprador pague) -->
+            <form method="POST" action="/cancelar_venta/{{ pending.id }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de cancelar esta venta?\n\nSe eliminará el usuario del comprador y la licencia quedará libre para otra venta.');">
+              <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i> ❌ Cancelar venta pendiente</button>
+            </form>
             {% endif %}
             {% if pending.status == 'sent' %}
             <div class="w-100">
