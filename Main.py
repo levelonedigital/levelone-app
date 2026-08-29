@@ -550,13 +550,14 @@ def _enviar_bienvenida(buyer_email, buyer_name, sticker_code, temp_pass):
     except Exception as e:
         print(f"[BREVO] ❌ Error email WEB: {e}", flush=True)
 
+# 🟢 CORREGIDO: texto del mail al vendedor cuando se confirma el pago de una venta
 def _avisar_vendedor_credenciales(email, nombre, sticker_code, buyer_name):
     try:
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
         payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": email, "name": nombre}],
-            "subject": f"✅ Pago aprobado | {sticker_code}",
-            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><img src="https://levelone.uno/static/Logo.png" alt="levelONE" style="height:52px;margin-bottom:12px;"><h1 style="color:#667eea;">✅ Pago aprobado</h1><p>Hola <strong>{nombre}</strong>, el pago de tu licencia <strong>{sticker_code}</strong> fue confirmado.</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Comprador:</strong> {buyer_name}</p><p>El pago ya está acreditado por Mercado Pago.</p><p>Ya podés enviar las credenciales al comprador desde tu dashboard.</p></div><div style="text-align:center;"><a href="https://levelone.uno/dashboard" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Enviar credenciales</a></div></div></div></body></html>"""}
+            "subject": f"✅ Pago aprobado de tu venta | {sticker_code}",
+            "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><img src="https://levelone.uno/static/Logo.png" alt="levelONE" style="height:52px;margin-bottom:12px;"><h1 style="color:#667eea;">✅ Pago aprobado</h1><p>Hola <strong>{nombre}</strong>, el pago correspondiente a tu venta de la licencia <strong>{sticker_code}</strong> fue confirmado.</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Comprador:</strong> {buyer_name}</p><p>El pago ya fue acreditado por Mercado Pago.</p><p>Ya podés ingresar a tu dashboard y enviar las credenciales al comprador.</p></div><div style="text-align:center;"><a href="https://levelone.uno/dashboard" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Enviar credenciales</a></div></div></div></body></html>"""}
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         print(f"[BREVO] ✅ Aviso al vendedor enviado a {email}. Status: {resp.status_code}", flush=True)
     except Exception as e:
