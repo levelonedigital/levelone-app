@@ -176,7 +176,6 @@ def procesar_compra():
             completed = cur.fetchone()["cnt"]
             step = completed + 1
 
-            # 🟢 CORREGIDO: terms_accepted_at queda NULL para que acepte términos en el primer ingreso
             cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role)
                            VALUES (%s,%s,%s,%s,%s,%s,'inactive') RETURNING id''',
                         (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256')))
@@ -222,7 +221,6 @@ def procesar_compra():
             else:
                 conn.commit(); flash(f"✅ Usuario '{sticker_name}' creado. Contraseña: {temp_pass}"); conn.close(); return redirect("/ingresar")
         else:
-            # 🟢 CORREGIDO: terms_accepted_at queda NULL para que acepte términos en el primer ingreso
             cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role)
                            VALUES (%s,%s,%s,%s,%s,%s,'seller') RETURNING id''',
                         (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256')))
@@ -266,20 +264,166 @@ def login():
         flash("Sticker o contraseña incorrectos."); conn.close()
     return render_template("login.html")
 
+# 🟢 ACTUALIZADO: Términos y Condiciones con texto legal nuevo (licencia, 80%, flujo sin MP, etc.)
 @app.route("/terminos")
 def terminos():
-    return render_template_string("""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bases y Condiciones</title>
-    <style>body{font-family:'Segoe UI',sans-serif;background:#f4f7f6;color:#333;line-height:1.6;margin:0;padding:20px}.container{max-width:800px;margin:0 auto;background:#fff;padding:40px;border-radius:12px}h1{color:#4a5568;border-bottom:2px solid #e2e8f0;padding-bottom:10px}h2{color:#2d3748;margin-top:30px}.alert{background:#fff3cd;color:#856404;padding:15px;border-radius:8px;margin:20px 0}.btn-back{display:inline-block;background:#667eea;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;margin-top:20px}</style>
+    return render_template_string("""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Términos y Condiciones - levelONE</title>
+    <style>body{font-family:'Segoe UI',sans-serif;background:#f4f7f6;color:#333;line-height:1.6;margin:0;padding:20px}.container{max-width:850px;margin:0 auto;background:#fff;padding:40px;border-radius:12px}h1{color:#4a5568;border-bottom:2px solid #e2e8f0;padding-bottom:10px}h2{color:#2d3748;margin-top:30px;border-bottom:1px solid #edf2f7;padding-bottom:6px}.logo-center{text-align:center;margin-bottom:20px}.logo-center img{height:60px}.alert{background:#fff3cd;color:#856404;padding:15px;border-radius:8px;margin:20px 0}.disclaimer{background:#f7fafc;border-left:4px solid #667eea;padding:20px;border-radius:8px;margin:30px 0}.btn-back{display:inline-block;background:#667eea;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;margin-top:20px}ul{margin-bottom:15px}li{margin-bottom:6px}</style>
     </head><body><div class="container">
-    <div style="text-align:center;margin-bottom:20px;"><img src="/static/Logo.png" alt="levelONE" style="height:56px;"></div>
-    <h1>📄 Bases y Condiciones</h1><p>Última actualización: Abril 2026.</p>
-    <h2>1. Activación y Acceso</h2><p>El acceso se otorga mediante la compra de una Licencia levelONE.</p>
-    <h2>2. Plazo de Actividad</h2><p>Dispone de 7 días para completar sus 3 ventas iniciales.</p>
-    <div class="alert">⚠️ Si no completa el proceso en el plazo, el acceso podrá cancelarse sin reintegro.</div>
-    <h2>3. Naturaleza del Sistema</h2><p>LevelONE es educativa/comercial. No promete ganancias automáticas.</p>
-    <h2>4. Comunidad y Beneficios</h2><p>Comunidad, capacitaciones, descuentos, ingresos.</p>
-    <h2>5. Cancelación y Reintegros</h2><p>No se realizan reintegros tras activación.</p>
-    <p style="text-align:center"><a href="/" class="btn-back">Volver</a></p></div></body></html>""")
+    <div class="logo-center"><img src="/static/Logo.png" alt="levelONE"></div>
+    <h1>📜 Términos y Condiciones – levelONE</h1>
+    <p><em>Última actualización: Agosto 2026.</em></p>
+
+    <h2>1. Naturaleza del servicio</h2>
+    <p>LevelONE es una plataforma digital que ofrece:</p>
+    <ul>
+      <li>Acceso a una comunidad privada de usuarios</li>
+      <li>Beneficios asociados a capacitaciones y contenidos</li>
+      <li>La posibilidad de participar en un sistema de actividad en red basado en la venta de productos</li>
+    </ul>
+    <p>La adquisición de la <strong>licencia LevelONE</strong> constituye la compra de un producto con beneficios asociados, siendo el acceso a la plataforma una funcionalidad adicional.</p>
+
+    <h2>2. Producto y beneficios incluidos</h2>
+    <p>Al adquirir la <strong>licencia LevelONE</strong>, el usuario obtiene:</p>
+    <ul>
+      <li>Acceso a una comunidad privada (por ejemplo, WhatsApp u otros medios definidos por la plataforma)</li>
+      <li>Acceso a capacitaciones en áreas como ventas, marketing y herramientas digitales, con un beneficio de <strong>hasta el 80% de descuento</strong> sobre el valor de las mismas</li>
+      <li>Acceso a contenidos, materiales o recursos que la plataforma pueda ofrecer</li>
+    </ul>
+    <p>Las capacitaciones podrán ser en modalidad presencial o virtual, y estarán sujetas a disponibilidad, organización, cantidad de participantes y condiciones específicas.</p>
+
+    <h2>3. Condiciones de participación</h2>
+    <p>Para utilizar la plataforma, el usuario debe:</p>
+    <ul>
+      <li>Ser mayor de 18 años</li>
+      <li>Aceptar los presentes términos y condiciones. <strong>La aceptación queda registrada al momento del primer ingreso y es condición para usar la plataforma.</strong></li>
+      <li>Comprender el funcionamiento del sistema</li>
+      <li>Actuar de manera activa si decide participar en la red</li>
+    </ul>
+
+    <h2>4. Sistema de actividad en red (opcional)</h2>
+    <p>LevelONE ofrece la posibilidad opcional de participar en un sistema de actividad en red basado en la <strong>venta de licencias</strong>. El usuario:</p>
+    <ul>
+      <li>No está obligado a participar en dicho sistema</li>
+      <li>Puede utilizar el producto únicamente por sus beneficios asociados</li>
+      <li>La participación en el sistema implica actividad comercial y seguimiento de red</li>
+    </ul>
+
+    <h2>5. Funcionamiento del sistema</h2>
+    <p>En caso de participar en la red:</p>
+    <ul>
+      <li>El usuario podrá avanzar por niveles mediante la venta de licencias</li>
+      <li>El sistema se estructura en niveles (del 5 al 1)</li>
+      <li>El avance depende tanto de la actividad individual como de la red</li>
+    </ul>
+
+    <h2>6. Flujo de pagos</h2>
+    <p>Los pagos dentro del sistema son procesados por la entidad de procesamiento de pagos que la plataforma habilite al momento de cada operación.</p>
+    <p><strong>Distribución:</strong></p>
+    <ul>
+      <li><strong>1° venta:</strong> destinada a mantenimiento y estructura</li>
+      <li><strong>2° venta:</strong> destinada a un usuario en Nivel 1</li>
+      <li><strong>3° venta:</strong> destinada al propio usuario</li>
+    </ul>
+    <p>Cuando el destinatario del pago es un usuario (2° y 3° venta), la acreditación se confirma entre usuarios y la plataforma <strong>no retiene ni administra esos fondos</strong>, no actuando como intermediaria financiera respecto de los montos que corresponden a los usuarios.</p>
+
+    <h2>7. Límite y graduación</h2>
+    <p>Los usuarios que alcanzan el Nivel 1 podrán recibir hasta un máximo de <strong>81 pagos</strong>. Al alcanzar dicho límite:</p>
+    <ul>
+      <li>Se considera completado el ciclo</li>
+      <li>El usuario es graduado</li>
+      <li>Finaliza su participación en ese ciclo</li>
+    </ul>
+
+    <h2>8. Naturaleza de los ingresos</h2>
+    <p>El usuario reconoce que:</p>
+    <ul>
+      <li>No se trata de una inversión</li>
+      <li>No existen ingresos garantizados</li>
+      <li>Los resultados dependen de su actividad y la de su red</li>
+    </ul>
+
+    <h2>9. Responsabilidad del usuario</h2>
+    <p>El usuario es responsable de:</p>
+    <ul>
+      <li>Su participación en el sistema</li>
+      <li>La gestión de su red</li>
+      <li>La coordinación de pagos con otros usuarios</li>
+      <li>Verificar las transacciones realizadas</li>
+    </ul>
+
+    <h2>10. Plazos y cancelaciones</h2>
+    <ul>
+      <li>El usuario dispone de un plazo de <strong>7 días corridos</strong> para completar sus 3 ventas iniciales dentro del sistema.</li>
+      <li>En caso de no cumplir, la participación podrá ser cancelada</li>
+      <li>No se garantizan reintegros</li>
+      <li>Se anula su membresía / licencia en LevelONE</li>
+    </ul>
+
+    <h2>11. Capacitaciones</h2>
+    <p>Las capacitaciones:</p>
+    <ul>
+      <li>No son obligatorias</li>
+      <li>Se ofrecen como beneficio adicional</li>
+      <li>Están sujetas a disponibilidad</li>
+      <li>Pueden variar en contenido, modalidad y frecuencia</li>
+    </ul>
+    <p>El descuento ofrecido (<strong>hasta 80%</strong>) no constituye obligación permanente y puede ser modificado.</p>
+
+    <h2>12. Comunidad</h2>
+    <p>El acceso a la comunidad:</p>
+    <ul>
+      <li>Es un beneficio incluido con la compra</li>
+      <li>Puede estar sujeto a normas de conducta</li>
+      <li>Puede ser restringido o cancelado ante incumplimientos</li>
+    </ul>
+
+    <h2>13. Exclusión de responsabilidad</h2>
+    <p>La plataforma:</p>
+    <ul>
+      <li>No garantiza resultados económicos</li>
+      <li>No se responsabiliza por pérdidas o falta de ganancias</li>
+      <li>No interviene en conflictos entre usuarios</li>
+      <li>No asegura continuidad del sistema</li>
+    </ul>
+
+    <h2>14. Licencia y credenciales</h2>
+    <ul>
+      <li>La <strong>licencia LevelONE</strong> es personal e intransferible.</li>
+      <li>Las credenciales de acceso (usuario y contraseña) son personales y el usuario es responsable de custodiarlas.</li>
+      <li>Si la compra se realiza con un <strong>código de referido</strong> de un usuario activo, o directamente a un usuario activo, la licencia accede a un <strong>precio especial</strong> respecto de su valor oficial.</li>
+    </ul>
+
+    <h2>15. Declaración del usuario</h2>
+    <p>El usuario declara que:</p>
+    <ul>
+      <li>Comprende el funcionamiento del sistema</li>
+      <li>Acepta participar de forma voluntaria</li>
+      <li>Entiende los riesgos asociados</li>
+    </ul>
+
+    <div class="disclaimer">
+      <h2 style="margin-top:0;">⚖️ DESCARGO DE RESPONSABILIDAD</h2>
+      <p>LevelONE es una plataforma orientada a la comercialización de productos y acceso a beneficios formativos.</p>
+      <p><strong>No constituye:</strong></p>
+      <ul>
+        <li>Un sistema de inversión</li>
+        <li>Un esquema financiero</li>
+        <li>Una promesa de rentabilidad</li>
+        <li>Un sistema de ingresos pasivos garantizados</li>
+      </ul>
+      <p>La participación en el sistema de red es opcional y depende de la actividad del usuario.</p>
+      <p>Los resultados pueden variar significativamente y dependen de múltiples factores, incluyendo:</p>
+      <ul>
+        <li>Habilidades comerciales</li>
+        <li>Compromiso</li>
+        <li>Actividad de terceros</li>
+      </ul>
+      <p>La empresa no será responsable por pérdidas económicas, falta de resultados, ni conflictos entre usuarios.</p>
+      <p><strong>El usuario participa bajo su exclusiva responsabilidad.</strong></p>
+    </div>
+
+    <p style="text-align:center"><a href="/" class="btn-back">Volver al inicio</a></p></div></body></html>""")
 
 @app.route("/accept_terms")
 def accept_terms():
@@ -296,7 +440,7 @@ def api_accept_terms():
     if "user_id" not in session: return jsonify({"success": False}), 401
     conn = get_db(); cur = get_cur(conn)
     try:
-        cur.execute("UPDATE users SET terms_accepted_at=%s, terms_version=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "v1.0", session["user_id"]))
+        cur.execute("UPDATE users SET terms_accepted_at=%s, terms_version=%s WHERE id=%s", (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "v2.0", session["user_id"]))
         conn.commit(); return jsonify({"success": True})
     except Exception as e: conn.rollback(); return jsonify({"success": False}), 500
     finally: conn.close()
@@ -472,7 +616,6 @@ def mp_webhook():
         print(f"[MP-WEBHOOK] Pago {payment_id} | status={status} | ref={ref}", flush=True)
         if status != "approved": return jsonify({"status": "ok"}), 200
 
-        # WEB-XXXX-P1 (compra directa)
         if ref.startswith("WEB-") and ref.endswith("-P1"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
@@ -484,7 +627,6 @@ def mp_webhook():
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # STK-XXXX-P1
         if ref.startswith("STK-") and ref.endswith("-P1"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
@@ -497,7 +639,6 @@ def mp_webhook():
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # STK-XXXX-P2
         if ref.startswith("STK-") and ref.endswith("-P2"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
@@ -519,7 +660,6 @@ def mp_webhook():
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
-        # REF-XXXX-Pn
         if ref.startswith("REF-") and "-P" in ref:
             parts = ref[4:].rsplit("-P", 1)
             if len(parts) == 2:
@@ -580,7 +720,7 @@ def marcar_enviado(sticker_id):
                 headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
                 payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": responsable["email"], "name": responsable["full_name"]}],
                     "subject": f"🔔 Confirmación de pago | {s['sticker_code']}",
-                    "htmlContent": f"<html><body style='font-family:sans-serif;padding:20px;'><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>🔔 Confirmación de pago</h2><p>Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente.</p><p>Sticker: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p><p><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p><p><strong>Link:</strong> <a href='{app_url}'>{app_url}</a></p></body></html>"}
+                    "htmlContent": f"<html><body style='font-family:sans-serif;padding:20px;'><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>🔔 Confirmación de pago</h2><p>Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente.</p><p>Licencia: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p><p><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p><p><strong>Link:</strong> <a href='{app_url}'>{app_url}</a></p></body></html>"}
                 requests.post(url, json=payload, headers=headers, timeout=10)
         except Exception as e: print(f"[BREVO] Error: {e}", flush=True)
         cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash("📤 Marcado como enviado.")
@@ -712,7 +852,7 @@ def admin_reset_password(user_id):
     try:
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
-        payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": target["email"], "name": target["full_name"]}], "subject": f"🔐 Contraseña actualizada | {target['sticker_id']}", "htmlContent": f"<html><body><h2>🔐 Nueva clave</h2><p>Hola {target['full_name']}, tu clave: <strong>{new_pass}</strong></p><p><a href='https://levelone.uno/ingresar'>Ingresar</a></p></body></html>"}
+        payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": target["email"], "name": target["full_name"]}], "subject": f"🔐 Contraseña actualizada | {target['sticker_id']}", "htmlContent": f"<html><body><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>🔐 Nueva clave</h2><p>Hola {target['full_name']}, tu clave: <strong>{new_pass}</strong></p><p><a href='https://levelone.uno/ingresar'>Ingresar</a></p></body></html>"}
         requests.post(url, json=payload, headers=headers, timeout=10)
     except: pass
     conn.close(); flash(f"✅ Clave: {new_pass}"); return redirect(request.referrer or "/admin/red")
@@ -734,7 +874,7 @@ def admin_edit_user(user_id):
         try:
             url = "https://api.brevo.com/v3/smtp/email"
             headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
-            payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": new_email, "name": new_name}], "subject": f"📝 Datos actualizados | {user['sticker_id']}", "htmlContent": f"<html><body><h2>📝 Actualizado</h2><p>Hola {new_name}, tu clave: <strong>{new_pass}</strong></p></body></html>"}
+            payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": new_email, "name": new_name}], "subject": f"📝 Datos actualizados | {user['sticker_id']}", "htmlContent": f"<html><body><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>📝 Actualizado</h2><p>Hola {new_name}, tu clave: <strong>{new_pass}</strong></p></body></html>"}
             requests.post(url, json=payload, headers=headers, timeout=10)
         except: pass
         conn.close(); flash(f"✅ Actualizado. Clave: {new_pass}"); return redirect("/admin/red")
