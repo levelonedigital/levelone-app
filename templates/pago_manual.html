@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago por Transferencia | LevelONE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-dark: #0a0a0a;
+            --bg-card: #1a1a2e;
+            --text-white: #ffffff;
+            --text-light: #e2e8f0;
+            --text-muted: #a0aec0;
+            --border-color: rgba(255,255,255,0.08);
+            --card-radius: 16px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-white); line-height: 1.6; }
+        .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(10,10,10,0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); }
+        .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .brand-logo { height: 40px; }
+        .container { max-width: 720px; margin: 0 auto; padding: 110px 20px 60px; }
+        .page-title { text-align: center; margin-bottom: 30px; }
+        .page-title h1 { font-size: 1.8rem; margin-bottom: 10px; }
+        .page-title p { color: var(--text-muted); font-size: 1rem; }
+        .success-box { background: rgba(56,161,105,0.15); border: 2px solid #38a169; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center; }
+        .success-box .icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .success-box h2 { color: #38a169; margin-bottom: 8px; }
+        .payment-card { background: var(--bg-card); padding: 32px; border-radius: var(--card-radius); border: 1px solid var(--border-color); margin-bottom: 24px; }
+        .payment-card h3 { color: var(--primary-gradient); margin-bottom: 20px; font-size: 1.3rem; text-align: center; }
+        .amount { font-size: 2.8rem; font-weight: 800; text-align: center; margin: 18px 0; color: #38a169; }
+        .dest-info { background: rgba(102,126,234,0.1); padding: 18px; border-radius: 10px; border-left: 4px solid #667eea; margin: 20px 0; }
+        .dest-info p { margin: 6px 0; }
+        .dest-info strong { color: #fff; }
+        .cbu-box { background: var(--bg-dark); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color); margin: 16px 0; }
+        .cbu-box .label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+        .cbu-box .value { font-size: 1.2rem; font-family: monospace; font-weight: 600; color: #fff; word-break: break-all; }
+        .cbu-box .copy-btn { margin-top: 8px; background: #667eea; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+        .action-btns { display: grid; gap: 12px; margin-top: 24px; }
+        .btn-main { display: block; width: 100%; padding: 16px; border-radius: 12px; border: none; font-weight: 700; font-size: 1.1rem; cursor: pointer; text-align: center; text-decoration: none; }
+        .btn-confirm { background: #38a169; color: #fff; }
+        .btn-whatsapp { background: #25D366; color: #fff; }
+        .info-note { background: rgba(251,191,36,0.1); border-left: 4px solid #fbbf24; padding: 14px 18px; border-radius: 8px; margin-top: 20px; font-size: 0.9rem; color: var(--text-light); }
+    </style>
+</head>
+<body>
+
+    <div class="topbar">
+        <div class="topbar-inner">
+            <a href="/"><img src="/static/Logo.png" alt="levelONE" class="brand-logo"></a>
+            <a href="/ingresar" style="color:#fff;text-decoration:none;font-weight:600;">Ingresar a mi cuenta</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="success-box">
+            <div class="icon">✅</div>
+            <h2>¡Usuario creado con éxito!</h2>
+            <p>Tu usuario <strong>{{ venta.sticker_code }}</strong> fue registrado.</p>
+            <p style="font-size:0.9rem;color:var(--text-light);margin-top:6px;">Ya casi terminás, falta el pago por transferencia.</p>
+        </div>
+
+        <div class="payment-card">
+            <h3>💳 Datos para Transferencia (Paso {{ venta.step }})</h3>
+
+            <p style="text-align:center;color:var(--text-light);">Monto a transferir:</p>
+            <div class="amount">$30.000</div>
+
+            <div class="dest-info">
+                <p><strong>👤 Destinatario:</strong> {{ dest.full_name }} ({{ dest_tipo }})</p>
+                {% if dest.phone %}
+                <p><strong>📱 Teléfono:</strong> {{ dest.phone }}</p>
+                {% endif %}
+            </div>
+
+            <div class="cbu-box">
+                <div class="label">🏦 CBU / Alias</div>
+                <div class="value" id="cbuValue">{{ dest.cbu_alias }}</div>
+                <button type="button" class="copy-btn" onclick="copiarCBU()">📋 Copiar CBU</button>
+            </div>
+
+            <div class="action-btns">
+                <form method="POST" action="/confirmar_transferencia/{{ venta.confirmation_token }}" onsubmit="return confirm('¿Confirmás que ya realizaste la transferencia al destinatario?');">
+                    <button type="submit" class="btn-main btn-confirm">✅ Ya transferí - Confirmar</button>
+                </form>
+                {% if dest.phone %}
+                <a href="https://wa.me/{{ dest.phone.replace('+','').replace(' ','') }}?text=Hola!%20Ya%20realic%C3%A9%20la%20transferencia%20de%20$30.000%20por%20la%20licencia%20levelONE.%20Mi%20usuario%20es:%20{{ venta.sticker_code }}" target="_blank" class="btn-main btn-whatsapp">
+                    📲 Avisar al destinatario por WhatsApp
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="info-note">
+                ⏳ Una vez que el destinatario reciba tu transferencia y la confirme, <strong>te llegará automáticamente el mail con tus credenciales</strong> para ingresar al sistema.
+            </div>
+        </div>
+    </div>
+
+<script>
+function copiarCBU() {
+    const cbu = document.getElementById('cbuValue').textContent;
+    navigator.clipboard.writeText(cbu).then(() => alert('✅ CBU copiado al portapapeles'));
+}
+</script>
+
+</body>
+</html>
