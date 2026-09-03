@@ -32,7 +32,7 @@
         .payment-card h3 { color: var(--primary-gradient); margin-bottom: 20px; font-size: 1.3rem; text-align: center; }
         .amount { font-size: 2.8rem; font-weight: 800; text-align: center; margin: 18px 0; color: #38a169; }
         .dest-info { background: rgba(102,126,234,0.1); padding: 18px; border-radius: 10px; border-left: 4px solid #667eea; margin: 20px 0; }
-        .dest-info p { margin: 6px 0; }
+        .dest-info p { margin: 8px 0; }
         .dest-info strong { color: #fff; }
         .cbu-box { background: var(--bg-dark); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color); margin: 16px 0; }
         .cbu-box .label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
@@ -69,14 +69,15 @@
             <div class="amount">$30.000</div>
 
             <div class="dest-info">
-                <p><strong>👤 Destinatario:</strong> {{ dest.full_name }} ({{ dest_tipo }})</p>
+                <p><strong>👤 Titular de la cuenta:</strong> {{ dest.full_name or 'N/A' }} ({{ dest_tipo }})</p>
+                <p><strong>🏦 CBU / Alias:</strong> {{ dest.cbu_alias or 'N/A' }}</p>
                 {% if dest.phone %}
                 <p><strong>📱 Teléfono:</strong> {{ dest.phone }}</p>
                 {% endif %}
             </div>
 
             <div class="cbu-box">
-                <div class="label">🏦 CBU / Alias</div>
+                <div class="label">🏦 CBU / Alias a transferir</div>
                 <div class="value" id="cbuValue">{{ dest.cbu_alias }}</div>
                 <button type="button" class="copy-btn" onclick="copiarCBU()">📋 Copiar CBU</button>
             </div>
