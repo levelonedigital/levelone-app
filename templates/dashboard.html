@@ -11,8 +11,8 @@
         <div class="text-end">
           {% if user.role == 'graduated' %}
             <span class="badge bg-success fs-6">🎓 Graduado</span>
-          {% elif is_graduated_cycle or user.current_level == 4 %}
-            <span class="badge bg-info fs-6">✅ Ciclo Completado | Nivel 4</span>
+          {% elif is_graduated_cycle or user.current_level < 5 %}
+            <span class="badge bg-info fs-6">✅ Avanzaste de nivel</span>
           {% else %}
             <span class="badge bg-warning text-dark fs-6">🔄 En Activo</span>
           {% endif %}
@@ -79,21 +79,22 @@
   </div>
   {% endif %}
 
-  {% if user.current_level == 5 and user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
+  <!-- 🟢 CORREGIDO: Se muestra si puede vender (ventas < 3), no solo si es nivel 5 -->
+  {% if user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
   <div class="row mb-3">
     <div class="col-12">
       <div class="card border-success" style="border-width:2px;">
         <div class="card-header bg-success bg-opacity-10 text-success fw-bold">
-          🎟️ Tu código de referido: <code class="text-white">{{ user.sticker_id }}</code>
+          ️ Tu código de referido: <code class="text-white">{{ user.sticker_id }}</code>
         </div>
         <div class="card-body">
           <p class="text-readable small mb-2">
             Compartí este link y cada persona que compre con tu código va a contar como una de tus 3 ventas del ciclo.
-            <br><strong>💰 Ventas completadas:</strong> {{ user.completed_count or 0 }} / 3
+            <br><strong> Ventas completadas:</strong> {{ user.completed_count or 0 }} / 3
           </p>
           <div class="input-group mb-2">
             <input type="text" class="form-control" value="{{ referral_link }}" readonly id="referralLinkInput">
-            <button type="button" class="btn btn-outline-info" onclick="copiarLink()">📋 Copiar</button>
+            <button type="button" class="btn btn-outline-info" onclick="copiarLink()"> Copiar</button>
           </div>
           <button type="button" class="btn btn-success w-100" onclick="compartirWhatsApp()">
             <i class="bi bi-whatsapp me-1"></i> Compartir por WhatsApp
@@ -118,7 +119,7 @@
                 <tr>
                   <td><code>{{ item.sticker_code }}</code></td>
                   <td>{{ item.buyer_name }}</td>
-                  <td><code class="text-info d-block">{{ item.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.buyer_cbu_entidad or 'N/A' }}</small></td>
+                  <td><code class="text-info d-block">{{ item.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block"> {{ item.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.buyer_cbu_entidad or 'N/A' }}</small></td>
                   <td>
                     <div class="d-flex gap-2">
                       <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
@@ -167,7 +168,7 @@
               <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
               <tbody>
                 {% for item in income %}
-                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
+                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block"> {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
                 {% else %}
                 <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
                 {% endfor %}
@@ -192,11 +193,12 @@
   </div>
   {% endif %}
   
-  {% if user.current_level == 5 and user.can_sell and not pending %}
+  <!-- 🟢 CORREGIDO: Se muestra si puede vender y no hay pendiente, sin importar el nivel -->
+  {% if user.can_sell and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
-        <div class="card-header"><span class="fw-bold">🎫 Crear Nueva Licencia (venta interna)</span></div>
+        <div class="card-header"><span class="fw-bold"> Crear Nueva Licencia (venta interna)</span></div>
         <div class="card-body">
           <form method="POST" action="/crear_sticker" id="formCrearLicencia">
             <div class="row g-3">
@@ -227,10 +229,11 @@
       </div>
     </div>
   </div>
-  {% elif user.current_level == 4 or is_graduated_cycle %}
+  <!-- 🟢 CORREGIDO: Texto de avance de nivel -->
+  {% elif user.current_level < 5 %}
   <div class="row mb-3">
     <div class="col-12">
-      <div class="alert alert-success fw-bold text-center">🎓 ¡Ciclo completado! Subiste de nivel.</div>
+      <div class="alert alert-success fw-bold text-center">🎉 ¡Felicidades! Avanzaste un nivel en tu ciclo.</div>
     </div>
   </div>
   {% endif %}
@@ -343,7 +346,6 @@
   </div>
   {% endif %}
   
-  <!-- 🟢 CORREGIDO: Sección "Estado de tu Red" visible siempre que haya participantes -->
   {% if user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
   <div class="row mb-4">
     <div class="col-12">
@@ -430,7 +432,6 @@
 <input type="hidden" id="seller_cbu" value="{{ user.cbu_alias }}">
 
 <script>
-// Funciones existentes
 function openWhatsApp() {
   let phone = document.getElementById('buyer_phone').value.replace(/\D/g, '');
   let cbu = document.querySelector('input[name="cbu"]').value;
@@ -438,7 +439,7 @@ function openWhatsApp() {
   let dni = document.querySelector('input[name="cbu_dni"]').value;
   let entidad = document.querySelector('input[name="cbu_entidad"]').value;
   if(phone.length >= 8 && cbu && titular && dni && entidad) {
-    let msg = `Hola! Para el pago de la licencia levelONE, te paso mis datos bancarios:\n\n🏦 Entidad: ${entidad}\n👤 Titular: ${titular}\n🆔 DNI/CUIT: ${dni}\n💳 CBU/Alias: ${cbu}\n\nPor favor enviame el comprobante cuando lo realices.`;
+    let msg = `Hola! Para el pago de la licencia levelONE, te paso mis datos bancarios:\n\n Entidad: ${entidad}\n Titular: ${titular}\n🆔 DNI/CUIT: ${dni}\n💳 CBU/Alias: ${cbu}\n\nPor favor enviame el comprobante cuando lo realices.`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   } else { alert('⚠️ Completá todos los campos.'); }
 }
@@ -451,62 +452,37 @@ function copiarLink() {
 }
 function compartirWhatsApp() {
   const link = document.getElementById('referralLinkInput').value;
-  const msg = `🎟️ ¡Sumate a LevelONE!\n\nUsá mi código de referido y accedé a la plataforma con precio especial ($30.000):\n\n👉 ${link}\n\nCapacitación, comunidad y oportunidad de generar ingresos.`;
+  const msg = `🎟️ ¡Sumate a LevelONE!\n\nUsá mi código de referido y accedé a la plataforma con precio especial ($30.000):\n\n ${link}\n\nCapacitación, comunidad y oportunidad de generar ingresos.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// 🟢 Auto-refresh con candado de formulario
 (function() {
-  const checkInterval = 5000; // 5 segundos
+  const checkInterval = 5000;
   let lastState = null;
-  
-  // Candado: verifica si hay algún formulario con texto sin enviar
   function formHasContent() {
     const form = document.getElementById('formCrearLicencia');
     if (!form) return false;
     const inputs = form.querySelectorAll('input[type="text"], input[type="email"]');
     for (let input of inputs) {
-      // Ignoramos el teléfono con +54 por defecto (ya tiene contenido precargado)
       if (input.name === 'phone') continue;
       if (input.value.trim() !== '') return true;
     }
     return false;
   }
-  
   async function checkForUpdates() {
-    // Si el usuario está escribiendo en el formulario, NO recargar
-    if (formHasContent()) {
-      console.log('✋ Formulario con contenido, pausando auto-refresh');
-      return;
-    }
-    
+    if (formHasContent()) return;
     try {
       const response = await fetch('/api/check_updates');
       const data = await response.json();
-      
       if (data.updated) {
         const currentState = `${data.pending}-${data.sent}-${data.completed}`;
-        
-        if (lastState === null) {
-          lastState = currentState;
-          return;
-        }
-        
-        // Si cambió el estado, recargamos la página
-        if (currentState !== lastState) {
-          console.log('🔄 Estado cambió, recargando dashboard...');
-          window.location.reload();
-        }
+        if (lastState === null) { lastState = currentState; return; }
+        if (currentState !== lastState) { window.location.reload(); }
       }
-    } catch (error) {
-      console.log('⚠️ Error verificando actualizaciones:', error);
-    }
+    } catch (error) { console.log('⚠️ Error verificando actualizaciones:', error); }
   }
-  
-  // Solo activar polling si hay ventas pendientes o en el historial
   {% if pending or (my_sales and my_sales|length > 0) %}
   setInterval(checkForUpdates, checkInterval);
-  console.log('🔄 Auto-refresh activado (cada 5 segundos, con candado de formulario)');
   {% endif %}
 })();
 </script>
