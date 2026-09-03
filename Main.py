@@ -654,11 +654,15 @@ def dashboard():
     if cycle_id:
         cur.execute("SELECT level, is_graduated FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (uid, cycle_id)); cl = cur.fetchone()
         if cl: cycle_level = cl["level"]; is_graduated_cycle = bool(cl["is_graduated"])
-    u["current_level"] = level  # 🟢 CORREGIDO: usa users.current_level directamente (no derivado)
+    u["current_level"] = level  # 🟢 CORREGIDO: usa users.current_level directo
+    
+    # 🟢 CORREGIDO: Buscar la venta pendiente en CUALQUIER ciclo, no solo en el active_cycle
     pending = None
-    if cycle_id:
-        cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND cycle_id=%s AND status IN ('pending','sent') ORDER BY created_at DESC LIMIT 1", (uid, cycle_id))
-        pr = cur.fetchone(); pending = dict(pr) if pr else None
+    cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status IN ('pending','sent') ORDER BY id DESC LIMIT 1", (uid,))
+    pr = cur.fetchone()
+    if pr: 
+        pending = dict(pr)
+        cycle_id = pending["cycle_id"] # Actualizamos cycle_id para que el CBU se busque bien
     pending_cbu = "No configurado"; pending_phone = "No configurado"
     if pending:
         step = pending["step"]; cid = pending["cycle_id"] or cycle_id
