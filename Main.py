@@ -54,6 +54,21 @@ def _recalcular_nivel_efectivo(cur, conn, user_id):
     if row and row["min_level"] is not None:
         cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (row["min_level"], user_id))
 
+def _get_nivel1_del_vendedor(cur, seller_id):
+    """Obtiene el usuario en Nivel 1 del ciclo ORIGINAL del vendedor (donde el vendedor es Nivel 5)"""
+    cur.execute("""
+        SELECT u.sticker_id, u.full_name, u.email, u.cbu_alias, u.phone
+        FROM cycle_levels cl
+        JOIN users u ON cl.user_id = u.id
+        WHERE cl.cycle_id = (
+            SELECT cycle_id FROM cycle_levels 
+            WHERE user_id = %s AND level = 5 
+            LIMIT 1
+        )
+        AND cl.level = 1
+    """, (seller_id,))
+    return cur.fetchone()
+
 def _entregar_licencia(cur, conn, sticker_id):
     cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
     if not s or s["status"] == "entregado":
@@ -74,15 +89,12 @@ def _entregar_licencia(cur, conn, sticker_id):
     conn.commit()
 
 def _avisar_destinatario_confirmar(cur, s):
-    """🟢 CORREGIDO: Busca el Nivel 1 del ciclo del VENDEDOR (s.cycle_id), no del comprador"""
-    step = s["step"]; cid = s["cycle_id"]
+    """Busca el Nivel 1 del ciclo ORIGINAL del vendedor (donde el vendedor es Nivel 5)"""
+    step = s["step"]
     if step == 2:
-        #  CORREGIDO: El Nivel 1 del ciclo de la venta (del vendedor)
-        cur.execute("""SELECT u.sticker_id, u.full_name, u.email FROM cycle_levels cl
-                       JOIN users u ON cl.user_id=u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1""", (cid,))
-        dest = cur.fetchone()
+        dest = _get_nivel1_del_vendedor(cur, s["seller_id"])
     elif step == 3:
-        cur.execute("SELECT sticker_id, full_name, email FROM users WHERE id=%s", (s["seller_id"],))
+        cur.execute("SELECT sticker_id, full_name, email, cbu_alias, phone FROM users WHERE id=%s", (s["seller_id"],))
         dest = cur.fetchone()
     else:
         return
@@ -100,7 +112,7 @@ def _avisar_destinatario_confirmar(cur, s):
                 <div style='text-align:center;margin-bottom:16px;'>
                     <img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'>
                 </div>
-                <h2> Confirmación de pago pendiente</h2>
+                <h2>🔔 Confirmación de pago pendiente</h2>
                 <p>Hola <strong>{dest['full_name']}</strong>, el comprador informa que ya transfirió.</p>
                 <p>Licencia: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p>
                 <p>Teléfono del comprador: <strong>{s['buyer_phone'] or 'N/A'}</strong></p>
@@ -223,12 +235,10 @@ def pago_manual(token):
     s = cur.fetchone()
     if not s:
         conn.close(); flash("⚠️ Enlace no válido."); return redirect("/")
-    step = s["step"]; cid = s["cycle_id"]
-    # 🟢 CORREGIDO: Busca el Nivel 1 del ciclo del VENDEDOR (s.cycle_id), no del comprador
+    step = s["step"]
+    # 🟢 CORREGIDO: Busca el Nivel 1 del ciclo ORIGINAL del vendedor (donde el vendedor es Nivel 5)
     if step == 2:
-        cur.execute("""SELECT u.full_name, u.cbu_alias, u.phone FROM cycle_levels cl
-                       JOIN users u ON cl.user_id=u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1""", (cid,))
-        dest = cur.fetchone()
+        dest = _get_nivel1_del_vendedor(cur, s["seller_id"])
         dest_tipo = "Nivel 1"
     elif step == 3:
         cur.execute("SELECT full_name, cbu_alias, phone FROM users WHERE id=%s", (s["seller_id"],))
@@ -284,7 +294,7 @@ def procesar_compra():
             flash("❌ El usuario solo puede contener letras, números y guión bajo."); conn.close(); return volver()
         cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sticker_name,))
         if cur.fetchone():
-            flash(f"❌ El usuario '{sticker_name}' ya está en uso."); conn.close(); return volver()
+            flash(f" El usuario '{sticker_name}' ya está en uso."); conn.close(); return volver()
 
         referrer_id = None; use_referral = False
         if ref_code:
@@ -294,7 +304,7 @@ def procesar_compra():
                 flash(f"❌ El código '{ref_code}' no existe. Podés comprar directo o probar otro."); conn.close(); return volver()
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (referrer_data["id"],))
             if referrer_data["role"] == "graduated" or cur.fetchone()["cnt"] >= 3:
-                flash(f"️ El código '{ref_code}' ya completó su ciclo. Podés comprar directo a la plataforma."); conn.close(); return volver()
+                flash(f"⚠️ El código '{ref_code}' ya completó su ciclo. Podés comprar directo a la plataforma."); conn.close(); return volver()
             cur.execute("""SELECT s.id FROM cycles c JOIN cycle_levels cl ON c.id=cl.cycle_id JOIN stickers s ON s.cycle_id=c.id
                          WHERE c.l5_user_id=%s AND cl.user_id=%s AND cl.level=5 AND s.status IN ('pending','sent','confirmed') LIMIT 1""",
                          (referrer_data["id"], referrer_data["id"]))
@@ -304,7 +314,7 @@ def procesar_compra():
         else:
             monto = MP_MONTO_LICENCIA_DIRECTA
 
-        #  CORREGIDO: Cambio de Temp- a L1-
+        # 🟢 CORREGIDO: Cambio de prefijo Temp- a L1-
         temp_pass = "L1-" + str(uuid.uuid4())[:8]
 
         if use_referral:
@@ -357,9 +367,9 @@ def procesar_compra():
             should_generate_mp = False
             if step == 1: should_generate_mp = True
             elif step == 2:
-                cur.execute("SELECT u.sticker_id FROM cycle_levels cl JOIN users u ON cl.user_id=u.id WHERE cl.cycle_id=%s AND cl.level=1", (cycle_id,))
-                l1_row = cur.fetchone()
-                if l1_row and l1_row["sticker_id"] == "ADMIN001": should_generate_mp = True
+                #  CORREGIDO: Verificar si el Nivel 1 del ciclo del vendedor es ADMIN001
+                l1_user = _get_nivel1_del_vendedor(cur, seller_id)
+                if l1_user and l1_user["sticker_id"] == "ADMIN001": should_generate_mp = True
             mp_pref_id, mp_link_gen = (None, None)
             if should_generate_mp:
                 mp_pref_id, mp_link_gen = crear_pago_mp(sticker_name, step, monto, name, email, ref_prefix="REF")
@@ -397,7 +407,7 @@ def procesar_compra():
             else:
                 conn.commit(); flash(f"✅ Usuario '{sticker_name}' creado. Contraseña: {temp_pass}"); conn.close(); return redirect("/ingresar")
     except Exception as e:
-        conn.rollback(); print(f"[WEB COMPRA] ❌ Error: {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
+        conn.rollback(); print(f"[WEB COMPRA] ❌ Error: {traceback.format_exc()}", flush=True); flash(f" Error: {str(e)}")
     finally:
         try: conn.close()
         except: pass
@@ -410,15 +420,15 @@ def cancelar_venta(sticker_id):
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if not s:
-            conn.close(); flash("️ Venta no encontrada."); return redirect("/dashboard")
+            conn.close(); flash("⚠️ Venta no encontrada."); return redirect("/dashboard")
         if s["seller_id"] != session["user_id"]:
-            conn.close(); flash(" No podés cancelar esta venta."); return redirect("/dashboard")
+            conn.close(); flash("⛔ No podés cancelar esta venta."); return redirect("/dashboard")
         if s["status"] != "pending":
             conn.close(); flash("⚠️ Solo se pueden cancelar ventas pendientes de pago."); return redirect("/dashboard")
         _eliminar_venta_pendiente(cur, s["id"], s["sticker_code"], s["cycle_id"])
-        conn.commit(); flash("️ Venta cancelada y usuario liberado.")
+        conn.commit(); flash("🗑️ Venta cancelada y usuario liberado.")
     except Exception as e:
-        conn.rollback(); print(f"[CANCELAR] ❌ Error: {traceback.format_exc()}", flush=True); flash(f" Error: {str(e)}")
+        conn.rollback(); print(f"[CANCELAR] ❌ Error: {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
     finally: conn.close()
     return redirect("/dashboard")
 
@@ -444,7 +454,7 @@ def terminos():
     <style>body{font-family:'Segoe UI',sans-serif;background:#f4f7f6;color:#333;line-height:1.6;margin:0;padding:20px}.container{max-width:850px;margin:0 auto;background:#fff;padding:40px;border-radius:12px}h1{color:#4a5568;border-bottom:2px solid #e2e8f0;padding-bottom:10px}h2{color:#2d3748;margin-top:30px;border-bottom:1px solid #edf2f7;padding-bottom:6px}.logo-center{text-align:center;margin-bottom:20px}.logo-center img{height:60px}.alert{background:#fff3cd;color:#856404;padding:15px;border-radius:8px;margin:20px 0}.disclaimer{background:#f7fafc;border-left:4px solid #667eea;padding:20px;border-radius:8px;margin:30px 0}.btn-back{display:inline-block;background:#667eea;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;margin-top:20px}ul{margin-bottom:15px}li{margin-bottom:6px}</style>
     </head><body><div class="container">
     <div class="logo-center"><img src="/static/Logo.png" alt="levelONE"></div>
-    <h1> Términos y Condiciones – levelONE</h1>
+    <h1>📜 Términos y Condiciones – levelONE</h1>
     <p><em>Última actualización: Agosto 2026.</em></p>
 
     <h2>1. Naturaleza del servicio</h2>
@@ -619,7 +629,7 @@ def api_accept_terms():
     except Exception as e: conn.rollback(); return jsonify({"success": False}), 500
     finally: conn.close()
 
-@app.route("/dashboard")
+    @app.route("/dashboard")
 def dashboard():
     if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db(); cur = get_cur(conn)
@@ -648,28 +658,50 @@ def dashboard():
         cur.execute("SELECT level, is_graduated FROM cycle_levels WHERE user_id=%s AND cycle_id=%s", (uid, cycle_id)); cl = cur.fetchone()
         if cl: cycle_level = cl["level"]; is_graduated_cycle = bool(cl["is_graduated"])
     u["current_level"] = level
+    
     pending = None
     cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status IN ('pending','sent') ORDER BY id DESC LIMIT 1", (uid,))
     pr = cur.fetchone()
     if pr: 
         pending = dict(pr)
         cycle_id = pending["cycle_id"]
+        
     pending_cbu = "No configurado"; pending_phone = "No configurado"
     if pending:
-        step = pending["step"]; cid = pending["cycle_id"]
-        if step == 1: cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
-        elif step == 2: cur.execute("SELECT u.cbu_alias FROM cycle_levels cl JOIN users u ON cl.user_id=u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1", (cid,)); row = cur.fetchone()
-        elif step == 3: cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,)); row = cur.fetchone()
-        else: row = None
-        pending_cbu = row["cbu_alias"] if row else "No configurado"; pending_phone = pending["buyer_phone"] or "No configurado"
+        step = pending["step"]
+        # 🟢 CORREGIDO: Para paso 2, buscar el CBU del Nivel 1 del ciclo original del vendedor
+        if step == 2:
+            dest = _get_nivel1_del_vendedor(cur, uid)
+            row = dest
+        elif step == 1:
+            cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
+        elif step == 3:
+            cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,)); row = cur.fetchone()
+        else:
+            row = None
+        pending_cbu = row["cbu_alias"] if row else "No configurado"
+        pending_phone = pending["buyer_phone"] or "No configurado"
+        
     confirmations = []
     if sticker == 'ADMIN001':
         cur.execute("""SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status
             FROM stickers WHERE status='sent' AND (step=1 OR (step=2 AND cycle_id IN (SELECT cycle_id FROM cycle_levels WHERE user_id=(SELECT id FROM users WHERE sticker_id='ADMIN001') AND level=1))) ORDER BY created_at DESC""")
         confirmations = cur.fetchall()
     elif level != 5 and role != "graduated":
-        cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status FROM stickers s JOIN cycle_levels cl ON s.cycle_id=cl.cycle_id WHERE s.step=2 AND s.status='sent' AND cl.level=1 AND cl.user_id=%s''', (uid,))
+        # 🟢 CORREGIDO: Buscar ventas donde el usuario es Nivel 1 en el ciclo ORIGINAL del vendedor
+        cur.execute('''SELECT s.id, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.buyer_phone, s.cycle_id, s.step, s.status 
+                       FROM stickers s 
+                       WHERE s.step=2 AND s.status='sent' 
+                       AND s.seller_id IN (
+                           SELECT cl2.user_id FROM cycle_levels cl2 
+                           WHERE cl2.cycle_id IN (
+                               SELECT cl3.cycle_id FROM cycle_levels cl3 
+                               WHERE cl3.user_id=%s AND cl3.level=1
+                           )
+                           AND cl2.level=5
+                       )''', (uid,))
         confirmations = cur.fetchall()
+        
     participants = []
     if sticker != "ADMIN001" and role != "graduated":
         try:
@@ -690,28 +722,54 @@ def dashboard():
                 p["sales_done"] = 3 if (sales_map.get(p["id"],0)==0 and p["current_level"]<5) else sales_map.get(p["id"],0)
                 p["level"] = p["current_level"]
         except: pass
+        
     my_sales_history = []; income_history = []
     cur.execute("SELECT id, sticker_code, temp_pass, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, status, created_at FROM stickers WHERE seller_id=%s ORDER BY created_at DESC", (uid,))
     my_sales_history = [dict(s) for s in cur.fetchall()]
+    
     if sticker == "ADMIN001":
         cur.execute("SELECT * FROM stickers WHERE step=1 AND status IN ('confirmed','entregado') ORDER BY created_at DESC"); income_history = [dict(r) for r in cur.fetchall()]
     elif level == 5:
         cur.execute("SELECT * FROM stickers WHERE seller_id=%s AND status='entregado' ORDER BY created_at DESC", (uid,)); income_history = [dict(r) for r in cur.fetchall()]
     else:
-        cur.execute("SELECT cycle_id FROM cycle_levels WHERE user_id=%s AND level=1", (uid,)); l1c = [r["cycle_id"] for r in cur.fetchall()]
-        if l1c:
-            ph = ','.join(['%s']*len(l1c))
-            cur.execute(f"SELECT * FROM stickers WHERE step=2 AND status IN ('confirmed','entregado') AND cycle_id IN ({ph}) ORDER BY created_at DESC", l1c)
-            income_history = [dict(r) for r in cur.fetchall()]
+        # 🟢 CORREGIDO: Buscar pagos donde el usuario es Nivel 1 en el ciclo original del vendedor
+        cur.execute('''SELECT s.* FROM stickers s
+                       WHERE s.step=2 AND s.status IN ('confirmed','entregado')
+                       AND s.seller_id IN (
+                           SELECT cl2.user_id FROM cycle_levels cl2
+                           WHERE cl2.cycle_id IN (
+                               SELECT cl3.cycle_id FROM cycle_levels cl3
+                               WHERE cl3.user_id=%s AND cl3.level=1
+                           )
+                           AND cl2.level=5
+                       )
+                       ORDER BY s.created_at DESC''', (uid,))
+        income_history = [dict(r) for r in cur.fetchall()]
+        
     try:
         cl_list = [active_cycle] if active_cycle else []
         active_cycles_display = [c for c in cl_list if not (c.get("completed_at") and (datetime.now()-datetime.strptime(c["completed_at"],"%Y-%m-%d %H:%M:%S")).days>30)]
     except: active_cycles_display = [active_cycle] if active_cycle else []
+    
     cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); admin_cbu = cur.fetchone()["cbu_alias"] if cur.rowcount>0 else "No configurado"
     cur.execute("SELECT mp_enabled, mp_payment_link FROM users WHERE sticker_id='ADMIN001'"); mp_cfg = cur.fetchone()
     mp_enabled = mp_cfg["mp_enabled"] if mp_cfg else False; mp_link = mp_cfg["mp_payment_link"] if mp_cfg else ""
-    cur.execute("""SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.status FROM stickers s JOIN cycle_levels cl ON s.cycle_id=cl.cycle_id WHERE cl.user_id=%s AND cl.level=1 AND s.step=2 AND s.status IN ('confirmed','entregado') ORDER BY s.created_at DESC LIMIT 20""", (session["user_id"],))
+    
+    # 🟢 CORREGIDO: Buscar pagos donde el usuario es Nivel 1 en el ciclo original del vendedor
+    cur.execute('''SELECT s.created_at, s.sticker_code, s.buyer_name, s.buyer_cbu, s.buyer_cbu_titular, s.buyer_cbu_dni, s.buyer_cbu_entidad, s.status 
+                   FROM stickers s
+                   WHERE s.step=2 AND s.status IN ('confirmed','entregado')
+                   AND s.seller_id IN (
+                       SELECT cl2.user_id FROM cycle_levels cl2
+                       WHERE cl2.cycle_id IN (
+                           SELECT cl3.cycle_id FROM cycle_levels cl3
+                           WHERE cl3.user_id=%s AND cl3.level=1
+                       )
+                       AND cl2.level=5
+                   )
+                   ORDER BY s.created_at DESC LIMIT 20''', (session["user_id"],))
     l1_payments = cur.fetchall()
+    
     referral_link = f"https://levelone.uno/?ref={sticker}" if sticker and sticker != "ADMIN001" else ""
     conn.close()
     return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, user_cycle_levels=user_cycle_levels, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link, referral_link=referral_link)
@@ -724,7 +782,7 @@ def crear_sticker():
         limpiar_pendientes_viejas(cur, conn)
         cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],)); row_u = cur.fetchone()
         cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (row_u["id"],)); completed = cur.fetchone()["cnt"]
-        if completed >= 3: flash("🎓 Ciclo completado."); conn.close(); return redirect("/dashboard")
+        if completed >= 3: flash(" Ciclo completado."); conn.close(); return redirect("/dashboard")
         name = request.form.get("name","").strip(); phone = request.form.get("phone","").strip()
         email = request.form.get("email","").strip(); cbu = request.form.get("cbu","").strip()
         sticker_name = request.form.get("sticker_name","").strip()
@@ -735,7 +793,7 @@ def crear_sticker():
                 flash("❌ Nombre inválido."); conn.close(); return redirect("/dashboard")
             cur.execute("SELECT id FROM users WHERE sticker_id=%s", (sticker_name,))
             if cur.fetchone():
-                flash(f"❌ '{sticker_name}' ya existe."); conn.close(); return redirect("/dashboard")
+                flash(f" '{sticker_name}' ya existe."); conn.close(); return redirect("/dashboard")
             code = sticker_name
         else:
             code = "STK-"+str(uuid.uuid4())[:6].upper()
@@ -744,7 +802,6 @@ def crear_sticker():
         existing_pending = cur.fetchone()
         
         step = completed + 1
-        # 🟢 CORREGIDO: Cambio de Temp- a L1-
         temp_pass = "L1-"+str(uuid.uuid4())[:8]
         token = str(uuid.uuid4())[:12]
         
@@ -782,17 +839,21 @@ def crear_sticker():
         
         cur.execute('''INSERT INTO stickers (sticker_code,seller_id,cycle_id,buyer_name,buyer_phone,buyer_email,buyer_cbu,buyer_cbu_titular,buyer_cbu_dni,buyer_cbu_entidad,step,confirmation_token,temp_pass,status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,row_u["id"],cycle_id,name,phone,email,cbu,request.form.get("cbu_titular","").strip(),request.form.get("cbu_dni","").strip(),request.form.get("cbu_entidad","").strip(),step,token,temp_pass,'pending'))
         sticker_new_id = cur.fetchone()["id"]
+        
         should_generate_mp = False
         if step == 1: should_generate_mp = True
         elif step == 2:
-            cur.execute("SELECT u.sticker_id FROM cycle_levels cl JOIN users u ON cl.user_id=u.id WHERE cl.cycle_id=%s AND cl.level=1", (cycle_id,)); l1_row = cur.fetchone()
-            if l1_row and l1_row["sticker_id"] == "ADMIN001": should_generate_mp = True
+            # 🟢 CORREGIDO: Verificar si el Nivel 1 del ciclo original del vendedor es ADMIN001
+            l1_user = _get_nivel1_del_vendedor(cur, row_u["id"])
+            if l1_user and l1_user["sticker_id"] == "ADMIN001": should_generate_mp = True
+            
         if should_generate_mp:
             mp_pref_id, mp_link_gen = crear_pago_mp(code, step, MP_MONTO_VENTA, name, email, ref_prefix="STK")
             if mp_link_gen:
                 cur.execute("UPDATE stickers SET mp_link=%s, mp_payment_id=%s WHERE id=%s", (mp_link_gen, mp_pref_id, sticker_new_id))
+                
         conn.commit(); flash(f"✅ Licencia creada: {code}"); return redirect(url_for("dashboard", cycle_id=cycle_id))
-    except Exception as e: conn.rollback(); print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True); flash(f"❌ Error: {str(e)}")
+    except Exception as e: conn.rollback(); print(f"[ERROR CREAR] {traceback.format_exc()}", flush=True); flash(f" Error: {str(e)}")
     finally: conn.close()
     return redirect("/dashboard")
 
@@ -840,15 +901,12 @@ def mp_webhook():
         if ref.startswith("STK-") and ref.endswith("-P2"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
-                cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code, u.sticker_id AS l1,
-                              v.full_name AS seller_name, v.email AS seller_email
-                              FROM stickers s
-                              LEFT JOIN cycle_levels cl ON cl.cycle_id=s.cycle_id AND cl.level=1
-                              LEFT JOIN users u ON u.id=cl.user_id
-                              LEFT JOIN users v ON v.id=s.seller_id
-                              WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
+                cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code
+                              FROM stickers s WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
                 if s and s["status"] in ("pending","sent"):
-                    if s["l1"] == "ADMIN001":
+                    # 🟢 CORREGIDO: Verificar si el Nivel 1 del ciclo original del vendedor es ADMIN001
+                    l1_user = _get_nivel1_del_vendedor(cur, s["seller_id"])
+                    if l1_user and l1_user["sticker_id"] == "ADMIN001":
                         print(f"[MP-WEBHOOK] ✅ STK-P2 {code} (L1 plataforma) - entrega automática.", flush=True)
                         _entregar_licencia(cur, conn, s["id"])
                     else:
@@ -879,7 +937,7 @@ def _enviar_bienvenida(buyer_email, buyer_name, sticker_code, temp_pass):
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
         payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": buyer_email, "name": buyer_name}],
-            "subject": f" ¡BIENVENIDO/A A LEVELONE! | {sticker_code}",
+            "subject": f"🎉 ¡BIENVENIDO/A A LEVELONE! | {sticker_code}",
             "htmlContent": f"""<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);"><div style="max-width:520px;margin:20px auto;background:white;border-radius:16px;"><div style="text-align:center;padding:24px;"><img src="https://levelone.uno/static/Logo.png" alt="levelONE" style="height:52px;margin-bottom:12px;"><h1 style="color:#667eea;">🎉 ¡BIENVENIDO/A!</h1><p>Tu licencia <strong>{sticker_code}</strong> está activa ✅</p></div><div style="padding:0 24px 24px;"><div style="background:#f8f9ff;border-left:4px solid #667eea;padding:16px;margin:24px 0;"><p><strong>Usuario:</strong> <code>{sticker_code}</code></p><p><strong>Contraseña:</strong> <code>{temp_pass}</code></p><p><strong>Link:</strong> <a href="https://levelone.uno/ingresar">levelone.uno/ingresar</a></p></div><div style="text-align:center;"><a href="https://levelone.uno/ingresar" style="display:inline-block;background:#667eea;color:white;padding:14px 36px;border-radius:10px;text-decoration:none;">Ingresar</a></div></div></div></body></html>"""}
         resp = requests.post(url, json=payload, headers=headers, timeout=10)
         print(f"[BREVO] ✅ Email de bienvenida enviado a {buyer_email}. Status: {resp.status_code}", flush=True)
@@ -904,10 +962,14 @@ def marcar_enviado(sticker_id):
     cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
     if s and s["status"] == "pending":
         try:
-            step = s["step"]; cid = s["cycle_id"]; responsable = None
-            if step == 1: cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE sticker_id='ADMIN001'"); responsable = cur.fetchone()
-            elif step == 2: cur.execute("""SELECT u.sticker_id, u.full_name, u.email, u.password_hash FROM cycle_levels cl JOIN users u ON cl.user_id=u.id WHERE cl.cycle_id=%s AND cl.level=1 LIMIT 1""", (cid,)); responsable = cur.fetchone()
-            elif step == 3: cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (s["seller_id"],)); responsable = cur.fetchone()
+            step = s["step"]; responsable = None
+            if step == 1:
+                cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE sticker_id='ADMIN001'"); responsable = cur.fetchone()
+            elif step == 2:
+                # 🟢 CORREGIDO: Buscar el Nivel 1 del ciclo original del vendedor
+                responsable = _get_nivel1_del_vendedor(cur, s["seller_id"])
+            elif step == 3:
+                cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (s["seller_id"],)); responsable = cur.fetchone()
             if responsable and responsable["email"]:
                 app_url = request.host_url.rstrip('/') + "/dashboard"
                 url = "https://api.brevo.com/v3/smtp/email"
@@ -917,7 +979,7 @@ def marcar_enviado(sticker_id):
                     "htmlContent": f"<html><body style='font-family:sans-serif;padding:20px;'><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>🔔 Confirmación de pago</h2><p>Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente.</p><p>Licencia: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p><p><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p><p><strong>Link:</strong> <a href='{app_url}'>{app_url}</a></p></body></html>"}
                 requests.post(url, json=payload, headers=headers, timeout=10)
         except Exception as e: print(f"[BREVO] Error: {e}", flush=True)
-        cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash(" Marcado como enviado.")
+        cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash("📤 Marcado como enviado.")
     conn.close(); return redirect("/dashboard")
 
 @app.route("/resolver_confirmacion/<int:sticker_id>/<action>", methods=["POST"])
@@ -944,7 +1006,7 @@ def admin_cambiar_cbu():
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],)); row = cur.fetchone()
-        if not row or row["sticker_id"] != "ADMIN001": flash(" Acceso denegado."); conn.close(); return redirect("/dashboard")
+        if not row or row["sticker_id"] != "ADMIN001": flash("⛔ Acceso denegado."); conn.close(); return redirect("/dashboard")
         nuevo_cbu = request.form.get("nuevo_cbu","").strip()
         if not nuevo_cbu: flash("️ CBU vacío."); conn.close(); return redirect("/dashboard")
         cur.execute("UPDATE users SET cbu_alias=%s WHERE sticker_id='ADMIN001'", (nuevo_cbu,)); conn.commit(); flash("✅ CBU actualizado.")
@@ -1065,7 +1127,8 @@ def admin_reset_password(user_id):
     cur.execute("SELECT sticker_id FROM users WHERE id=%s", (session["user_id"],)); row = cur.fetchone()
     if not row or row["sticker_id"] != "ADMIN001": conn.close(); return redirect("/dashboard")
     cur.execute("SELECT sticker_id, full_name, email FROM users WHERE id=%s", (user_id,)); target = cur.fetchone()
-    if not target: conn.close(); flash("❌ No encontrado."); return redirect(request.referrer or "/dashboard")
+    if not target: conn.close(); flash(" No encontrado."); return redirect(request.referrer or "/dashboard")
+    # 🟢 CORREGIDO: Cambio de prefijo Temp- a L1-
     new_pass = "L1-" + ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
     cur.execute("UPDATE users SET password_hash=%s WHERE id=%s", (generate_password_hash(new_pass, method='pbkdf2:sha256'), user_id)); conn.commit()
     try:
@@ -1088,17 +1151,18 @@ def admin_edit_user(user_id):
         new_name = request.form.get("full_name","").strip(); new_phone = request.form.get("phone","").strip(); new_email = request.form.get("email","").strip()
         new_address = request.form.get("address","").strip(); new_cbu = request.form.get("cbu_alias","").strip()
         if not all([new_name, new_phone, new_email]): conn.close(); flash("❌ Faltan datos."); return redirect("/admin/red")
+        # 🟢 CORREGIDO: Cambio de prefijo Temp- a L1-
         new_pass = "L1-" + ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
         cur.execute('''UPDATE users SET full_name=%s, phone=%s, email=%s, address=%s, cbu_alias=%s, password_hash=%s WHERE id=%s''', (new_name, new_phone, new_email, new_address, new_cbu, generate_password_hash(new_pass, method='pbkdf2:sha256'), user_id)); conn.commit()
         try:
             url = "https://api.brevo.com/v3/smtp/email"
             headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
-            payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": new_email, "name": new_name}], "subject": f" Datos actualizados | {user['sticker_id']}", "htmlContent": f"<html><body><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>📝 Actualizado</h2><p>Hola {new_name}, tu clave: <strong>{new_pass}</strong></p></body></html>"}
+            payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": new_email, "name": new_name}], "subject": f"📝 Datos actualizados | {user['sticker_id']}", "htmlContent": f"<html><body><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>📝 Actualizado</h2><p>Hola {new_name}, tu clave: <strong>{new_pass}</strong></p></body></html>"}
             requests.post(url, json=payload, headers=headers, timeout=10)
         except: pass
         conn.close(); flash(f"✅ Actualizado. Clave: {new_pass}"); return redirect("/admin/red")
     conn.close()
-    return render_template_string(f"""<!DOCTYPE html><html><head><title>Editar</title><style>body{{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}}.card{{background:#1a1a2e;padding:25px;border-radius:12px}}input{{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}}button{{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px}}a{{color:#667eea}}</style></head><body><h2>✏️ Editar</h2><a href="/admin/red">← Volver</a><div class="card"><form method="POST"><label>Nombre</label><input name="full_name" value="{user['full_name'] or ''}" required><label>Teléfono</label><input name="phone" value="{user['phone'] or ''}" required><label>Email</label><input name="email" value="{user['email'] or ''}" required><label>Dirección</label><input name="address" value="{user['address'] or ''}"><label>CBU</label><input name="cbu_alias" value="{user['cbu_alias'] or ''}"><button type="submit"> Guardar</button></form></div></body></html>""")
+    return render_template_string(f"""<!DOCTYPE html><html><head><title>Editar</title><style>body{{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}}.card{{background:#1a1a2e;padding:25px;border-radius:12px}}input{{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}}button{{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px}}a{{color:#667eea}}</style></head><body><h2>✏️ Editar</h2><a href="/admin/red">← Volver</a><div class="card"><form method="POST"><label>Nombre</label><input name="full_name" value="{user['full_name'] or ''}" required><label>Teléfono</label><input name="phone" value="{user['phone'] or ''}" required><label>Email</label><input name="email" value="{user['email'] or ''}" required><label>Dirección</label><input name="address" value="{user['address'] or ''}"><label>CBU</label><input name="cbu_alias" value="{user['cbu_alias'] or ''}"><button type="submit">💾 Guardar</button></form></div></body></html>""")
 
 @app.route("/admin/red")
 def admin_red():
@@ -1139,7 +1203,7 @@ def admin_red():
                             current = pid
                         if not any(x.get("nivel_ciclo") == 1 for x in ancestors):
                             cur.execute("SELECT id, sticker_id, full_name, phone, current_level FROM users WHERE sticker_id='ADMIN001'"); ad = cur.fetchone()
-                            if ad: a = dict(ad); a["nivel_ciclo"] = 1; a["full_name"] = " Plataforma"; ancestors.append(a)
+                            if ad: a = dict(ad); a["nivel_ciclo"] = 1; a["full_name"] = "🏢 Plataforma"; ancestors.append(a)
                 except Exception as e: print(f"[DEBUG] Error: {e}", flush=True)
                 try:
                     queue = [(tid, 1, target["sticker_id"])]; visited = set()
@@ -1165,7 +1229,7 @@ def admin_red():
         pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
         html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;"><h3>🎯 Buscado</h3><div class="info"><span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>Tel: {target['phone']} | Nivel: {target['current_level']}</div><div class="info">Pass: <code style="color:#f6e05e">{pwd_display}</code></div>{user_buttons(target['id'], target['full_name'])}</div>"""
         if niveles_candidatos:
-            titulo_asc = "🔝 Ascendientes del Ciclo" if not sin_ciclo else "🔝 Ascendientes (referidos)"
+            titulo_asc = "🔝 Ascendientes del Ciclo" if not sin_ciclo else " Ascendientes (referidos)"
             html += f'<div class="section"><h3>{titulo_asc}</h3>'
             by_level = {a["nivel_ciclo"]: a for a in ancestors}
             for lvl in niveles_candidatos:
@@ -1178,7 +1242,7 @@ def admin_red():
         else:
             for d in descendants:
                 u2 = d["data"]; pwd_disp = u2['password_hash'][:15] + "..." if u2['password_hash'] else "No definida"
-                nl = {1: "👤 Hijo", 2: "👶 Nieto", 3: " Bisnieto"}.get(d["nivel"], "Descendiente")
+                nl = {1: " Hijo", 2: "👶 Nieto", 3: "👣 Bisnieto"}.get(d["nivel"], "Descendiente")
                 html += f"""<div class="node"><div class="info">{nl} (Vendido por: {d['padre_stk']})</div><div class="info">STK: {u2['sticker_id']} | {u2['full_name']}</div><div class="info">Pass: <code style="color:#f6e05e">{pwd_disp}</code></div>{user_buttons(u2['id'], u2['full_name'])}</div>"""
         html += '</div>'
     elif query: html += "<p style='color:#e53e3e'>❌ No encontrado.</p>"
