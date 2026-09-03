@@ -48,7 +48,6 @@ def limpiar_pendientes_viejas(cur, conn):
         conn.commit()
         print(f"[LIMPIEZA] 🗑️ {len(viejas)} venta(s) pendiente(s) de +12hs eliminada(s).", flush=True)
 
-# 🟢 NUEVO: entrega automática de licencia (envía mail al comprador + completa ciclo si es 3° venta)
 def _entregar_licencia(cur, conn, sticker_id):
     cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
     if not s or s["status"] == "entregado":
@@ -68,7 +67,6 @@ def _entregar_licencia(cur, conn, sticker_id):
         print(f"[ENTREGA] 🎉 Ciclo {cid} completado.", flush=True)
     conn.commit()
 
-# 🟢 NUEVO: avisa al destinatario (L1 en paso 2, vendedor en paso 3) que debe confirmar la transferencia
 def _avisar_destinatario_confirmar(cur, s):
     step = s["step"]; cid = s["cycle_id"]
     if step == 2:
@@ -208,7 +206,6 @@ def comprar():
     con_codigo = request.args.get("con_codigo","").strip()
     return render_template("comprar.html", ref_code=ref, con_codigo=con_codigo)
 
-# 🟢 NUEVO: página de pago manual (cuando no hay MP - paso 2 con L1 real, o paso 3)
 @app.route("/pago_manual/<token>")
 def pago_manual(token):
     conn = get_db(); cur = get_cur(conn)
@@ -218,7 +215,6 @@ def pago_manual(token):
     s = cur.fetchone()
     if not s:
         conn.close(); flash("⚠️ Enlace no válido."); return redirect("/")
-    # Determinar destinatario y CBU
     step = s["step"]; cid = s["cycle_id"]
     if step == 2:
         cur.execute("""SELECT u.full_name, u.cbu_alias, u.phone FROM cycle_levels cl
@@ -234,7 +230,6 @@ def pago_manual(token):
     conn.close()
     return render_template("pago_manual.html", venta=s, dest=dest, dest_tipo=dest_tipo)
 
-# 🟢 NUEVO: comprador avisa que ya transfirió → pasa a 'sent' y avisa al destinatario
 @app.route("/confirmar_transferencia/<token>", methods=["POST"])
 def confirmar_transferencia(token):
     conn = get_db(); cur = get_cur(conn)
@@ -352,7 +347,6 @@ def procesar_compra():
                 cur.execute("UPDATE stickers SET mp_link=%s, mp_payment_id=%s WHERE id=%s", (mp_link_gen, mp_pref_id, sticker_new_id))
                 conn.commit(); print(f"[WEB COMPRA] ✅ REF {sticker_name} (paso {step}) creado con MP", flush=True); conn.close(); return redirect(mp_link_gen)
             else:
-                # 🟢 NUEVO: pago manual - redirigir a la página con CBU del destinatario
                 conn.commit(); print(f"[WEB COMPRA] ✅ REF {sticker_name} (paso {step}) creado - PAGO MANUAL", flush=True); conn.close()
                 return redirect(f"/pago_manual/{token}")
         else:
@@ -774,7 +768,6 @@ def mp_webhook():
         print(f"[MP-WEBHOOK] Pago {payment_id} | status={status} | ref={ref}", flush=True)
         if status != "approved": return jsonify({"status": "ok"}), 200
 
-        # 🟢 Todos los flujos MP ahora entregan automáticamente (credenciales + completar ciclo si es 3°)
         if ref.startswith("WEB-") and ref.endswith("-P1"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
@@ -885,10 +878,8 @@ def resolver_confirmacion(sticker_id, action):
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
         if s and s["status"] == "sent":
             if action == "confirm":
-                # 🟢 AUTOMATIZADO: al confirmar, entregar licencia automáticamente
                 flash("✅ Pago confirmado. Credenciales enviadas al comprador.")
                 _entregar_licencia(cur, conn, sticker_id)
-                # Avisar al vendedor que la venta se completó
                 cur.execute("SELECT full_name, email FROM users WHERE id=%s", (s["seller_id"],))
                 vend = cur.fetchone()
                 if vend and vend.get("email"):
@@ -951,6 +942,42 @@ def enviar_datos_email(sticker_id):
         else: flash("⚠️ Estado incorrecto.")
     finally: cur.close(); conn.close()
     return redirect("/dashboard")
+
+# 🟢 NUEVO: endpoint para auto-refresh del dashboard
+@app.route("/api/check_updates")
+def check_updates():
+    """Verifica si hay cambios en ventas pendientes para auto-refresh del dashboard."""
+    if "user_id" not in session:
+        return jsonify({"updated": False})
+    
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        uid = session["user_id"]
+        
+        # Contar ventas por estado
+        cur.execute("""
+            SELECT status, COUNT(*) as cnt 
+            FROM stickers 
+            WHERE seller_id = %s 
+            GROUP BY status
+        """, (uid,))
+        counts = {row['status']: row['cnt'] for row in cur.fetchall()}
+        
+        # Retornar el estado actual
+        return jsonify({
+            "updated": True,
+            "pending": counts.get('pending', 0),
+            "sent": counts.get('sent', 0),
+            "completed": counts.get('entregado', 0),
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        print(f"[API] Error en check_updates: {e}", flush=True)
+        return jsonify({"updated": False})
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/logout")
 def logout(): session.clear(); return redirect("/ingresar")
