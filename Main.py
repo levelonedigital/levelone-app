@@ -106,7 +106,7 @@ def _avisar_destinatario_confirmar(cur, s):
         payload = {
             "sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"},
             "to": [{"email": dest["email"], "name": dest["full_name"]}],
-            "subject": f"🔔 Confirmación de pago | {s['sticker_code']}",
+            "subject": f" Confirmación de pago | {s['sticker_code']}",
             "htmlContent": f"""<html><body style='font-family:sans-serif;padding:20px;'>
                 <div style='text-align:center;margin-bottom:16px;'>
                     <img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'>
@@ -124,6 +124,37 @@ def _avisar_destinatario_confirmar(cur, s):
         print(f"[BREVO] ✅ Aviso a {dest['email']} para confirmar pago.", flush=True)
     except Exception as e:
         print(f"[BREVO] Error aviso destinatario: {e}", flush=True)
+
+def _avisar_admin_pago_recibido(sticker_code, buyer_name, monto):
+    """Envía un mail automático a ADMIN cuando recibe un pago acreditado por MP"""
+    try:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
+        conn = get_db(); cur = get_cur(conn)
+        cur.execute("SELECT email, full_name FROM users WHERE sticker_id='ADMIN001'")
+        admin = cur.fetchone()
+        conn.close()
+        if not admin or not admin.get("email"): return
+        payload = {
+            "sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"},
+            "to": [{"email": admin["email"], "name": admin["full_name"]}],
+            "subject": f"💰 Pago recibido y acreditado | {sticker_code}",
+            "htmlContent": f"""<html><body style='font-family:sans-serif;padding:20px;'>
+                <div style='text-align:center;margin-bottom:16px;'>
+                    <img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'>
+                </div>
+                <h2>💰 Pago recibido y acreditado</h2>
+                <p>Hola <strong>{admin['full_name']}</strong>, se ha acreditado un pago en la plataforma.</p>
+                <p>Licencia: <strong>{sticker_code}</strong></p>
+                <p>Comprador: <strong>{buyer_name}</strong></p>
+                <p>Monto: <strong>${monto}</strong></p>
+                <p>El pago ha sido procesado exitosamente y la licencia entregada.</p>
+            </body></html>"""
+        }
+        requests.post(url, json=payload, headers=headers, timeout=10)
+        print(f"[BREVO] ✅ Aviso a ADMIN por pago recibido.", flush=True)
+    except Exception as e:
+        print(f"[BREVO] Error aviso admin pago: {e}", flush=True)
 
 def crear_pago_mp(sticker_code, step, monto, buyer_name=None, buyer_email=None, ref_prefix="STK"):
     token = os.environ.get("MP_ACCESS_TOKEN")
@@ -205,7 +236,7 @@ def pago_manual(token):
     conn = get_db(); cur = get_cur(conn)
     cur.execute("""SELECT s.*, u.full_name AS seller_name FROM stickers s JOIN users u ON u.id=s.seller_id WHERE s.confirmation_token=%s""", (token,))
     s = cur.fetchone()
-    if not s: conn.close(); flash("⚠️ Enlace no válido."); return redirect("/")
+    if not s: conn.close(); flash("️ Enlace no válido."); return redirect("/")
     step = s["step"]
     if step == 2:
         dest = _get_nivel1_del_vendedor(cur, s["seller_id"]); dest_tipo = "Nivel 1"
@@ -351,7 +382,7 @@ def cancelar_venta(sticker_id):
     conn = get_db(); cur = get_cur(conn)
     try:
         cur.execute("SELECT * FROM stickers WHERE id=%s", (sticker_id,)); s = cur.fetchone()
-        if not s: conn.close(); flash("⚠️ Venta no encontrada."); return redirect("/dashboard")
+        if not s: conn.close(); flash("️ Venta no encontrada."); return redirect("/dashboard")
         if s["seller_id"] != session["user_id"]: conn.close(); flash("⛔ No podés cancelar esta venta."); return redirect("/dashboard")
         if s["status"] != "pending": conn.close(); flash("⚠️ Solo se pueden cancelar ventas pendientes de pago."); return redirect("/dashboard")
         _eliminar_venta_pendiente(cur, s["id"], s["sticker_code"], s["cycle_id"]); conn.commit(); flash("🗑️ Venta cancelada y usuario liberado.")
@@ -380,7 +411,7 @@ def terminos():
     return render_template_string("""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Términos y Condiciones - levelONE</title>
     <style>body{font-family:'Segoe UI',sans-serif;background:#f4f7f6;color:#333;line-height:1.6;margin:0;padding:20px}.container{max-width:850px;margin:0 auto;background:#fff;padding:40px;border-radius:12px}h1{color:#4a5568;border-bottom:2px solid #e2e8f0;padding-bottom:10px}h2{color:#2d3748;margin-top:30px;border-bottom:1px solid #edf2f7;padding-bottom:6px}.logo-center{text-align:center;margin-bottom:20px}.logo-center img{height:60px}.alert{background:#fff3cd;color:#856404;padding:15px;border-radius:8px;margin:20px 0}.disclaimer{background:#f7fafc;border-left:4px solid #667eea;padding:20px;border-radius:8px;margin:30px 0}.btn-back{display:inline-block;background:#667eea;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;margin-top:20px}ul{margin-bottom:15px}li{margin-bottom:6px}</style>
     </head><body><div class="container"><div class="logo-center"><img src="/static/Logo.png" alt="levelONE"></div>
-    <h1>📜 Términos y Condiciones – levelONE</h1><p><em>Última actualización: Agosto 2026.</em></p>
+    <h1> Términos y Condiciones – levelONE</h1><p><em>Última actualización: Agosto 2026.</em></p>
     <h2>1. Naturaleza del servicio</h2><p>LevelONE es una plataforma digital que ofrece acceso a una comunidad privada, beneficios asociados a capacitaciones y la posibilidad de participar en un sistema de actividad en red basado en la venta de productos.</p>
     <h2>2. Producto y beneficios incluidos</h2><p>Al adquirir la <strong>licencia LevelONE</strong>, el usuario obtiene acceso a una comunidad privada y a capacitaciones con un beneficio de hasta el 80% de descuento.</p>
     <h2>3. Condiciones de participación</h2><p>Para utilizar la plataforma, el usuario debe ser mayor de 18 años, aceptar los presentes términos y condiciones, comprender el funcionamiento del sistema y actuar de manera activa si decide participar en la red.</p>
@@ -455,6 +486,9 @@ def dashboard():
         pending = dict(pr); cycle_id = pending["cycle_id"]
         
     pending_cbu = "No configurado"; pending_phone = "No configurado"
+    # 🟢 NUEVO: Variables para mostrar los datos del destinatario en la sección "Licencia Pendiente"
+    pending_dest_nombre = "N/A"; pending_dest_dni = "N/A"; pending_dest_entidad = "N/A"
+    
     if pending:
         step = pending["step"]
         if step == 2:
@@ -466,6 +500,10 @@ def dashboard():
         else: row = None
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
+        # 🟢 NUEVO: Tomar los datos del destinatario desde la venta pendiente
+        pending_dest_nombre = pending.get("buyer_cbu_titular") or "N/A"
+        pending_dest_dni = pending.get("buyer_cbu_dni") or "N/A"
+        pending_dest_entidad = pending.get("buyer_cbu_entidad") or "N/A"
         
     confirmations = []
     if sticker == 'ADMIN001':
@@ -528,7 +566,15 @@ def dashboard():
     
     referral_link = f"https://levelone.uno/?ref={sticker}" if sticker and sticker != "ADMIN001" else ""
     conn.close()
-    return render_template("dashboard.html", user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, user_cycle_levels=user_cycle_levels, participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone, confirmations=confirmations, my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link, referral_link=referral_link)
+    return render_template("dashboard.html", 
+        user=u, admin_cbu=admin_cbu, cycles=active_cycles_display, active_cycle=active_cycle, 
+        cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, user_cycle_levels=user_cycle_levels, 
+        participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone,
+        pending_dest_nombre=pending_dest_nombre, pending_dest_dni=pending_dest_dni, pending_dest_entidad=pending_dest_entidad,
+        confirmations=confirmations, 
+        my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], 
+        income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], 
+        l1_payments=l1_payments, mp_enabled=mp_enabled, mp_link=mp_link, referral_link=referral_link)
 
 @app.route("/crear_sticker", methods=["POST"])
 def crear_sticker():
@@ -622,8 +668,10 @@ def mp_webhook():
         if ref.startswith("WEB-") and ref.endswith("-P1"):
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
-                cur.execute("SELECT id, status FROM stickers WHERE sticker_code=%s", (code,)); s = cur.fetchone()
-                if s and s["status"] in ("pending","sent"): _entregar_licencia(cur, conn, s["id"])
+                cur.execute("SELECT id, status, buyer_name FROM stickers WHERE sticker_code=%s", (code,)); s = cur.fetchone()
+                if s and s["status"] in ("pending","sent"):
+                    _entregar_licencia(cur, conn, s["id"])
+                    _avisar_admin_pago_recibido(code, s.get("buyer_name",""), MP_MONTO_LICENCIA_DIRECTA)
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
@@ -631,7 +679,9 @@ def mp_webhook():
             code = ref[4:-3]; conn = get_db(); cur = get_cur(conn)
             try:
                 cur.execute("SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code, u.full_name, u.email FROM stickers s JOIN users u ON u.id=s.seller_id WHERE s.sticker_code=%s", (code,)); s = cur.fetchone()
-                if s and s["status"] in ("pending","sent"): _entregar_licencia(cur, conn, s["id"])
+                if s and s["status"] in ("pending","sent"):
+                    _entregar_licencia(cur, conn, s["id"])
+                    _avisar_admin_pago_recibido(code, s.get("buyer_name",""), MP_MONTO_VENTA)
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
@@ -641,7 +691,9 @@ def mp_webhook():
                 cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code FROM stickers s WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
                 if s and s["status"] in ("pending","sent"):
                     l1_user = _get_nivel1_del_vendedor(cur, s["seller_id"])
-                    if l1_user and l1_user["sticker_id"] == "ADMIN001": _entregar_licencia(cur, conn, s["id"])
+                    if l1_user and l1_user["sticker_id"] == "ADMIN001":
+                        _entregar_licencia(cur, conn, s["id"])
+                        _avisar_admin_pago_recibido(code, s.get("buyer_name",""), MP_MONTO_VENTA)
             finally: conn.close()
             return jsonify({"status": "ok"}), 200
 
@@ -651,11 +703,19 @@ def mp_webhook():
                 code = parts[0]; conn = get_db(); cur = get_cur(conn)
                 try:
                     cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code FROM stickers s WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
-                    if s and s["status"] in ("pending","sent"): _entregar_licencia(cur, conn, s["id"])
+                    if s and s["status"] in ("pending","sent"):
+                        _entregar_licencia(cur, conn, s["id"])
+                        # Avisar a ADMIN si el pago fue para él (Paso 1 o Paso 2 con ADMIN en Nivel 1)
+                        if parts[1] == "1":
+                            _avisar_admin_pago_recibido(code, s.get("buyer_name",""), MP_MONTO_VENTA)
+                        elif parts[1] == "2":
+                            l1_user = _get_nivel1_del_vendedor(cur, s["seller_id"])
+                            if l1_user and l1_user["sticker_id"] == "ADMIN001":
+                                _avisar_admin_pago_recibido(code, s.get("buyer_name",""), MP_MONTO_VENTA)
                 finally: conn.close()
             return jsonify({"status": "ok"}), 200
     except Exception as e:
-        print(f"[MP-WEBHOOK] ❌ Error: {e}", flush=True)
+        print(f"[MP-WEBHOOK]  Error: {e}", flush=True)
     return jsonify({"status": "ok"}), 200
 
 def _enviar_bienvenida(buyer_email, buyer_name, sticker_code, temp_pass):
@@ -809,7 +869,7 @@ def admin_cursos():
             cur.execute('''INSERT INTO courses (title, description, image_url, start_date, price, discount_pct, status) VALUES (%s,%s,%s,%s,%s,%s,%s)''', (titulo, desc, img, fecha, precio, descuento, estado)); conn.commit(); flash("✅ Curso agregado.")
     cur.execute("SELECT * FROM courses ORDER BY created_at DESC"); cursos = cur.fetchall(); conn.close()
     html = """<!DOCTYPE html><html><head><title>Admin Cursos</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.card{background:#1a1a2e;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #333}input,select,textarea{width:100%;padding:10px;margin:5px 0 15px;background:#0f0f1a;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:10px 20px;border:none;border-radius:8px;cursor:pointer}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:12px;border-bottom:1px solid #333;text-align:left}.badge{padding:4px 8px;border-radius:4px;font-size:0.8rem}.active{background:#38a169}.inactive{background:#e53e3e}a{color:#667eea;text-decoration:none;margin-right:15px}</style></head><body>
-    <h2>📚 Gestión de Cursos</h2><a href="/dashboard">← Volver</a>
+    <h2> Gestión de Cursos</h2><a href="/dashboard">← Volver</a>
     <div class="card"><form method="POST"><h3>Agregar Curso</h3><input name="titulo" placeholder="Título *" required><textarea name="descripcion" rows="2"></textarea><input name="imagen"><input name="fecha_inicio" type="date"><input name="precio" type="number" step="0.01"><input name="descuento" type="number" min="0" max="100"><select name="estado"><option value="active">Activo</option><option value="inactive">Inactivo</option></select><button type="submit">Guardar</button></form></div>
     <table><thead><tr><th>Título</th><th>Precio</th><th>Desc.</th><th>Inicio</th><th>Estado</th><th>Acción</th></tr></thead><tbody>"""
     for c in cursos:
@@ -841,7 +901,7 @@ def admin_reset_password(user_id):
     try:
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
-        payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": target["email"], "name": target["full_name"]}], "subject": f"🔐 Contraseña actualizada | {target['sticker_id']}", "htmlContent": f"<html><body><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>🔐 Nueva clave</h2><p>Hola {target['full_name']}, tu clave: <strong>{new_pass}</strong></p><p><a href='https://levelone.uno/ingresar'>Ingresar</a></p></body></html>"}
+        payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": target["email"], "name": target["full_name"]}], "subject": f" Contraseña actualizada | {target['sticker_id']}", "htmlContent": f"<html><body><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2> Nueva clave</h2><p>Hola {target['full_name']}, tu clave: <strong>{new_pass}</strong></p><p><a href='https://levelone.uno/ingresar'>Ingresar</a></p></body></html>"}
         requests.post(url, json=payload, headers=headers, timeout=10)
     except: pass
     conn.close(); flash(f"✅ Clave: {new_pass}"); return redirect(request.referrer or "/admin/red")
@@ -857,7 +917,7 @@ def admin_edit_user(user_id):
     if request.method == "POST":
         new_name = request.form.get("full_name","").strip(); new_phone = request.form.get("phone","").strip(); new_email = request.form.get("email","").strip()
         new_address = request.form.get("address","").strip(); new_cbu = request.form.get("cbu_alias","").strip()
-        if not all([new_name, new_phone, new_email]): conn.close(); flash("❌ Faltan datos."); return redirect("/admin/red")
+        if not all([new_name, new_phone, new_email]): conn.close(); flash(" Faltan datos."); return redirect("/admin/red")
         new_pass = "L1-" + ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(8))
         cur.execute('''UPDATE users SET full_name=%s, phone=%s, email=%s, address=%s, cbu_alias=%s, password_hash=%s WHERE id=%s''', (new_name, new_phone, new_email, new_address, new_cbu, generate_password_hash(new_pass, method='pbkdf2:sha256'), user_id)); conn.commit()
         try:
@@ -935,7 +995,7 @@ def admin_red():
         pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
         html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;"><h3>🎯 Buscado</h3><div class="info"><span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>Tel: {target['phone']} | Nivel: {target['current_level']}</div><div class="info">Pass: <code style="color:#f6e05e">{pwd_display}</code></div>{user_buttons(target['id'], target['full_name'])}</div>"""
         if niveles_candidatos:
-            titulo_asc = "🔝 Ascendientes del Ciclo" if not sin_ciclo else "🔝 Ascendientes (referidos)"
+            titulo_asc = " Ascendientes del Ciclo" if not sin_ciclo else "🔝 Ascendientes (referidos)"
             html += f'<div class="section"><h3>{titulo_asc}</h3>'
             by_level = {a["nivel_ciclo"]: a for a in ancestors}
             for lvl in niveles_candidatos:
@@ -948,7 +1008,7 @@ def admin_red():
         else:
             for d in descendants:
                 u2 = d["data"]; pwd_disp = u2['password_hash'][:15] + "..." if u2['password_hash'] else "No definida"
-                nl = {1: "👤 Hijo", 2: "👶 Nieto", 3: "👣 Bisnieto"}.get(d["nivel"], "Descendiente")
+                nl = {1: "👤 Hijo", 2: " Nieto", 3: "👣 Bisnieto"}.get(d["nivel"], "Descendiente")
                 html += f"""<div class="node"><div class="info">{nl} (Vendido por: {d['padre_stk']})</div><div class="info">STK: {u2['sticker_id']} | {u2['full_name']}</div><div class="info">Pass: <code style="color:#f6e05e">{pwd_disp}</code></div>{user_buttons(u2['id'], u2['full_name'])}</div>"""
         html += '</div>'
     elif query: html += "<p style='color:#e53e3e'>❌ No encontrado.</p>"
