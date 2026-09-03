@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
+  <!-- 1. HEADER -->
   <div class="row mb-4">
     <div class="col-12">
       <div class="card p-3 d-flex flex-row justify-content-between align-items-center flex-wrap gap-3">
@@ -21,184 +22,12 @@
     </div>
   </div>
 
-  <!-- 🟢 NUEVO: Visualización de niveles por ciclo -->
-  {% if user_cycle_levels and user.sticker_id != 'ADMIN001' %}
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="card border-info">
-        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">
-          🌳 Tu posición en los ciclos de tu red
-        </div>
-        <div class="card-body">
-          <p class="text-readable small mb-2">
-            Cada vez que alguien de tu red vende, se forma un ciclo. Acá ves en qué nivel estás en cada uno.
-          </p>
-          <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-              <thead>
-                <tr>
-                  <th>Ciclo</th>
-                  <th>Iniciado por</th>
-                  <th>Tu nivel</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for c in user_cycle_levels %}
-                <tr>
-                  <td><code>#{{ c.cycle_id }}</code></td>
-                  <td><code class="text-info">{{ c.l5_user_sticker }}</code></td>
-                  <td>
-                    {% if c.cycle_level == 5 %}
-                      <span class="badge bg-secondary">Nivel 5</span>
-                    {% elif c.cycle_level == 4 %}
-                      <span class="badge bg-warning text-dark">Nivel 4</span>
-                    {% elif c.cycle_level == 3 %}
-                      <span class="badge bg-info">Nivel 3</span>
-                    {% elif c.cycle_level == 2 %}
-                      <span class="badge bg-primary">Nivel 2</span>
-                    {% elif c.cycle_level == 1 %}
-                      <span class="badge bg-success">Nivel 1 💰</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if c.status == 'completed' %}
-                      <span class="badge bg-success">Completado</span>
-                    {% else %}
-                      <span class="badge bg-secondary">Activo</span>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- 🟢 CORREGIDO: Se muestra si puede vender (ventas < 3), no solo si es nivel 5 -->
-  {% if user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="card border-success" style="border-width:2px;">
-        <div class="card-header bg-success bg-opacity-10 text-success fw-bold">
-          ️ Tu código de referido: <code class="text-white">{{ user.sticker_id }}</code>
-        </div>
-        <div class="card-body">
-          <p class="text-readable small mb-2">
-            Compartí este link y cada persona que compre con tu código va a contar como una de tus 3 ventas del ciclo.
-            <br><strong> Ventas completadas:</strong> {{ user.completed_count or 0 }} / 3
-          </p>
-          <div class="input-group mb-2">
-            <input type="text" class="form-control" value="{{ referral_link }}" readonly id="referralLinkInput">
-            <button type="button" class="btn btn-outline-info" onclick="copiarLink()"> Copiar</button>
-          </div>
-          <button type="button" class="btn btn-success w-100" onclick="compartirWhatsApp()">
-            <i class="bi bi-whatsapp me-1"></i> Compartir por WhatsApp
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if confirmations %}
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="card border-info">
-        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">📥 Pagos por Confirmar</div>
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover">
-              <thead><tr><th>Licencia</th><th>Comprador</th><th>CBU</th><th>Acción</th></tr></thead>
-              <tbody>
-                {% for item in confirmations %}
-                <tr>
-                  <td><code>{{ item.sticker_code }}</code></td>
-                  <td>{{ item.buyer_name }}</td>
-                  <td><code class="text-info d-block">{{ item.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block"> {{ item.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.buyer_cbu_entidad or 'N/A' }}</small></td>
-                  <td>
-                    <div class="d-flex gap-2">
-                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
-                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar</button>
-                      </form>
-                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline">
-                        <button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if user.sticker_id == 'ADMIN001' %}
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="card border-primary">
-        <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configuración Administrativa</div>
-        <div class="card-body">
-          <h6 class="fw-bold mb-2">🚀 Accesos Rápidos</h6>
-          <div class="d-flex gap-2 flex-wrap mb-4">
-            <a href="/admin/red" class="btn btn-outline-info btn-sm fw-semibold">
-              <i class="bi bi-diagram-3-fill me-1"></i> 🌳 Visor de Ciclos
-            </a>
-            <a href="/admin/cursos" class="btn btn-outline-warning btn-sm fw-semibold">
-              <i class="bi bi-book-fill me-1"></i> 📚 Gestión de Cursos
-            </a>
-          </div>
-
-          <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
-          <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap mb-3" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
-            <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias" required>
-            <button type="submit" class="btn btn-primary">Actualizar CBU</button>
-          </form>
-          <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">💰 Historial de Pagos Recibidos</h6>
-          <div class="table-responsive">
-            <table class="table table-sm mb-0">
-              <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
-              <tbody>
-                {% for item in income %}
-                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block"> {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
-                {% else %}
-                <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <h6 class="fw-bold mt-4 mb-2 border-bottom pb-2">💳 Configuración Mercado Pago</h6>
-          <form method="POST" action="/admin/mp_config">
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" name="mp_enabled" id="mpEnabled" {% if mp_enabled %}checked{% endif %}>
-              <label class="form-check-label" for="mpEnabled">Habilitar botón de pago con Mercado Pago</label>
-            </div>
-            <div class="mb-3">
-              <label class="form-label small">Link de Pago Único</label>
-              <input type="text" name="mp_link" class="form-control" value="{{ mp_link }}" placeholder="https://mpago.la/xxxxx">
-            </div>
-            <button type="submit" class="btn btn-success btn-sm">💾 Guardar Configuración MP</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-  
-  <!-- 🟢 CORREGIDO: Se muestra si puede vender y no hay pendiente, sin importar el nivel -->
+  <!-- 2. CREAR NUEVA LICENCIA (Movido arriba) -->
   {% if user.can_sell and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
-        <div class="card-header"><span class="fw-bold"> Crear Nueva Licencia (venta interna)</span></div>
+        <div class="card-header"><span class="fw-bold">🎫 Crear Nueva Licencia (venta interna)</span></div>
         <div class="card-body">
           <form method="POST" action="/crear_sticker" id="formCrearLicencia">
             <div class="row g-3">
@@ -207,7 +36,6 @@
                 <input type="text" name="sticker_name" class="form-control" required placeholder="Ej: salomon_ventas" pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guión bajo (_). Sin espacios ni símbolos.">
                 <small class="text-muted">Este será el usuario para ingresar al sistema. Solo letras, números y guión bajo (_).</small>
               </div>
-              
               <div class="col-md-4"><label class="form-label text-readable small fw-medium">Nombre Completo</label><input type="text" name="name" class="form-control" required placeholder="Ej: Juan Pérez"></div>
               <div class="col-md-4">
                 <label class="form-label text-readable small fw-medium">Teléfono (con código país)</label>
@@ -229,7 +57,6 @@
       </div>
     </div>
   </div>
-  <!-- 🟢 CORREGIDO: Texto de avance de nivel -->
   {% elif user.current_level < 5 %}
   <div class="row mb-3">
     <div class="col-12">
@@ -238,6 +65,71 @@
   </div>
   {% endif %}
 
+  <!-- 3. TU CÓDIGO DE REFERIDO -->
+  {% if user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-success" style="border-width:2px;">
+        <div class="card-header bg-success bg-opacity-10 text-success fw-bold">
+          📎 Tu código de referido: <code class="text-white">{{ user.sticker_id }}</code>
+        </div>
+        <div class="card-body">
+          <p class="text-readable small mb-2">
+            Compartí este link y cada persona que compre con tu código va a contar como una de tus 3 ventas del ciclo.
+            <br><strong> Ventas completadas:</strong> {{ user.completed_count or 0 }} / 3
+          </p>
+          <div class="input-group mb-2">
+            <input type="text" class="form-control" value="{{ referral_link }}" readonly id="referralLinkInput">
+            <button type="button" class="btn btn-outline-info" onclick="copiarLink()">📋 Copiar</button>
+          </div>
+          <button type="button" class="btn btn-success w-100" onclick="compartirWhatsApp()">
+            <i class="bi bi-whatsapp me-1"></i> Compartir por WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 4. PAGOS POR CONFIRMAR (Acción urgente) -->
+  {% if confirmations %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-info">
+        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">📥 Pagos por Confirmar</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Acción</th></tr></thead>
+              <tbody>
+                {% for item in confirmations %}
+                <tr>
+                  <td><code>{{ item.sticker_code }}</code></td>
+                  <td>{{ item.buyer_name }}</td>
+                  <td><code class="text-info d-block">{{ item.buyer_cbu }}</code><small class="text-muted d-block">👤 {{ item.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.buyer_cbu_entidad or 'N/A' }}</small></td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/confirm" class="d-inline">
+                        <!-- 🟢 CAMBIO DE TEXTO DEL BOTÓN -->
+                        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Confirmar Recibido/Enviar datos de acceso al comprador</button>
+                      </form>
+                      <form method="POST" action="/resolver_confirmacion/{{ item.id }}/reject" class="d-inline">
+                        <button type="submit" class="btn btn-frost btn-sm text-danger border-danger"><i class="bi bi-x-lg"></i> Rechazar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 5. LICENCIA PENDIENTE (Acción urgente) -->
   {% if pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -246,14 +138,22 @@
         <div class="card-body">
           <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
           <p class="mb-2 text-readable">Teléfono: <strong class="text-white">{{ pending_phone }}</strong></p>
-          <p class="mb-3 text-readable d-flex align-items-center flex-wrap gap-2">
-              CBU Destino: <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code>
-              {% if pending_phone %}
-              <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20el%20pago%20del%20sticker%20levelONE,%20te%20paso%20mi%20CBU:%20{{ pending_cbu }}" target="_blank" class="btn btn-success btn-sm">
-                  <i class="bi bi-whatsapp"></i> Enviar CBU
-              </a>
-              {% endif %}
-          </p>
+          
+          <!-- 🟢 AGREGADO: Datos del destinatario para mayor seguridad -->
+          <div class="mb-3 p-2 border rounded bg-dark bg-opacity-10">
+            <p class="mb-1 text-readable small fw-bold">🏦 Transferir a:</p>
+            <p class="mb-1 small"><strong>Titular:</strong> {{ pending_dest_nombre or 'N/A' }}</p>
+            <p class="mb-1 small"><strong>DNI/CUIT:</strong> {{ pending_dest_dni or 'N/A' }}</p>
+            <p class="mb-1 small"><strong>Entidad:</strong> {{ pending_dest_entidad or 'N/A' }}</p>
+            <p class="mb-0"><strong>CBU/Alias:</strong> <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code></p>
+          </div>
+
+          {% if pending_phone %}
+          <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20el%20pago%20del%20sticker%20levelONE,%20te%20paso%20mis%20datos:%0ATitular:%20{{ pending_dest_nombre or 'N/A' }}%0ADNI:%20{{ pending_dest_dni or 'N/A' }}%0AEntidad:%20{{ pending_dest_entidad or 'N/A' }}%0ACBU:%20{{ pending_cbu }}" target="_blank" class="btn btn-success btn-sm mb-3">
+              <i class="bi bi-whatsapp"></i> Enviar datos por WhatsApp
+          </a>
+          {% endif %}
+
           {% if pending.mp_link %}
           <div class="mb-3 p-2 border rounded" style="border-color:#667eea!important;">
               <p class="mb-1 text-readable small fw-bold">💳 Link de pago seguro (Mercado Pago) para esta venta:</p>
@@ -268,15 +168,7 @@
               {% endif %}
           </div>
           {% endif %}
-          {% if mp_enabled and mp_link and user.current_level == 5 and (my_sales|length == 0 or (my_sales|last)['sale']['status'] != 'entregado') %}
-          {% if pending_phone %}
-          <div class="mb-3">
-              <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20pagar%20tu%20sticker%20levelONE,%20te%20paso%20el%20link%20seguro%20de%20Mercado%20Pago:%20{{ mp_link }}" target="_blank" class="btn btn-outline-success btn-sm w-100">
-                  <i class="bi bi-credit-card me-1"></i> Compartir Link de Pago MP
-              </a>
-          </div>
-          {% endif %}
-          {% endif %}
+          
           <div class="d-flex gap-2 flex-wrap">
             {% if pending.status == 'pending' %}
             <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
@@ -291,7 +183,8 @@
               <div class="alert alert-info mb-2 py-2">⏳ Esperando confirmación de pago...</div>
               {% if pending.step == 3 %}
               <form method="POST" action="/resolver_confirmacion/{{ pending.id }}/confirm" class="d-inline mb-2">
-                <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> ✅ Confirmar Recibido</button>
+                <!-- 🟢 CAMBIO DE TEXTO DEL BOTÓN -->
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> ✅ Confirmar Recibido/Enviar datos de acceso al comprador</button>
               </form>
               {% endif %}
             </div>
@@ -308,88 +201,8 @@
   </div>
   {% endif %}
 
-  {% if l1_payments %}
+  <!-- 6. HISTORIAL DE VENTAS GENERADAS (Movido arriba) -->
   <div class="row mb-4">
-    <div class="col-12">
-      <div class="card border-success">
-        <div class="card-header bg-success bg-opacity-10 text-success fw-bold">💰 Historial de Transferencias Confirmadas</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm mb-0">
-              <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
-              <tbody>
-                {% for p in l1_payments %}
-                <tr>
-                  <td>{{ p['created_at'].strftime('%d/%m/%Y %H:%M') }}</td>
-                  <td><code>{{ p['sticker_code'] }}</code></td>
-                  <td>{{ p['buyer_name'] }}</td>
-                  <td><code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small></td>
-                  <td>{% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>{% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <div class="p-2 text-center border-top bg-light"><small class="text-muted fw-bold">📊 Últimas 20 confirmaciones registradas</small></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% elif user.current_level != 5 and user.role != "graduated" and user.sticker_id != "ADMIN001" %}
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card border-secondary">
-        <div class="card-header bg-secondary bg-opacity-10 text-secondary fw-bold">📥 Pagos por Confirmar</div>
-        <div class="card-body text-center text-muted py-4"><p class="mb-0">✅ No hay pagos pendientes por confirmar en este momento.</p></div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-  
-  {% if user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
-  <div class="row mb-4">
-    <div class="col-12">
-      <div class="card">
-        <div class="card-header fw-bold">👥 Estado de tu Red</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table mb-0">
-              <thead>
-                <tr>
-                  <th>Licencia</th>
-                  <th>Nombre</th>
-                  <th>Teléfono</th>
-                  <th>Nivel</th>
-                  <th>Contacto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for p in participants %}
-                <tr>
-                  <td><code>{{ p.sticker_id }}</code></td>
-                  <td>{{ p.full_name }}</td>
-                  <td>{{ p.phone }}</td>
-                  <td><span class="badge bg-primary">{{ p.level }}</span></td>
-                  <td>
-                    <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1">
-                      <i class="bi bi-whatsapp"></i> WhatsApp
-                    </a>
-                    <a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm">
-                      <i class="bi bi-telephone"></i> Llamar
-                    </a>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <div class="row">
     <div class="col-12">
       <div class="card">
         <div class="card-header fw-bold">📊 Historial de Ventas Generadas</div>
@@ -427,6 +240,166 @@
       </div>
     </div>
   </div>
+
+  <!-- 7. TU POSICIÓN EN LOS CICLOS (Movido abajo) -->
+  {% if user_cycle_levels and user.sticker_id != 'ADMIN001' %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-info">
+        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">🌳 Tu posición en los ciclos de tu red</div>
+        <div class="card-body">
+          <p class="text-readable small mb-2">Cada vez que alguien de tu red vende, se forma un ciclo. Acá ves en qué nivel estás en cada uno.</p>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead><tr><th>Ciclo</th><th>Iniciado por</th><th>Tu nivel</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for c in user_cycle_levels %}
+                <tr>
+                  <td><code>#{{ c.cycle_id }}</code></td>
+                  <td><code class="text-info">{{ c.l5_user_sticker }}</code></td>
+                  <td>
+                    {% if c.cycle_level == 5 %}<span class="badge bg-secondary">Nivel 5</span>
+                    {% elif c.cycle_level == 4 %}<span class="badge bg-warning text-dark">Nivel 4</span>
+                    {% elif c.cycle_level == 3 %}<span class="badge bg-info">Nivel 3</span>
+                    {% elif c.cycle_level == 2 %}<span class="badge bg-primary">Nivel 2</span>
+                    {% elif c.cycle_level == 1 %}<span class="badge bg-success">Nivel 1 💰</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if c.status == 'completed' %}<span class="badge bg-success">Completado</span>
+                    {% else %}<span class="badge bg-secondary">Activo</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 8. ESTADO DE TU RED (Movido abajo) -->
+  {% if user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header fw-bold">👥 Estado de tu Red</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead><tr><th>Licencia</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead>
+              <tbody>
+                {% for p in participants %}
+                <tr>
+                  <td><code>{{ p.sticker_id }}</code></td>
+                  <td>{{ p.full_name }}</td>
+                  <td>{{ p.phone }}</td>
+                  <td><span class="badge bg-primary">{{ p.level }}</span></td>
+                  <td>
+                    <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+                    <a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm"><i class="bi bi-telephone"></i> Llamar</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 9. HISTORIAL DE TRANSFERENCIAS CONFIRMADAS -->
+  {% if l1_payments %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-success">
+        <div class="card-header bg-success bg-opacity-10 text-success fw-bold">💰 Historial de Transferencias Confirmadas</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for p in l1_payments %}
+                <tr>
+                  <td>{{ p['created_at'].strftime('%d/%m/%Y %H:%M') }}</td>
+                  <td><code>{{ p['sticker_code'] }}</code></td>
+                  <td>{{ p['buyer_name'] }}</td>
+                  <td><code class="text-info d-block">{{ p['buyer_cbu'] }}</code><small class="text-muted d-block">👤 {{ p['buyer_cbu_titular'] or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ p['buyer_cbu_dni'] or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ p['buyer_cbu_entidad'] or 'N/A' }}</small></td>
+                  <td>{% if p['status'] == 'entregado' %}<span class="badge bg-success">Completado</span>{% else %}<span class="badge bg-primary">Confirmado</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="p-2 text-center border-top bg-light"><small class="text-muted fw-bold">📊 Últimas 20 confirmaciones registradas</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% elif user.current_level != 5 and user.role != "graduated" and user.sticker_id != "ADMIN001" %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-secondary">
+        <div class="card-header bg-secondary bg-opacity-10 text-secondary fw-bold">📥 Pagos por Confirmar</div>
+        <div class="card-body text-center text-muted py-4"><p class="mb-0">✅ No hay pagos pendientes por confirmar en este momento.</p></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 10. CONFIGURACIÓN ADMINISTRATIVA (Solo ADMIN) -->
+  {% if user.sticker_id == 'ADMIN001' %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-primary">
+        <div class="card-header bg-primary bg-opacity-10 text-primary fw-bold">⚙️ Configuración Administrativa</div>
+        <div class="card-body">
+          <h6 class="fw-bold mb-2">🚀 Accesos Rápidos</h6>
+          <div class="d-flex gap-2 flex-wrap mb-4">
+            <a href="/admin/red" class="btn btn-outline-info btn-sm fw-semibold"><i class="bi bi-diagram-3-fill me-1"></i> 🌳 Visor de Ciclos</a>
+            <a href="/admin/cursos" class="btn btn-outline-warning btn-sm fw-semibold"><i class="bi bi-book-fill me-1"></i> 📚 Gestión de Cursos</a>
+          </div>
+          <p class="mb-2">✅ CBU Actual: <code class="bg-dark text-info px-2 py-1 rounded">{{ admin_cbu }}</code></p>
+          <form method="POST" action="/admin/cambiar_cbu" class="d-flex gap-2 flex-wrap mb-3" onsubmit="return confirm('¿Estás seguro de actualizar el CBU?');">
+            <input type="text" name="nuevo_cbu" class="form-control" placeholder="Nuevo CBU/Alias" required>
+            <button type="submit" class="btn btn-primary">Actualizar CBU</button>
+          </form>
+          <h6 class="fw-bold mt-3 mb-2 border-bottom pb-2">💰 Historial de Pagos Recibidos</h6>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for item in income %}
+                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block"> {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <h6 class="fw-bold mt-4 mb-2 border-bottom pb-2">💳 Configuración Mercado Pago</h6>
+          <form method="POST" action="/admin/mp_config">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="mp_enabled" id="mpEnabled" {% if mp_enabled %}checked{% endif %}>
+              <label class="form-check-label" for="mpEnabled">Habilitar botón de pago con Mercado Pago</label>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Link de Pago Único</label>
+              <input type="text" name="mp_link" class="form-control" value="{{ mp_link }}" placeholder="https://mpago.la/xxxxx">
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">💾 Guardar Configuración MP</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
 
 <input type="hidden" id="seller_cbu" value="{{ user.cbu_alias }}">
