@@ -21,6 +21,64 @@
     </div>
   </div>
 
+  <!-- 🟢 NUEVO: Visualización de niveles por ciclo -->
+  {% if user_cycle_levels and user.sticker_id != 'ADMIN001' %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-info">
+        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">
+          🌳 Tu posición en los ciclos de tu red
+        </div>
+        <div class="card-body">
+          <p class="text-readable small mb-2">
+            Cada vez que alguien de tu red vende, se forma un ciclo. Acá ves en qué nivel estás en cada uno.
+          </p>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Ciclo</th>
+                  <th>Iniciado por</th>
+                  <th>Tu nivel</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in user_cycle_levels %}
+                <tr>
+                  <td><code>#{{ c.cycle_id }}</code></td>
+                  <td><code class="text-info">{{ c.l5_user_sticker }}</code></td>
+                  <td>
+                    {% if c.cycle_level == 5 %}
+                      <span class="badge bg-secondary">Nivel 5</span>
+                    {% elif c.cycle_level == 4 %}
+                      <span class="badge bg-warning text-dark">Nivel 4</span>
+                    {% elif c.cycle_level == 3 %}
+                      <span class="badge bg-info">Nivel 3</span>
+                    {% elif c.cycle_level == 2 %}
+                      <span class="badge bg-primary">Nivel 2</span>
+                    {% elif c.cycle_level == 1 %}
+                      <span class="badge bg-success">Nivel 1 💰</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if c.status == 'completed' %}
+                      <span class="badge bg-success">Completado</span>
+                    {% else %}
+                      <span class="badge bg-secondary">Activo</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {% if user.current_level == 5 and user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
   <div class="row mb-3">
     <div class="col-12">
@@ -285,10 +343,46 @@
   </div>
   {% endif %}
   
-  {% if (user.current_level != 5 or is_graduated_cycle) and user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
+  <!-- 🟢 CORREGIDO: Sección "Estado de tu Red" visible siempre que haya participantes -->
+  {% if user.sticker_id != "ADMIN001" and user.role != "graduated" and participants %}
   <div class="row mb-4">
     <div class="col-12">
-      <div class="card"><div class="card-header fw-bold">👥 Estado de tu Red</div><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Licencia</th><th>Nombre</th><th>Teléfono</th><th>Nivel</th><th>Contacto</th></tr></thead><tbody>{% for p in participants %}<tr><td><code>{{ p.sticker_id }}</code></td><td>{{ p.full_name }}</td><td>{{ p.phone }}</td><td><span class="badge bg-primary">{{ p.level }}</span></td><td><a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1"><i class="bi bi-whatsapp"></i> WhatsApp</a><a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm"><i class="bi bi-telephone"></i> Llamar</a></td></tr>{% endfor %}</tbody></table></div></div></div>
+      <div class="card">
+        <div class="card-header fw-bold">👥 Estado de tu Red</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead>
+                <tr>
+                  <th>Licencia</th>
+                  <th>Nombre</th>
+                  <th>Teléfono</th>
+                  <th>Nivel</th>
+                  <th>Contacto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in participants %}
+                <tr>
+                  <td><code>{{ p.sticker_id }}</code></td>
+                  <td>{{ p.full_name }}</td>
+                  <td>{{ p.phone }}</td>
+                  <td><span class="badge bg-primary">{{ p.level }}</span></td>
+                  <td>
+                    <a href="https://wa.me/{{ p.phone.replace('+','').replace(' ','') }}?text=Hola!%20Seguimiento%20levelONE" target="_blank" class="btn btn-success btn-sm me-1">
+                      <i class="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    <a href="tel:{{ p.phone }}" class="btn btn-secondary btn-sm">
+                      <i class="bi bi-telephone"></i> Llamar
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   {% endif %}
@@ -361,7 +455,7 @@ function compartirWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// 🟢 NUEVO: Auto-refresh con candado de formulario
+// 🟢 Auto-refresh con candado de formulario
 (function() {
   const checkInterval = 5000; // 5 segundos
   let lastState = null;
