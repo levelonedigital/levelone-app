@@ -21,7 +21,6 @@
     </div>
   </div>
 
-  <!-- 🟢 NUEVO: Tarjeta de código de referido (solo para L5 que pueden vender) -->
   {% if user.current_level == 5 and user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
   <div class="row mb-3">
     <div class="col-12">
@@ -135,14 +134,13 @@
   </div>
   {% endif %}
   
-  <!-- FORMULARIO CREAR LICENCIA INTERNA: Solo si es Nivel 5 en su ciclo principal y no hay pendiente -->
   {% if user.current_level == 5 and user.can_sell and not pending %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card">
         <div class="card-header"><span class="fw-bold">🎫 Crear Nueva Licencia (venta interna)</span></div>
         <div class="card-body">
-          <form method="POST" action="/crear_sticker">
+          <form method="POST" action="/crear_sticker" id="formCrearLicencia">
             <div class="row g-3">
               <div class="col-12">
                 <label class="form-label text-readable small fw-medium">🏷️ Nombre de Usuario para la Licencia</label>
@@ -223,7 +221,6 @@
             <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
               <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i> Marcar Enviado / Solicitar Confirmación</button>
             </form>
-            <!-- 🟢 AGREGADO: Botón para cancelar venta pendiente (antes de que el comprador pague) -->
             <form method="POST" action="/cancelar_venta/{{ pending.id }}" class="d-inline" onsubmit="return confirm('¿Estás seguro de cancelar esta venta?\n\nSe eliminará el usuario del comprador y la licencia quedará libre para otra venta.');">
               <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i> ❌ Cancelar venta pendiente</button>
             </form>
@@ -339,6 +336,7 @@
 <input type="hidden" id="seller_cbu" value="{{ user.cbu_alias }}">
 
 <script>
+// Funciones existentes
 function openWhatsApp() {
   let phone = document.getElementById('buyer_phone').value.replace(/\D/g, '');
   let cbu = document.querySelector('input[name="cbu"]').value;
@@ -362,5 +360,60 @@ function compartirWhatsApp() {
   const msg = `🎟️ ¡Sumate a LevelONE!\n\nUsá mi código de referido y accedé a la plataforma con precio especial ($30.000):\n\n👉 ${link}\n\nCapacitación, comunidad y oportunidad de generar ingresos.`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
+
+// 🟢 NUEVO: Auto-refresh con candado de formulario
+(function() {
+  const checkInterval = 5000; // 5 segundos
+  let lastState = null;
+  
+  // Candado: verifica si hay algún formulario con texto sin enviar
+  function formHasContent() {
+    const form = document.getElementById('formCrearLicencia');
+    if (!form) return false;
+    const inputs = form.querySelectorAll('input[type="text"], input[type="email"]');
+    for (let input of inputs) {
+      // Ignoramos el teléfono con +54 por defecto (ya tiene contenido precargado)
+      if (input.name === 'phone') continue;
+      if (input.value.trim() !== '') return true;
+    }
+    return false;
+  }
+  
+  async function checkForUpdates() {
+    // Si el usuario está escribiendo en el formulario, NO recargar
+    if (formHasContent()) {
+      console.log('✋ Formulario con contenido, pausando auto-refresh');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/check_updates');
+      const data = await response.json();
+      
+      if (data.updated) {
+        const currentState = `${data.pending}-${data.sent}-${data.completed}`;
+        
+        if (lastState === null) {
+          lastState = currentState;
+          return;
+        }
+        
+        // Si cambió el estado, recargamos la página
+        if (currentState !== lastState) {
+          console.log('🔄 Estado cambió, recargando dashboard...');
+          window.location.reload();
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Error verificando actualizaciones:', error);
+    }
+  }
+  
+  // Solo activar polling si hay ventas pendientes o en el historial
+  {% if pending or (my_sales and my_sales|length > 0) %}
+  setInterval(checkForUpdates, checkInterval);
+  console.log('🔄 Auto-refresh activado (cada 5 segundos, con candado de formulario)');
+  {% endif %}
+})();
 </script>
 {% endblock %}
