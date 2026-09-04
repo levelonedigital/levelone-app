@@ -17,8 +17,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "levelone_produccion_segura_2026")
 
-MP_MONTO_VENTA = 30000.0
-MP_MONTO_LICENCIA_DIRECTA = 60000.0
+MP_MONTO_VENTA = 50.0
+MP_MONTO_LICENCIA_DIRECTA = 50.0
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
