@@ -17,8 +17,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "levelone_produccion_segura_2026")
 
-MP_MONTO_VENTA = 5.0
-MP_MONTO_LICENCIA_DIRECTA = 5.0
+MP_MONTO_VENTA = 30000.0
+MP_MONTO_LICENCIA_DIRECTA = 60000.0
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -55,7 +55,6 @@ def _recalcular_nivel_efectivo(cur, conn, user_id):
         cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (row["min_level"], user_id))
 
 def _get_nivel1_del_vendedor(cur, seller_id):
-    """Obtiene el usuario en Nivel 1 del ciclo ORIGINAL del vendedor (donde el vendedor es Nivel 5)"""
     cur.execute("""
         SELECT u.sticker_id, u.full_name, u.email, u.cbu_alias, u.phone
         FROM cycle_levels cl
@@ -126,7 +125,6 @@ def _avisar_destinatario_confirmar(cur, s):
         print(f"[BREVO] Error aviso destinatario: {e}", flush=True)
 
 def _avisar_admin_pago_recibido(sticker_code, buyer_name, monto):
-    """Envía un mail automático a ADMIN cuando recibe un pago acreditado por MP"""
     try:
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
@@ -299,32 +297,32 @@ def procesar_compra():
         if use_referral:
             seller_id = referrer_id
             cur.execute("SELECT COUNT(*) as cnt FROM stickers WHERE seller_id=%s AND status='entregado'", (seller_id,)); step = cur.fetchone()["cnt"] + 1
+            
+            # 🟢 CORRECCIÓN: Crear ciclo para el VENDEDOR
+            cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (seller_id,))
+            cycle_id = cur.fetchone()["id"]
+            
+            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (seller_id, cycle_id))
+            cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (seller_id,))
+            
+            current_parent = seller_id
+            for lvl in [4, 3, 2, 1]:
+                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,))
+                up = cur.fetchone()
+                if not up: break
+                parent_id = up["parent_id"]
+                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
+                cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,))
+                p_data = cur.fetchone()
+                if p_data and p_data["sticker_id"] == "ADMIN001": break
+                cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id))
+                current_parent = parent_id
+                _recalcular_nivel_efectivo(cur, conn, parent_id)
+            
             cur.execute('''INSERT INTO users (sticker_id, full_name, phone, email, cbu_alias, password_hash, role)
                            VALUES (%s,%s,%s,%s,%s,%s,'inactive') RETURNING id''',
                         (sticker_name, name, phone, email, cbu, generate_password_hash(temp_pass, method='pbkdf2:sha256')))
             buyer_id = cur.fetchone()["id"]
-
-            cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (buyer_id,)); cycle_id = cur.fetchone()["id"]
-            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5)", (buyer_id, cycle_id))
-            cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (buyer_id,))
-            cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,4)", (seller_id, cycle_id))
-            cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (seller_id,))
-            
-            current_parent = seller_id
-            for lvl in [3, 2, 1]:
-                cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,)); up = cur.fetchone()
-                if not up: break
-                parent_id = up["parent_id"]
-                cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (parent_id, cycle_id, lvl))
-                cur.execute("SELECT sticker_id FROM users WHERE id=%s", (parent_id,)); p_data = cur.fetchone()
-                if p_data and p_data["sticker_id"] == "ADMIN001": break
-                cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id)); current_parent = parent_id
-                _recalcular_nivel_efectivo(cur, conn, parent_id)
-            
-            cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1", (cycle_id,))
-            if not cur.fetchone():
-                cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'"); admin_row = cur.fetchone()
-                if admin_row: cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
 
             cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (seller_id, buyer_id))
             _recalcular_nivel_efectivo(cur, conn, seller_id); _recalcular_nivel_efectivo(cur, conn, buyer_id)
@@ -399,24 +397,20 @@ def login():
         cur.execute("SELECT * FROM users WHERE sticker_id=%s", (sid,)); row_u = cur.fetchone()
         
         if row_u and check_password_hash(row_u["password_hash"], pwd):
-            # ✅ ADMIN001 entra siempre
             if row_u["sticker_id"] == "ADMIN001":
                 session["user_id"] = row_u["id"]
                 session["role"] = row_u["role"]
                 conn.close()
                 return redirect(url_for("dashboard"))
             
-            # 🔒 Para otros usuarios: verificar que haya pagado su licencia
             cur.execute("SELECT status FROM stickers WHERE sticker_code=%s AND status='entregado' LIMIT 1", (sid,))
             licencia_pagada = cur.fetchone()
             
             if not licencia_pagada:
-                # ❌ No tiene ninguna licencia entregada → no puede entrar
                 flash("⚠️ Tu cuenta aún no está activa. Debes completar el pago de tu licencia para acceder.")
                 conn.close()
                 return render_template("login.html")
             
-            # ✅ Tiene al menos una licencia entregada → puede entrar
             session["user_id"] = row_u["id"]
             session["role"] = row_u["role"]
             try:
@@ -513,7 +507,6 @@ def dashboard():
         pending = dict(pr); cycle_id = pending["cycle_id"]
         
     pending_cbu = "No configurado"; pending_phone = "No configurado"
-    # 🟢 NUEVO: Variables para mostrar los datos del destinatario en la sección "Licencia Pendiente"
     pending_dest_nombre = "N/A"; pending_dest_dni = "N/A"; pending_dest_entidad = "N/A"
     
     if pending:
@@ -527,7 +520,6 @@ def dashboard():
         else: row = None
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
-        # 🟢 NUEVO: Tomar los datos del destinatario desde la venta pendiente
         pending_dest_nombre = pending.get("buyer_cbu_titular") or "N/A"
         pending_dest_dni = pending.get("buyer_cbu_dni") or "N/A"
         pending_dest_entidad = pending.get("buyer_cbu_entidad") or "N/A"
@@ -626,18 +618,14 @@ def crear_sticker():
         cur.execute("SELECT id FROM stickers WHERE seller_id=%s AND status IN ('pending','sent') LIMIT 1", (row_u["id"],))
         step = completed + 1; temp_pass = "L1-"+str(uuid.uuid4())[:8]; token = str(uuid.uuid4())[:12]
         
-        cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
-        new_id = cur.fetchone()["id"]
-        if new_id: cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (row_u["id"], new_id))
-        
-        cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (new_id,)); cycle_id = cur.fetchone()["id"]
-        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5)", (new_id, cycle_id))
-        cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (new_id,))
-        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,4)", (row_u["id"], cycle_id))
-        cur.execute("UPDATE users SET current_level=4 WHERE id=%s", (row_u["id"],))
+        # 🟢 CORRECCIÓN: Crear ciclo para el VENDEDOR
+        cur.execute("INSERT INTO cycles (l5_user_id) VALUES (%s) RETURNING id", (row_u["id"],))
+        cycle_id = cur.fetchone()["id"]
+        cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,5) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (row_u["id"], cycle_id))
+        cur.execute("UPDATE users SET current_level=5 WHERE id=%s", (row_u["id"],))
         
         current_parent = row_u["id"]
-        for lvl in [3, 2, 1]:
+        for lvl in [4, 3, 2, 1]:
             cur.execute("SELECT parent_id FROM referral_tree WHERE child_id=%s", (current_parent,)); up = cur.fetchone()
             if not up: break
             parent_id = up["parent_id"]
@@ -647,10 +635,9 @@ def crear_sticker():
             cur.execute("UPDATE users SET current_level=%s WHERE id=%s", (lvl, parent_id)); current_parent = parent_id
             _recalcular_nivel_efectivo(cur, conn, parent_id)
         
-        cur.execute("SELECT user_id FROM cycle_levels WHERE cycle_id=%s AND level=1", (cycle_id,))
-        if not cur.fetchone():
-            cur.execute("SELECT id FROM users WHERE sticker_id='ADMIN001'"); admin_row = cur.fetchone()
-            if admin_row: cur.execute("INSERT INTO cycle_levels (user_id, cycle_id, level) VALUES (%s,%s,%s) ON CONFLICT (user_id,cycle_id) DO UPDATE SET level=EXCLUDED.level", (admin_row["id"], cycle_id, 1))
+        cur.execute('''INSERT INTO users (sticker_id,full_name,phone,email,cbu_alias,password_hash,role) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id''', (code,name,phone,email,cbu,generate_password_hash(temp_pass,method='pbkdf2:sha256'),'inactive'))
+        new_id = cur.fetchone()["id"]
+        if new_id: cur.execute("INSERT INTO referral_tree (parent_id, child_id) VALUES (%s,%s) ON CONFLICT (parent_id,child_id) DO NOTHING", (row_u["id"], new_id))
         
         _recalcular_nivel_efectivo(cur, conn, row_u["id"]); _recalcular_nivel_efectivo(cur, conn, new_id)
         
@@ -732,7 +719,6 @@ def mp_webhook():
                     cur.execute("""SELECT s.id, s.status, s.seller_id, s.buyer_name, s.sticker_code FROM stickers s WHERE s.sticker_code=%s""", (code,)); s = cur.fetchone()
                     if s and s["status"] in ("pending","sent"):
                         _entregar_licencia(cur, conn, s["id"])
-                        # Avisar a ADMIN si el pago fue para él (Paso 1 o Paso 2 con ADMIN en Nivel 1)
                         if parts[1] == "1":
                             _avisar_admin_pago_recibido(code, s.get("buyer_name",""), MP_MONTO_VENTA)
                         elif parts[1] == "2":
@@ -774,18 +760,30 @@ def marcar_enviado(sticker_id):
     if s and s["status"] == "pending":
         try:
             step = s["step"]; responsable = None
-            if step == 1: cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE sticker_id='ADMIN001'"); responsable = cur.fetchone()
-            elif step == 2: responsable = _get_nivel1_del_vendedor(cur, s["seller_id"])
-            elif step == 3: cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (s["seller_id"],)); responsable = cur.fetchone()
-            if responsable and responsable["email"]:
+            if step == 1: 
+                cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE sticker_id='ADMIN001'"); responsable = cur.fetchone()
+            elif step == 2: 
+                responsable = _get_nivel1_del_vendedor(cur, s["seller_id"])
+                if not responsable:
+                    print(f"[MARCAR ENVIADO] ERROR: No se encontró Nivel 1 para seller_id={s['seller_id']}", flush=True)
+                elif not responsable.get("email"):
+                    print(f"[MARCAR ENVIADO] ERROR: El Nivel 1 ({responsable.get('sticker_id')}) NO TIENE EMAIL registrado", flush=True)
+            elif step == 3: 
+                cur.execute("SELECT sticker_id, full_name, email, password_hash FROM users WHERE id=%s", (s["seller_id"],)); responsable = cur.fetchone()
+            
+            if responsable and responsable.get("email"):
                 app_url = request.host_url.rstrip('/') + "/dashboard"
                 url = "https://api.brevo.com/v3/smtp/email"
                 headers = {"accept": "application/json", "content-type": "application/json", "api-key": os.environ.get("BREVO_API_KEY")}
                 payload = {"sender": {"name": "levelONE", "email": "notificaciones@levelone.uno"}, "to": [{"email": responsable["email"], "name": responsable["full_name"]}],
                     "subject": f"🔔 Confirmación de pago | {s['sticker_code']}",
                     "htmlContent": f"<html><body style='font-family:sans-serif;padding:20px;'><div style='text-align:center;margin-bottom:16px;'><img src='https://levelone.uno/static/Logo.png' alt='levelONE' style='height:48px;'></div><h2>🔔 Confirmación de pago</h2><p>Hola <strong>{responsable['full_name']}</strong>, hay un pago pendiente.</p><p>Licencia: <strong>{s['sticker_code']}</strong> ({s['buyer_name']})</p><p><strong>Usuario:</strong> <code>{responsable['sticker_id']}</code></p><p><strong>Link:</strong> <a href='{app_url}'>{app_url}</a></p></body></html>"}
-                requests.post(url, json=payload, headers=headers, timeout=10)
-        except Exception as e: print(f"[BREVO] Error: {e}", flush=True)
+                resp = requests.post(url, json=payload, headers=headers, timeout=10)
+                print(f"[BREVO] Respuesta envío mail a {responsable['email']}: {resp.status_code}", flush=True)
+            else:
+                print(f"[MARCAR ENVIADO] No se envió mail. Responsable: {responsable}", flush=True)
+        except Exception as e: 
+            print(f"[BREVO] Error excepción: {e}", flush=True)
         cur.execute("UPDATE stickers SET status='sent' WHERE id=%s", (sticker_id,)); conn.commit(); flash("📤 Marcado como enviado.")
     conn.close(); return redirect("/dashboard")
 
@@ -967,7 +965,13 @@ def admin_red():
     target = None; ancestors = []; descendants = []; sin_ciclo = False; niveles_candidatos = []
     try:
         if query:
-            cur.execute("SELECT id, sticker_id, full_name, phone, current_level, password_hash, role FROM users WHERE sticker_id ILIKE %s OR full_name ILIKE %s LIMIT 1", (f"%{query}%", f"%{query}%"))
+            cur.execute("""
+                SELECT id, sticker_id, full_name, phone, current_level, password_hash, role 
+                FROM users 
+                WHERE sticker_id = %s OR full_name ILIKE %s OR sticker_id ILIKE %s 
+                ORDER BY CASE WHEN sticker_id = %s THEN 0 ELSE 1 END 
+                LIMIT 1
+            """, (query, f"%{query}%", f"%{query}%", query))
             target = cur.fetchone()
             if target:
                 tid = target["id"]
