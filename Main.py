@@ -888,7 +888,7 @@ def toggle_curso(course_id):
     cur.execute("UPDATE courses SET status = CASE WHEN status='active' THEN 'inactive' ELSE 'active' END WHERE id=%s", (course_id,)); conn.commit(); conn.close()
     flash("✅ Estado actualizado."); return redirect("/admin/cursos")
 
-@app.route("/admin/reset_password/<int:user_id>", methods=["POST"])
+@app.route("/admin/reset_password/<int:user_id>", methods=["GET", "POST"])
 def admin_reset_password(user_id):
     if "user_id" not in session: return redirect("/ingresar")
     conn = get_db(); cur = get_cur(conn)
