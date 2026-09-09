@@ -397,13 +397,40 @@ def login():
         sid = request.form["sticker_id"].strip(); pwd = request.form["password"].strip()
         conn = get_db(); cur = get_cur(conn)
         cur.execute("SELECT * FROM users WHERE sticker_id=%s", (sid,)); row_u = cur.fetchone()
+        
         if row_u and check_password_hash(row_u["password_hash"], pwd):
-            session["user_id"] = row_u["id"]; session["role"] = row_u["role"]
+            # ✅ ADMIN001 entra siempre
+            if row_u["sticker_id"] == "ADMIN001":
+                session["user_id"] = row_u["id"]
+                session["role"] = row_u["role"]
+                conn.close()
+                return redirect(url_for("dashboard"))
+            
+            # 🔒 Para otros usuarios: verificar que haya pagado su licencia
+            cur.execute("SELECT status FROM stickers WHERE sticker_code=%s AND status='entregado' LIMIT 1", (sid,))
+            licencia_pagada = cur.fetchone()
+            
+            if not licencia_pagada:
+                # ❌ No tiene ninguna licencia entregada → no puede entrar
+                flash("⚠️ Tu cuenta aún no está activa. Debes completar el pago de tu licencia para acceder.")
+                conn.close()
+                return render_template("login.html")
+            
+            # ✅ Tiene al menos una licencia entregada → puede entrar
+            session["user_id"] = row_u["id"]
+            session["role"] = row_u["role"]
             try:
-                if row_u.get("terms_accepted_at") is None: conn.close(); return redirect(url_for("accept_terms"))
-            except: pass
-            conn.close(); return redirect(url_for("dashboard"))
-        flash("Sticker o contraseña incorrectos."); conn.close()
+                if row_u.get("terms_accepted_at") is None: 
+                    conn.close()
+                    return redirect(url_for("accept_terms"))
+            except: 
+                pass
+            conn.close()
+            return redirect(url_for("dashboard"))
+        
+        flash("Sticker o contraseña incorrectos.")
+        conn.close()
+    
     return render_template("login.html")
 
 @app.route("/terminos")
