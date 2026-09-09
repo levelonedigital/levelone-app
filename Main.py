@@ -508,22 +508,28 @@ def dashboard():
         
     pending_cbu = "No configurado"; pending_phone = "No configurado"
     pending_dest_nombre = "N/A"; pending_dest_dni = "N/A"; pending_dest_entidad = "N/A"
+    pending_cobrador_sticker = "N/A"; pending_cobrador_nombre = "N/A"; pending_cobrador_phone = ""; pending_cobrador_email = ""
     
     if pending:
         step = pending["step"]
         if step == 2:
             dest = _get_nivel1_del_vendedor(cur, uid); row = dest
         elif step == 1:
-            cur.execute("SELECT cbu_alias FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
+            cur.execute("SELECT cbu_alias, sticker_id, full_name, phone, email FROM users WHERE sticker_id=%s", ('ADMIN001',)); row = cur.fetchone()
         elif step == 3:
-            cur.execute("SELECT cbu_alias FROM users WHERE id=%s", (uid,)); row = cur.fetchone()
+            cur.execute("SELECT cbu_alias, sticker_id, full_name, phone, email FROM users WHERE id=%s", (uid,)); row = cur.fetchone()
         else: row = None
         pending_cbu = row["cbu_alias"] if row else "No configurado"
         pending_phone = pending["buyer_phone"] or "No configurado"
         pending_dest_nombre = pending.get("buyer_cbu_titular") or "N/A"
         pending_dest_dni = pending.get("buyer_cbu_dni") or "N/A"
         pending_dest_entidad = pending.get("buyer_cbu_entidad") or "N/A"
-        
+    if row:
+        pending_cobrador_sticker = row.get("sticker_id") or "N/A"
+        pending_cobrador_nombre = row.get("full_name") or "N/A"
+        pending_cobrador_phone = row.get("phone") or ""
+        pending_cobrador_email = row.get("email") or ""
+    
     confirmations = []
     if sticker == 'ADMIN001':
         cur.execute("""SELECT id, sticker_code, buyer_name, buyer_cbu, buyer_cbu_titular, buyer_cbu_dni, buyer_cbu_entidad, buyer_phone, cycle_id, step, status
@@ -590,6 +596,8 @@ def dashboard():
         cycle_level=cycle_level, is_graduated_cycle=is_graduated_cycle, user_cycle_levels=user_cycle_levels, 
         participants=participants, pending=pending, pending_cbu=pending_cbu, pending_phone=pending_phone,
         pending_dest_nombre=pending_dest_nombre, pending_dest_dni=pending_dest_dni, pending_dest_entidad=pending_dest_entidad,
+        pending_cobrador_sticker=pending_cobrador_sticker, pending_cobrador_nombre=pending_cobrador_nombre,
+        pending_cobrador_phone=pending_cobrador_phone, pending_cobrador_email=pending_cobrador_email,
         confirmations=confirmations, 
         my_sales=[{"sale":s,"num":len(my_sales_history)-i} for i,s in enumerate(my_sales_history)], 
         income=[{"sale":s,"num":len(income_history)-i} for i,s in enumerate(income_history)], 
@@ -1022,6 +1030,7 @@ def admin_red():
     def user_buttons(uid2, uname):
         return f"""<div style="display:flex;gap:8px;margin-top:8px;"><a href="/admin/edit_user/{uid2}" style="background:#38a169;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;">✏️ Gestionar</a><a href="/admin/reset_password/{uid2}" onclick="return confirm('¿Resetear?')" style="background:#f6e05e;color:#1a1a2e;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:0.8rem;">🔑 Reset</a></div>"""
     html = """<!DOCTYPE html><html><head><title>Admin Red</title><style>body{font-family:Inter,sans-serif;background:#0a0a0a;color:#fff;padding:40px}.search{display:flex;gap:10px;margin-bottom:30px}input{flex:1;padding:12px;background:#1a1a2e;color:#fff;border:1px solid #444;border-radius:8px}button{background:#667eea;color:#fff;padding:12px 24px;border:none;border-radius:8px}.section{margin-bottom:30px}.section h3{color:#667eea;margin-bottom:15px}.node{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px}.vacante{margin-bottom:10px;padding:10px;background:#0f0f1a;border-radius:8px;border:1px dashed #444;opacity:0.6}.info{font-size:0.9rem;color:#a0aec0}.info span{color:#fff;font-weight:600}a{color:#667eea;text-decoration:none}code{background:#1a1a2e;padding:2px 5px;border-radius:3px}</style></head><body><h2>🌳 Visor de Ciclo</h2><a href="/dashboard">← Volver</a><form method="GET" class="search"><input name="q" placeholder="Buscar..." value=\"""" + query + """"><button type="submit">Buscar</button></form>"""
+    html += """{% with messages = get_flashed_messages() %}{% if messages %}<div style="background:#38a169;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:20px;">{% for m in messages %}<p style="margin:4px 0;font-weight:600;">{{ m }}</p>{% endfor %}</div>{% endif %}{% endwith %}"""
     if target:
         pwd_display = target['password_hash'][:15] + "..." if target['password_hash'] else "No definida"
         html += f"""<div class="section" style="background:#1a1a2e;padding:25px;border-radius:12px;border:2px solid #667eea;text-align:center;"><h3>🎯 Buscado</h3><div class="info"><span>{target['full_name']}</span> | STK: {target['sticker_id']}<br>Tel: {target['phone']} | Nivel: {target['current_level']}</div><div class="info">Pass: <code style="color:#f6e05e">{pwd_display}</code></div>{user_buttons(target['id'], target['full_name'])}</div>"""
