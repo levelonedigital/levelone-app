@@ -22,7 +22,7 @@
     </div>
   </div>
 
-  <!-- 2. CONFIGURACIÓN ADMINISTRATIVA (Solo ADMIN) - Accesos y CBU -->
+  <!-- 2. CONFIGURACIÓN ADMINISTRATIVA (Solo ADMIN) -->
   {% if user.sticker_id == 'ADMIN001' %}
   <div class="row mb-3">
     <div class="col-12">
@@ -45,7 +45,7 @@
   </div>
   {% endif %}
 
-  <!-- 3. LICENCIA PENDIENTE (Acción urgente) -->
+  <!-- 3. LICENCIA PENDIENTE -->
   {% if pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -54,7 +54,6 @@
         <div class="card-body">
           <p class="mb-2 text-readable">Comprador: <strong class="text-white">{{ pending.buyer_name }}</strong></p>
           <p class="mb-2 text-readable">Teléfono: <strong class="text-white">{{ pending_phone }}</strong></p>
-          
           <div class="mb-3 p-2 border rounded bg-dark bg-opacity-10">
             <p class="mb-1 text-readable small fw-bold">🏦 Transferir a:</p>
             <p class="mb-1 small"><strong>Titular:</strong> {{ pending_dest_nombre or 'N/A' }}</p>
@@ -62,8 +61,6 @@
             <p class="mb-1 small"><strong>Entidad:</strong> {{ pending_dest_entidad or 'N/A' }}</p>
             <p class="mb-0"><strong>CBU/Alias:</strong> <code class="bg-dark text-info p-1 rounded">{{ pending_cbu }}</code></p>
           </div>
-
-          <!-- 🟢 NUEVO: Contacto del que cobra (destinatario del pago) -->
           <div class="mb-3 p-2 border rounded bg-dark bg-opacity-10">
             <p class="mb-1 text-readable small fw-bold">📇 Contacto del que cobra este pago:</p>
             <p class="mb-1 small"><strong>Usuario:</strong> <code class="bg-dark text-warning p-1 rounded">{{ pending_cobrador_sticker }}</code> ({{ pending_cobrador_nombre }})</p>
@@ -78,13 +75,11 @@
               {% endif %}
             </div>
           </div>
-
           {% if pending_phone %}
           <a href="https://wa.me/{{ pending_phone.replace('+','').replace(' ','') }}?text=Hola!%20Para%20el%20pago%20del%20sticker%20levelONE,%20te%20paso%20mis%20datos:%0ATitular:%20{{ pending_dest_nombre or 'N/A' }}%0ADNI:%20{{ pending_dest_dni or 'N/A' }}%0AEntidad:%20{{ pending_dest_entidad or 'N/A' }}%0ACBU:%20{{ pending_cbu }}" target="_blank" class="btn btn-success btn-sm mb-3">
               <i class="bi bi-whatsapp"></i> Enviar datos por WhatsApp
           </a>
           {% endif %}
-
           {% if pending.mp_link %}
           <div class="mb-3 p-2 border rounded" style="border-color:#667eea!important;">
               <p class="mb-1 text-readable small fw-bold">💳 Link de pago seguro (Mercado Pago) para esta venta:</p>
@@ -99,7 +94,6 @@
               {% endif %}
           </div>
           {% endif %}
-          
           <div class="d-flex gap-2 flex-wrap">
             {% if pending.status == 'pending' %}
             <form method="POST" action="/marcar_enviado/{{ pending.id }}" class="d-inline">
@@ -155,32 +149,7 @@
   </div>
   {% endif %}
 
-  <!-- 5. HISTORIAL DE PAGOS RECIBIDOS (Solo ADMIN) -->
-  {% if user.sticker_id == 'ADMIN001' %}
-  <div class="row mb-3">
-    <div class="col-12">
-      <div class="card border-info">
-        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">💰 Historial de Pagos Recibidos</div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm mb-0">
-              <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
-              <tbody>
-                {% for item in income %}
-                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block"> {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
-                {% else %}
-                <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- 6. CREAR NUEVA LICENCIA -->
+  <!-- 5. CREAR NUEVA LICENCIA -->
   {% if user.can_sell and not pending %}
   <div class="row mb-4">
     <div class="col-12">
@@ -223,7 +192,7 @@
   </div>
   {% endif %}
 
-  <!-- 7. TU CÓDIGO DE REFERIDO -->
+  <!-- 6. TU CÓDIGO DE REFERIDO -->
   {% if user.can_sell and user.sticker_id != 'ADMIN001' and referral_link %}
   <div class="row mb-3">
     <div class="col-12">
@@ -249,7 +218,7 @@
   </div>
   {% endif %}
 
-  <!-- 8. PAGOS POR CONFIRMAR (Acción urgente) -->
+  <!-- 7. PAGOS POR CONFIRMAR -->
   {% if confirmations %}
   <div class="row mb-3">
     <div class="col-12">
@@ -276,6 +245,31 @@
                     </div>
                   </td>
                 </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 8. HISTORIAL DE PAGOS RECIBIDOS (Solo ADMIN) -->
+  {% if user.sticker_id == 'ADMIN001' %}
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card border-info">
+        <div class="card-header bg-info bg-opacity-10 text-info fw-bold">💰 Historial de Pagos Recibidos</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Fecha</th><th>Licencia</th><th>Comprador</th><th>CBU Destino</th><th>Estado</th></tr></thead>
+              <tbody>
+                {% for item in income %}
+                <tr><td>{{ item.sale.created_at.strftime('%d/%m %H:%M') }}</td><td><code>{{ item.sale.sticker_code }}</code></td><td>{{ item.sale.buyer_name }}</td><td><code class="text-info d-block">{{ item.sale.buyer_cbu }}</code><small class="text-muted d-block"> {{ item.sale.buyer_cbu_titular or 'N/A' }}</small><small class="text-muted d-block">🆔 {{ item.sale.buyer_cbu_dni or 'N/A' }}</small><small class="text-muted d-block">🏦 {{ item.sale.buyer_cbu_entidad or 'N/A' }}</small></td><td><span class="badge bg-success">Confirmado</span></td></tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay pagos confirmados.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
