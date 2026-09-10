@@ -524,11 +524,11 @@ def dashboard():
         pending_dest_nombre = pending.get("buyer_cbu_titular") or "N/A"
         pending_dest_dni = pending.get("buyer_cbu_dni") or "N/A"
         pending_dest_entidad = pending.get("buyer_cbu_entidad") or "N/A"
-    if row:
-        pending_cobrador_sticker = row.get("sticker_id") or "N/A"
-        pending_cobrador_nombre = row.get("full_name") or "N/A"
-        pending_cobrador_phone = row.get("phone") or ""
-        pending_cobrador_email = row.get("email") or ""
+        if row:
+            pending_cobrador_sticker = row.get("sticker_id") or "N/A"
+            pending_cobrador_nombre = row.get("full_name") or "N/A"
+            pending_cobrador_phone = row.get("phone") or ""
+            pending_cobrador_email = row.get("email") or ""
     
     confirmations = []
     if sticker == 'ADMIN001':
