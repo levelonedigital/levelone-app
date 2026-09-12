@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-white fw-bold mb-0">🎓 Mis Cursos</h3>
+    <a href="/portal" class="btn btn-outline-light btn-sm">← Volver al inicio</a>
+  </div>
+
+  {% if cursos %}
+  <div class="row g-4">
+    {% for c in cursos %}
+    <div class="col-md-4">
+      <div class="card h-100">
+        {% if c.image_url %}
+        <img src="{{ c.image_url }}" class="card-img-top" alt="{{ c.title }}" style="height:160px;object-fit:cover;">
+        {% endif %}
+        <div class="card-body d-flex flex-column">
+          <h5 class="card-title text-white fw-bold">{{ c.title }}</h5>
+          <p class="card-text text-muted small flex-grow-1">{{ c.description or '' }}</p>
+          <p class="mb-2">
+            {% if c.es_gratis %}
+              <span class="badge bg-success">GRATIS</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">$ {{ "%.0f"|format(c.price_levelone or 0) }} (con licencia)</span>
+            {% endif %}
+            {% if c.inscrito %}
+              <span class="badge bg-info">Inscripto</span>
+            {% endif %}
+          </p>
+          {% if c.start_date %}<p class="text-muted small mb-1">🗓️ Desde: {{ c.start_date.strftime('%d/%m/%Y') }}</p>{% endif %}
+          {% if c.end_date %}<p class="text-muted small mb-2">⏳ Hasta: {{ c.end_date.strftime('%d/%m/%Y') }}</p>{% endif %}
+          {% if c.inscrito %}
+            <a href="/curso/{{ c.id }}" class="btn btn-success btn-sm w-100">🎓 Entrar al curso</a>
+          {% elif c.es_gratis %}
+            <a href="/curso/{{ c.id }}" class="btn btn-outline-success btn-sm w-100">Activar gratis</a>
+          {% else %}
+            <button class="btn btn-outline-warning btn-sm w-100" disabled>💳 Comprar (próximamente)</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-secondary text-center py-5">
+    <h5>📚 Por el momento no hay cursos disponibles.</h5>
+    <p class="mb-0 text-muted">Estamos preparando nuevas capacitaciones. Volvé pronto.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
