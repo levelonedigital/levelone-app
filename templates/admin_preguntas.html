@@ -1,23 +1,28 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+select.form-control, select.form-select { appearance: menulist !important; -webkit-appearance: menulist !important; background-image: none !important; }
+</style>
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3 class="text-white fw-bold mb-0">📝 Examen: {{ curso.title }}</h3>
-    <a href="/admin/cursos2" class="btn btn-outline-light btn-sm">← Volver</a>
+    <h3 class="text-white fw-bold mb-0">
+      {% if leccion %}📝 Examen de la lección: {{ leccion.title }}{% else %}📝 Examen Final: {{ curso.title }}{% endif %}
+    </h3>
+    <a href="{% if leccion %}/admin/cursos2/lecciones/{{ curso.id }}{% else %}/admin/cursos2{% endif %}" class="btn btn-outline-light btn-sm">← Volver</a>
   </div>
 
   <div class="card mb-4">
     <div class="card-header fw-bold">➕ Agregar Pregunta</div>
     <div class="card-body">
-      <form method="POST" action="/admin/cursos2/preguntas/agregar">
-        <input type="hidden" name="course_id" value="{{ curso.id }}">
+      <form method="POST" action="{% if leccion %}/admin/cursos2/preguntas_leccion/agregar{% else %}/admin/cursos2/preguntas/agregar{% endif %}">
+        {% if leccion %}<input type="hidden" name="lesson_id" value="{{ leccion.id }}">{% else %}<input type="hidden" name="course_id" value="{{ curso.id }}">{% endif %}
         <div class="row g-3">
           <div class="col-12"><label class="form-label small">Pregunta *</label><input name="question" class="form-control" required></div>
           <div class="col-md-3"><label class="form-label small">Opción A</label><input name="option_a" class="form-control"></div>
           <div class="col-md-3"><label class="form-label small">Opción B</label><input name="option_b" class="form-control"></div>
           <div class="col-md-3"><label class="form-label small">Opción C</label><input name="option_c" class="form-control"></div>
           <div class="col-md-3"><label class="form-label small">Opción D</label><input name="option_d" class="form-control"></div>
-          <div class="col-md-3"><label class="form-label small">Respuesta correcta</label>
+          <div class="col-md-3"><label class="form-label small">Respuesta correcta ▼</label>
             <select name="correct_option" class="form-control"><option>A</option><option>B</option><option>C</option><option>D</option></select>
           </div>
         </div>
