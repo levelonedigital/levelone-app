@@ -14,8 +14,8 @@ input[type="file"].form-control { height: auto !important; font-size: 1.05rem !i
     <div class="card-body">
       <form method="POST" enctype="multipart/form-data">
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label small">Título *</label><input name="title" class="form-control" value="{{ l.title }}" required></div>
-          <div class="col-md-3"><label class="form-label small">Tipo</label>
+          <div class="col-md-5"><label class="form-label small">Título *</label><input name="title" class="form-control" value="{{ l.title }}" required></div>
+          <div class="col-md-3"><label class="form-label small">Tipo ▼</label>
             <select name="content_type" class="form-control">
               <option value="text"  {% if l.content_type=='text' %}selected{% endif %}>Texto</option>
               <option value="video" {% if l.content_type=='video' %}selected{% endif %}>Video (YouTube)</option>
@@ -23,7 +23,7 @@ input[type="file"].form-control { height: auto !important; font-size: 1.05rem !i
               <option value="link"  {% if l.content_type=='link' %}selected{% endif %}>Link externo</option>
             </select>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label small">Archivo PDF (actual: {{ l.pdf_filename or 'ninguno' }})</label>
             <input type="file" name="pdf_file" class="form-control form-control-lg" accept=".pdf">
             <small class="text-muted">Si no subís uno, se mantiene el actual.</small>
