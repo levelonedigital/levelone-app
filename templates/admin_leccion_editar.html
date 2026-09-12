@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-white fw-bold mb-0">✏️ Editar Lección</h3>
+    <a href="/admin/cursos2/lecciones/{{ l.course_id }}" class="btn btn-outline-light btn-sm">← Volver</a>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label small">Título *</label><input name="title" class="form-control" value="{{ l.title }}" required></div>
+          <div class="col-md-3"><label class="form-label small">Tipo</label>
+            <select name="content_type" class="form-control">
+              <option value="text"  {% if l.content_type=='text' %}selected{% endif %}>Texto</option>
+              <option value="video" {% if l.content_type=='video' %}selected{% endif %}>Video (YouTube)</option>
+              <option value="pdf"   {% if l.content_type=='pdf' %}selected{% endif %}>PDF</option>
+              <option value="link"  {% if l.content_type=='link' %}selected{% endif %}>Link externo</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Archivo PDF (actual: {{ l.pdf_filename or 'ninguno' }})</label>
+            <input type="file" name="pdf_file" class="form-control form-control-lg" accept=".pdf">
+            <small class="text-muted">Si no subís uno, se mantiene el actual.</small>
+          </div>
+          <div class="col-md-6"><label class="form-label small">URL (video o link)</label><input name="content_url" class="form-control" value="{{ l.content_url or '' }}"></div>
+          <div class="col-12"><label class="form-label small">Contenido de texto</label><textarea name="content_text" class="form-control" rows="6">{{ l.content_text or '' }}</textarea></div>
+        </div>
+        <button class="btn btn-primary mt-3">💾 Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
