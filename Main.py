@@ -12,10 +12,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import psycopg2
 import psycopg2.extras
+import cursos
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "levelone_produccion_segura_2026")
+app.register_blueprint(cursos.cursos_bp)
 
 MP_MONTO_VENTA = 30000.0
 MP_MONTO_LICENCIA_DIRECTA = 60000.0
@@ -213,6 +215,7 @@ def init_db():
     conn.commit(); print("✅ DB inicializada.", flush=True); conn.close()
 
 init_db()
+cursos.init_db_cursos()
 
 @app.route("/")
 def index():
@@ -401,7 +404,7 @@ def login():
                 session["user_id"] = row_u["id"]
                 session["role"] = row_u["role"]
                 conn.close()
-                return redirect(url_for("dashboard"))
+                return redirect("/portal")
             
             cur.execute("SELECT status FROM stickers WHERE sticker_code=%s AND status='entregado' LIMIT 1", (sid,))
             licencia_pagada = cur.fetchone()
@@ -420,7 +423,7 @@ def login():
             except: 
                 pass
             conn.close()
-            return redirect(url_for("dashboard"))
+            return redirect("/portal")
         
         flash("Sticker o contraseña incorrectos.")
         conn.close()
