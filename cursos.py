@@ -39,6 +39,7 @@ def init_db_cursos():
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS has_exam BOOLEAN DEFAULT FALSE",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS exam_pass_score INTEGER DEFAULT 70",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS exam_attempts INTEGER DEFAULT 3",
+        "ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS lesson_id INTEGER",
     ]
     for a in alters:
         try:
@@ -172,24 +173,27 @@ def admin_cursos2_crear():
     flash("✅ Curso creado.")
     return redirect("/admin/cursos2")
 
-@cursos_bp.route("/admin/cursos2/editar/<int:cid>", methods=["POST"])
+@cursos_bp.route("/admin/cursos2/editar/<int:cid>", methods=["GET","POST"])
 @admin_requerido
 def admin_cursos2_editar(cid):
     conn = get_db(); cur = get_cur(conn)
-    pr = _num(request.form.get("price_regular"), 0) or 0
-    pl = _num(request.form.get("price_levelone"), 0) or 0
-    disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
-    cur.execute("""UPDATE courses SET title=%s, description=%s, image_url=%s, start_date=%s, end_date=%s,
-                   price=%s, discount_pct=%s, price_regular=%s, price_levelone=%s, has_exam=%s,
-                   exam_pass_score=%s, exam_attempts=%s, status=%s WHERE id=%s""",
-        (request.form.get("title","").strip(), request.form.get("description","").strip(),
-         request.form.get("image_url","").strip(), _fecha(request.form.get("start_date")), _fecha(request.form.get("end_date")),
-         pr, disc, pr, pl, request.form.get("has_exam")=="on",
-         int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3),
-         request.form.get("status","active"), cid))
-    conn.commit(); conn.close()
-    flash("✅ Curso actualizado.")
-    return redirect("/admin/cursos2")
+    if request.method == "POST":
+        pr = _num(request.form.get("price_regular"), 0) or 0
+        pl = _num(request.form.get("price_levelone"), 0) or 0
+        disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
+        cur.execute("""UPDATE courses SET title=%s, description=%s, image_url=%s, start_date=%s, end_date=%s,
+                       price=%s, discount_pct=%s, price_regular=%s, price_levelone=%s, has_exam=%s,
+                       exam_pass_score=%s, exam_attempts=%s, status=%s WHERE id=%s""",
+            (request.form.get("title","").strip(), request.form.get("description","").strip(),
+             request.form.get("image_url","").strip(), _fecha(request.form.get("start_date")), _fecha(request.form.get("end_date")),
+             pr, disc, pr, pl, request.form.get("has_exam")=="on",
+             int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3),
+             request.form.get("status","active"), cid))
+        conn.commit(); conn.close()
+        flash("✅ Curso actualizado.")
+        return redirect("/admin/cursos2")
+    cur.execute("SELECT * FROM courses WHERE id=%s", (cid,)); c = cur.fetchone(); conn.close()
+    return render_template("admin_curso_editar.html", c=c)
 
 @cursos_bp.route("/admin/cursos2/eliminar/<int:cid>", methods=["POST"])
 @admin_requerido
@@ -248,33 +252,59 @@ def admin_lecciones_eliminar(lid):
 def admin_preguntas(cid):
     conn = get_db(); cur = get_cur(conn)
     cur.execute("SELECT * FROM courses WHERE id=%s", (cid,)); curso = cur.fetchone()
-    cur.execute("SELECT * FROM exam_questions WHERE course_id=%s ORDER BY id", (cid,))
+    cur.execute("SELECT * FROM exam_questions WHERE course_id=%s AND lesson_id IS NULL ORDER BY id", (cid,))
     preguntas = cur.fetchall(); conn.close()
-    return render_template("admin_preguntas.html", curso=curso, preguntas=preguntas)
+    return render_template("admin_preguntas.html", curso=curso, preguntas=preguntas, leccion=None)
 
 @cursos_bp.route("/admin/cursos2/preguntas/agregar", methods=["POST"])
 @admin_requerido
 def admin_preguntas_agregar():
     cid = int(request.form.get("course_id"))
     conn = get_db(); cur = get_cur(conn)
-    cur.execute("""INSERT INTO exam_questions (course_id,question,option_a,option_b,option_c,option_d,correct_option)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+    cur.execute("""INSERT INTO exam_questions (course_id,lesson_id,question,option_a,option_b,option_c,option_d,correct_option)
+                   VALUES (%s,NULL,%s,%s,%s,%s,%s,%s,%s)""",
         (cid, request.form.get("question","").strip(), request.form.get("option_a","").strip(),
          request.form.get("option_b","").strip(), request.form.get("option_c","").strip(),
          request.form.get("option_d","").strip(), request.form.get("correct_option","A")))
     conn.commit(); conn.close()
-    flash("✅ Pregunta agregada.")
+    flash("✅ Pregunta agregada al examen final.")
     return redirect(f"/admin/cursos2/preguntas/{cid}")
+
+@cursos_bp.route("/admin/cursos2/preguntas_leccion/<int:lid>")
+@admin_requerido
+def admin_preguntas_leccion(lid):
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT * FROM lessons WHERE id=%s", (lid,)); leccion = cur.fetchone()
+    cur.execute("SELECT * FROM courses WHERE id=%s", (leccion["course_id"],)); curso = cur.fetchone()
+    cur.execute("SELECT * FROM exam_questions WHERE lesson_id=%s ORDER BY id", (lid,))
+    preguntas = cur.fetchall(); conn.close()
+    return render_template("admin_preguntas.html", curso=curso, preguntas=preguntas, leccion=leccion)
+
+@cursos_bp.route("/admin/cursos2/preguntas_leccion/agregar", methods=["POST"])
+@admin_requerido
+def admin_preguntas_leccion_agregar():
+    lid = int(request.form.get("lesson_id"))
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT course_id FROM lessons WHERE id=%s", (lid,)); r = cur.fetchone()
+    cur.execute("""INSERT INTO exam_questions (course_id,lesson_id,question,option_a,option_b,option_c,option_d,correct_option)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        (r["course_id"], lid, request.form.get("question","").strip(), request.form.get("option_a","").strip(),
+         request.form.get("option_b","").strip(), request.form.get("option_c","").strip(),
+         request.form.get("option_d","").strip(), request.form.get("correct_option","A")))
+    conn.commit(); conn.close()
+    flash("✅ Pregunta de lección agregada.")
+    return redirect(f"/admin/cursos2/preguntas_leccion/{lid}")
 
 @cursos_bp.route("/admin/cursos2/preguntas/eliminar/<int:pid>", methods=["POST"])
 @admin_requerido
 def admin_preguntas_eliminar(pid):
     conn = get_db(); cur = get_cur(conn)
-    cur.execute("SELECT course_id FROM exam_questions WHERE id=%s", (pid,)); r = cur.fetchone()
+    cur.execute("SELECT course_id, lesson_id FROM exam_questions WHERE id=%s", (pid,)); r = cur.fetchone()
     cur.execute("DELETE FROM exam_questions WHERE id=%s", (pid,))
-    conn.commit(); cid = r["course_id"] if r else 0; conn.close()
+    conn.commit(); conn.close()
     flash("🗑️ Pregunta eliminada.")
-    return redirect(f"/admin/cursos2/preguntas/{cid}")
+    if r and r["lesson_id"]: return redirect(f"/admin/cursos2/preguntas_leccion/{r['lesson_id']}")
+    return redirect(f"/admin/cursos2/preguntas/{r['course_id'] if r else 0}")
 
 # ---------- EDITAR LECCIÓN ----------
 @cursos_bp.route("/admin/cursos2/lecciones/editar/<int:lid>", methods=["GET","POST"])
