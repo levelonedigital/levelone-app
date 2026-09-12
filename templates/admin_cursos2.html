@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+select.form-control, select.form-select { appearance: menulist !important; -webkit-appearance: menulist !important; background-image: none !important; }
+</style>
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h3 class="text-white fw-bold mb-0">📚 Gestión de Cursos (Nueva)</h3>
@@ -18,7 +21,7 @@
           <div class="col-md-3"><label class="form-label small">Fecha fin</label><input type="date" name="end_date" class="form-control"></div>
           <div class="col-md-3"><label class="form-label small">Precio regular ($)</label><input type="number" step="0.01" name="price_regular" class="form-control" value="0"></div>
           <div class="col-md-3"><label class="form-label small">Precio con licencia ($)</label><input type="number" step="0.01" name="price_levelone" class="form-control" value="0"></div>
-          <div class="col-md-3 form-check mt-4"><input type="checkbox" class="form-check-input" name="has_exam" id="he"><label class="form-check-label" for="he">Tiene examen</label></div>
+          <div class="col-md-3 form-check mt-4"><input type="checkbox" class="form-check-input" name="has_exam" id="he"><label class="form-check-label" for="he">Tiene examen final</label></div>
           <div class="col-md-3"><label class="form-label small">Nota mínima (%)</label><input type="number" name="exam_pass_score" class="form-control" value="70"></div>
           <div class="col-md-3"><label class="form-label small">Intentos</label><input type="number" name="exam_attempts" class="form-control" value="3"></div>
           <div class="col-md-3"><label class="form-label small">Estado</label><select name="status" class="form-control"><option value="active">Activo</option><option value="inactive">Inactivo</option></select></div>
@@ -40,8 +43,9 @@
           <td class="small">{{ c.start_date or '-' }} → {{ c.end_date or '-' }}</td>
           <td><span class="badge bg-{{ 'success' if c.status=='active' else 'secondary' }}">{{ c.status }}</span></td>
           <td>
+            <a href="/admin/cursos2/editar/{{ c.id }}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
             <a href="/admin/cursos2/lecciones/{{ c.id }}" class="btn btn-sm btn-outline-info">Lecciones</a>
-            <a href="/admin/cursos2/preguntas/{{ c.id }}" class="btn btn-sm btn-outline-warning">Examen</a>
+            <a href="/admin/cursos2/preguntas/{{ c.id }}" class="btn btn-sm btn-outline-success">Examen Final</a>
             <form method="POST" action="/admin/cursos2/eliminar/{{ c.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar curso y todo su contenido?');">
               <button class="btn btn-sm btn-outline-danger">🗑️</button>
             </form>
