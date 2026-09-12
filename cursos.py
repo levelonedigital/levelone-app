@@ -275,3 +275,28 @@ def admin_preguntas_eliminar(pid):
     conn.commit(); cid = r["course_id"] if r else 0; conn.close()
     flash("🗑️ Pregunta eliminada.")
     return redirect(f"/admin/cursos2/preguntas/{cid}")
+
+# ---------- EDITAR LECCIÓN ----------
+@cursos_bp.route("/admin/cursos2/lecciones/editar/<int:lid>", methods=["GET","POST"])
+@admin_requerido
+def admin_lecciones_editar(lid):
+    conn = get_db(); cur = get_cur(conn)
+    if request.method == "POST":
+        f = request.files.get("pdf_file")
+        if f and f.filename:
+            pdf_data = f.read(); pdf_filename = f.filename
+            cur.execute("""UPDATE lessons SET title=%s, content_type=%s, content_url=%s, content_text=%s,
+                           pdf_data=%s, pdf_filename=%s WHERE id=%s""",
+                (request.form.get("title","").strip(), request.form.get("content_type","text"),
+                 request.form.get("content_url","").strip(), request.form.get("content_text","").strip(),
+                 pdf_data, pdf_filename, lid))
+        else:
+            cur.execute("""UPDATE lessons SET title=%s, content_type=%s, content_url=%s, content_text=%s WHERE id=%s""",
+                (request.form.get("title","").strip(), request.form.get("content_type","text"),
+                 request.form.get("content_url","").strip(), request.form.get("content_text","").strip(), lid))
+        conn.commit()
+        cur.execute("SELECT course_id FROM lessons WHERE id=%s", (lid,)); r = cur.fetchone(); conn.close()
+        flash("✅ Lección actualizada.")
+        return redirect(f"/admin/cursos2/lecciones/{r['course_id']}")
+    cur.execute("SELECT * FROM lessons WHERE id=%s", (lid,)); l = cur.fetchone(); conn.close()
+    return render_template("admin_leccion_editar.html", l=l)
