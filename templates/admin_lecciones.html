@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h3 class="text-white fw-bold mb-0">📖 Lecciones: {{ curso.title }}</h3>
-    <a href="/admin/cursos2" class="btn btn-outline-light btn-sm">← Volver</a>
+    <div class="d-flex gap-2">
+      <a href="/admin/cursos2/preguntas/{{ curso.id }}" class="btn btn-warning btn-sm">📝 Ir al Examen</a>
+      <a href="/admin/cursos2" class="btn btn-outline-light btn-sm">← Volver</a>
+    </div>
   </div>
 
   <div class="card mb-4">
@@ -21,7 +24,7 @@
               <option value="link">Link externo</option>
             </select>
           </div>
-          <div class="col-md-3"><label class="form-label small">Archivo PDF</label><input type="file" name="pdf_file" class="form-control" accept=".pdf"></div>
+          <div class="col-md-3"><label class="form-label small">Archivo PDF</label><input type="file" name="pdf_file" class="form-control form-control-lg" accept=".pdf"></div>
           <div class="col-md-6"><label class="form-label small">URL (video YouTube o link externo)</label><input name="content_url" class="form-control" placeholder="https://youtube.com/embed/... o https://..."></div>
           <div class="col-12"><label class="form-label small">Contenido de texto</label><textarea name="content_text" class="form-control" rows="4"></textarea></div>
         </div>
@@ -32,7 +35,7 @@
 
   <div class="table-responsive">
     <table class="table table-sm">
-      <thead><tr><th>#</th><th>Título</th><th>Tipo</th><th>Archivo</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Título</th><th>Tipo</th><th>Archivo</th><th>Acciones</th></tr></thead>
       <tbody>
       {% for l in lecciones %}
         <tr>
@@ -41,6 +44,7 @@
           <td><span class="badge bg-info">{{ l.content_type }}</span></td>
           <td class="small">{{ l.pdf_filename or '-' }}</td>
           <td>
+            <a href="/admin/cursos2/lecciones/editar/{{ l.id }}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
             <form method="POST" action="/admin/cursos2/lecciones/eliminar/{{ l.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar lección?');">
               <button class="btn btn-sm btn-outline-danger">🗑️</button>
             </form>
