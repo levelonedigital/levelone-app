@@ -7,7 +7,9 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime, date
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
+from io import BytesIO
+from flask import (Blueprint, render_template, request, redirect, url_for,
+                   session, flash, jsonify, send_file, abort)
 
 cursos_bp = Blueprint('cursos', __name__)
 
@@ -48,6 +50,17 @@ def _fecha(v):
 def _num(v, default=None):
     try: return float(v) if v not in (None, "") else default
     except Exception: return default
+
+def _youtube_embed(url):
+    if not url: return ""
+    if "embed/" in url: return url
+    if "watch?v=" in url: return url.replace("watch?v=", "embed/")
+    if "youtu.be/" in url: return url.replace("youtu.be/", "www.youtube.com/embed/")
+    return url
+
+def _inscripto(cur, user_id, course_id):
+    cur.execute("SELECT id FROM course_enrollments WHERE user_id=%s AND course_id=%s AND status='active'", (user_id, course_id))
+    return cur.fetchone() is not None
 
 def init_db_cursos():
     """Crea tablas de cursos y agrega columnas nuevas SIN tocar las existentes."""
@@ -144,6 +157,70 @@ def catalogo():
     for c in cursos:
         c["es_gratis"] = (not c.get("price_levelone")) or float(c["price_levelone"] or 0) == 0
     return render_template("cursos_catalogo.html", cursos=cursos)
+
+# =============================================================================
+# FASE 3: EL ALUMNO ENTRA AL CURSO
+# =============================================================================
+@cursos_bp.route("/curso/<int:cid>")
+@login_requerido
+def curso_detalle(cid):
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT * FROM courses WHERE id=%s AND status='active'", (cid,))
+    curso = cur.fetchone()
+    if not curso:
+        conn.close(); flash("⚠️ Curso no disponible."); return redirect("/cursos")
+    inscrito = _inscripto(cur, session["user_id"], cid)
+    lecciones = []
+    if inscrito:
+        cur.execute("SELECT id,title,content_type,order_idx FROM lessons WHERE course_id=%s ORDER BY order_idx", (cid,))
+        lecciones = cur.fetchall()
+    conn.close()
+    es_gratis = (not curso.get("price_levelone")) or float(curso["price_levelone"] or 0) == 0
+    return render_template("curso_detalle.html", curso=curso, inscrito=inscrito, lecciones=lecciones, es_gratis=es_gratis)
+
+@cursos_bp.route("/curso/<int:cid>/inscribir", methods=["POST"])
+@login_requerido
+def curso_inscribir(cid):
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT price_levelone FROM courses WHERE id=%s", (cid,)); c = cur.fetchone()
+    if not c or (c["price_levelone"] and float(c["price_levelone"]) > 0):
+        conn.close(); flash("⚠️ Este curso es pago."); return redirect(f"/curso/{cid}")
+    cur.execute("INSERT INTO course_enrollments (user_id,course_id) VALUES (%s,%s) ON CONFLICT (user_id,course_id) DO NOTHING",
+        (session["user_id"], cid))
+    conn.commit(); conn.close()
+    flash("✅ Te inscribiste al curso. ¡A aprender!")
+    return redirect(f"/curso/{cid}")
+
+@cursos_bp.route("/curso/<int:cid>/leccion/<int:lid>")
+@login_requerido
+def curso_leccion(cid, lid):
+    conn = get_db(); cur = get_cur(conn)
+    if not _inscripto(cur, session["user_id"], cid):
+        conn.close(); flash("⚠️ Debes inscribirte al curso primero."); return redirect(f"/curso/{cid}")
+    cur.execute("SELECT * FROM courses WHERE id=%s", (cid,)); curso = cur.fetchone()
+    cur.execute("SELECT * FROM lessons WHERE id=%s AND course_id=%s", (lid, cid)); leccion = cur.fetchone()
+    if not leccion:
+        conn.close(); flash("⚠️ Lección no encontrada."); return redirect(f"/curso/{cid}")
+    cur.execute("SELECT id,title,order_idx FROM lessons WHERE course_id=%s ORDER BY order_idx", (cid,))
+    todas = cur.fetchall(); conn.close()
+    idx = next((i for i,l in enumerate(todas) if l["id"]==lid), 0)
+    prev = todas[idx-1]["id"] if idx > 0 else None
+    nxt  = todas[idx+1]["id"] if idx < len(todas)-1 else None
+    leccion = dict(leccion)
+    leccion["video_embed"] = _youtube_embed(leccion.get("content_url"))
+    return render_template("curso_leccion.html", curso=curso, leccion=leccion, prev=prev, nxt=nxt, cid=cid)
+
+@cursos_bp.route("/curso/<int:cid>/leccion/<int:lid>/pdf")
+@login_requerido
+def curso_leccion_pdf(cid, lid):
+    conn = get_db(); cur = get_cur(conn)
+    if not _inscripto(cur, session["user_id"], cid):
+        conn.close(); abort(403)
+    cur.execute("SELECT pdf_data, pdf_filename FROM lessons WHERE id=%s AND course_id=%s", (lid, cid))
+    l = cur.fetchone(); conn.close()
+    if not l or not l["pdf_data"]: abort(404)
+    return send_file(BytesIO(l["pdf_data"]), mimetype="application/pdf",
+                     download_name=l["pdf_filename"] or "documento.pdf")
 
 # =============================================================================
 # GESTIÓN DE CURSOS (ADMIN)
