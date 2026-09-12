@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-white fw-bold mb-0">📚 Gestión de Cursos (Nueva)</h3>
+    <div><a href="/portal" class="btn btn-outline-light btn-sm">← Portal</a> <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Admin</a></div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header fw-bold">➕ Crear Curso</div>
+    <div class="card-body">
+      <form method="POST" action="/admin/cursos2/crear">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label small">Nombre del curso *</label><input name="title" class="form-control" required></div>
+          <div class="col-md-6"><label class="form-label small">Imagen (URL)</label><input name="image_url" class="form-control" placeholder="https://..."></div>
+          <div class="col-12"><label class="form-label small">Descripción</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+          <div class="col-md-3"><label class="form-label small">Fecha inicio</label><input type="date" name="start_date" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label small">Fecha fin</label><input type="date" name="end_date" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label small">Precio regular ($)</label><input type="number" step="0.01" name="price_regular" class="form-control" value="0"></div>
+          <div class="col-md-3"><label class="form-label small">Precio con licencia ($)</label><input type="number" step="0.01" name="price_levelone" class="form-control" value="0"></div>
+          <div class="col-md-3 form-check mt-4"><input type="checkbox" class="form-check-input" name="has_exam" id="he"><label class="form-check-label" for="he">Tiene examen</label></div>
+          <div class="col-md-3"><label class="form-label small">Nota mínima (%)</label><input type="number" name="exam_pass_score" class="form-control" value="70"></div>
+          <div class="col-md-3"><label class="form-label small">Intentos</label><input type="number" name="exam_attempts" class="form-control" value="3"></div>
+          <div class="col-md-3"><label class="form-label small">Estado</label><select name="status" class="form-control"><option value="active">Activo</option><option value="inactive">Inactivo</option></select></div>
+        </div>
+        <button class="btn btn-primary mt-3">💾 Guardar Curso</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>Curso</th><th>Precio lic.</th><th>Examen</th><th>Fechas</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>
+      {% for c in cursos %}
+        <tr>
+          <td>{{ c.title }}</td>
+          <td>{% if c.price_levelone and c.price_levelone|int > 0 %}${{ "%.0f"|format(c.price_levelone) }}{% else %}Gratis{% endif %}</td>
+          <td>{{ "Sí" if c.has_exam else "No" }}</td>
+          <td class="small">{{ c.start_date or '-' }} → {{ c.end_date or '-' }}</td>
+          <td><span class="badge bg-{{ 'success' if c.status=='active' else 'secondary' }}">{{ c.status }}</span></td>
+          <td>
+            <a href="/admin/cursos2/lecciones/{{ c.id }}" class="btn btn-sm btn-outline-info">Lecciones</a>
+            <a href="/admin/cursos2/preguntas/{{ c.id }}" class="btn btn-sm btn-outline-warning">Examen</a>
+            <form method="POST" action="/admin/cursos2/eliminar/{{ c.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar curso y todo su contenido?');">
+              <button class="btn btn-sm btn-outline-danger">🗑️</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-center text-muted">No hay cursos aún.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
