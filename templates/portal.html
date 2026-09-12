@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h2 class="text-white fw-bold mb-2">Hola, {{ user.full_name }}</h2>
+    <p class="text-muted">¿Qué querés hacer hoy?</p>
+  </div>
+
+  <div class="row g-4 justify-content-center">
+    <!-- Tarjeta Cursos -->
+    <div class="col-md-5">
+      <div class="card h-100 border-success text-center" style="border-width:2px;">
+        <div class="card-body d-flex flex-column justify-content-center align-items-center py-5">
+          <div style="font-size:4rem;">🎓</div>
+          <h4 class="text-white fw-bold mt-3">Mis Cursos</h4>
+          <p class="text-muted small mb-4">Capacitaciones, lecciones, exámenes y certificados.</p>
+          <a href="/cursos" class="btn btn-success btn-lg px-5">Entrar a Cursos</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tarjeta Referidos -->
+    <div class="col-md-5">
+      <div class="card h-100 border-primary text-center" style="border-width:2px;">
+        <div class="card-body d-flex flex-column justify-content-center align-items-center py-5">
+          <div style="font-size:4rem;">🤝</div>
+          <h4 class="text-white fw-bold mt-3">Sistema de Referidos</h4>
+          <p class="text-muted small mb-4">Tu red, ventas, ciclos, niveles y pagos.</p>
+          <a href="/dashboard" class="btn btn-primary btn-lg px-5">Entrar a Referidos</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tarjeta Admin (solo ADMIN) -->
+    {% if is_admin %}
+    <div class="col-md-5">
+      <div class="card h-100 border-warning text-center" style="border-width:2px;">
+        <div class="card-body d-flex flex-column justify-content-center align-items-center py-5">
+          <div style="font-size:4rem;">⚙️</div>
+          <h4 class="text-white fw-bold mt-3">Administración</h4>
+          <p class="text-muted small mb-4">Gestión de usuarios, red, cursos y configuración.</p>
+          <a href="/dashboard" class="btn btn-warning btn-lg px-5">Panel Admin</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
