@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-white fw-bold mb-0">📖 Lecciones: {{ curso.title }}</h3>
+    <a href="/admin/cursos2" class="btn btn-outline-light btn-sm">← Volver</a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header fw-bold">➕ Agregar Lección</div>
+    <div class="card-body">
+      <form method="POST" action="/admin/cursos2/lecciones/agregar" enctype="multipart/form-data">
+        <input type="hidden" name="course_id" value="{{ curso.id }}">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label small">Título *</label><input name="title" class="form-control" required></div>
+          <div class="col-md-3"><label class="form-label small">Tipo</label>
+            <select name="content_type" class="form-control">
+              <option value="text">Texto</option>
+              <option value="video">Video (YouTube)</option>
+              <option value="pdf">PDF (subir archivo)</option>
+              <option value="link">Link externo</option>
+            </select>
+          </div>
+          <div class="col-md-3"><label class="form-label small">Archivo PDF</label><input type="file" name="pdf_file" class="form-control" accept=".pdf"></div>
+          <div class="col-md-6"><label class="form-label small">URL (video YouTube o link externo)</label><input name="content_url" class="form-control" placeholder="https://youtube.com/embed/... o https://..."></div>
+          <div class="col-12"><label class="form-label small">Contenido de texto</label><textarea name="content_text" class="form-control" rows="4"></textarea></div>
+        </div>
+        <button class="btn btn-primary mt-3">💾 Agregar Lección</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>#</th><th>Título</th><th>Tipo</th><th>Archivo</th><th></th></tr></thead>
+      <tbody>
+      {% for l in lecciones %}
+        <tr>
+          <td>{{ l.order_idx }}</td>
+          <td>{{ l.title }}</td>
+          <td><span class="badge bg-info">{{ l.content_type }}</span></td>
+          <td class="small">{{ l.pdf_filename or '-' }}</td>
+          <td>
+            <form method="POST" action="/admin/cursos2/lecciones/eliminar/{{ l.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar lección?');">
+              <button class="btn btn-sm btn-outline-danger">🗑️</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="text-center text-muted">Sin lecciones aún.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
