@@ -42,6 +42,11 @@ def admin_requerido(f):
         return f(*args, **kwargs)
     return wrapper
 
+def _es_admin(cur, user_id):
+    cur.execute("SELECT sticker_id FROM users WHERE id=%s", (user_id,))
+    r = cur.fetchone()
+    return bool(r and r["sticker_id"] == "ADMIN001")
+
 def _fecha(v):
     if not v: return None
     try: return datetime.strptime(v, "%Y-%m-%d").date()
@@ -136,7 +141,7 @@ def portal():
     return render_template("portal.html", is_admin=is_admin, user=u)
 
 # =============================================================================
-# CATÁLOGO DE CURSOS DEL ALUMNO
+# CATÁLOGO DE CURSOS DEL ALUMNO (solo ve ACTIVOS)
 # =============================================================================
 @cursos_bp.route("/cursos")
 @login_requerido
@@ -159,17 +164,21 @@ def catalogo():
     return render_template("cursos_catalogo.html", cursos=cursos)
 
 # =============================================================================
-# FASE 3: EL ALUMNO ENTRA AL CURSO
+# VISTA DEL CURSO (alumno inscripto O admin sin inscripción)
 # =============================================================================
 @cursos_bp.route("/curso/<int:cid>")
 @login_requerido
 def curso_detalle(cid):
     conn = get_db(); cur = get_cur(conn)
-    cur.execute("SELECT * FROM courses WHERE id=%s AND status='active'", (cid,))
+    es_admin = _es_admin(cur, session["user_id"])
+    if es_admin:
+        cur.execute("SELECT * FROM courses WHERE id=%s", (cid,))
+    else:
+        cur.execute("SELECT * FROM courses WHERE id=%s AND status='active'", (cid,))
     curso = cur.fetchone()
     if not curso:
         conn.close(); flash("⚠️ Curso no disponible."); return redirect("/cursos")
-    inscrito = _inscripto(cur, session["user_id"], cid)
+    inscrito = _inscripto(cur, session["user_id"], cid) or es_admin
     lecciones = []
     if inscrito:
         cur.execute("SELECT id,title,content_type,order_idx FROM lessons WHERE course_id=%s ORDER BY order_idx", (cid,))
@@ -195,7 +204,7 @@ def curso_inscribir(cid):
 @login_requerido
 def curso_leccion(cid, lid):
     conn = get_db(); cur = get_cur(conn)
-    if not _inscripto(cur, session["user_id"], cid):
+    if not (_inscripto(cur, session["user_id"], cid) or _es_admin(cur, session["user_id"])):
         conn.close(); flash("⚠️ Debes inscribirte al curso primero."); return redirect(f"/curso/{cid}")
     cur.execute("SELECT * FROM courses WHERE id=%s", (cid,)); curso = cur.fetchone()
     cur.execute("SELECT * FROM lessons WHERE id=%s AND course_id=%s", (lid, cid)); leccion = cur.fetchone()
@@ -214,7 +223,7 @@ def curso_leccion(cid, lid):
 @login_requerido
 def curso_leccion_pdf(cid, lid):
     conn = get_db(); cur = get_cur(conn)
-    if not _inscripto(cur, session["user_id"], cid):
+    if not (_inscripto(cur, session["user_id"], cid) or _es_admin(cur, session["user_id"])):
         conn.close(); abort(403)
     cur.execute("SELECT pdf_data, pdf_filename FROM lessons WHERE id=%s AND course_id=%s", (lid, cid))
     l = cur.fetchone(); conn.close()
@@ -240,16 +249,30 @@ def admin_cursos2_crear():
     pr = _num(request.form.get("price_regular"), 0) or 0
     pl = _num(request.form.get("price_levelone"), 0) or 0
     disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
+    # Los cursos NUEVOS se crean siempre INACTIVOS (revisión antes de publicar)
     cur.execute("""INSERT INTO courses (title, description, image_url, start_date, end_date,
                    price, discount_pct, price_regular, price_levelone, has_exam, exam_pass_score, exam_attempts, status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'inactive')""",
         (request.form.get("title","").strip(), request.form.get("description","").strip(),
          request.form.get("image_url","").strip(), _fecha(request.form.get("start_date")), _fecha(request.form.get("end_date")),
          pr, disc, pr, pl, request.form.get("has_exam")=="on",
-         int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3),
-         request.form.get("status","active")))
+         int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3)))
     conn.commit(); conn.close()
-    flash("✅ Curso creado.")
+    flash("✅ Curso creado como INACTIVO. Previsualizalo y activalo cuando esté listo.")
+    return redirect("/admin/cursos2")
+
+@cursos_bp.route("/admin/cursos2/toggle/<int:cid>", methods=["POST"])
+@admin_requerido
+def admin_cursos2_toggle(cid):
+    conn = get_db(); cur = get_cur(conn)
+    cur.execute("SELECT status FROM courses WHERE id=%s", (cid,)); c = cur.fetchone()
+    if not c:
+        conn.close(); return redirect("/admin/cursos2")
+    nuevo = 'inactive' if c["status"] == 'active' else 'active'
+    cur.execute("UPDATE courses SET status=%s WHERE id=%s", (nuevo, cid))
+    conn.commit(); conn.close()
+    flash("🟢 Curso ACTIVADO: ya lo ven los alumnos." if nuevo == 'active'
+          else "🔴 Curso DESACTIVADO: solo lo ve el admin.")
     return redirect("/admin/cursos2")
 
 @cursos_bp.route("/admin/cursos2/editar/<int:cid>", methods=["GET","POST"])
