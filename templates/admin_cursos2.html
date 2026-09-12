@@ -12,6 +12,7 @@ select.form-control, select.form-select { appearance: menulist !important; -webk
   <div class="card mb-4">
     <div class="card-header fw-bold">➕ Crear Curso</div>
     <div class="card-body">
+      <div class="alert alert-secondary py-2 small">🔒 Todo curso nuevo se crea <strong>INACTIVO</strong>. Previsualizalo con "👁️" y activalo con "🟢" cuando esté listo para los alumnos.</div>
       <form method="POST" action="/admin/cursos2/crear">
         <div class="row g-3">
           <div class="col-md-6"><label class="form-label small">Nombre del curso *</label><input name="title" class="form-control" required></div>
@@ -24,9 +25,8 @@ select.form-control, select.form-select { appearance: menulist !important; -webk
           <div class="col-md-3 form-check mt-4"><input type="checkbox" class="form-check-input" name="has_exam" id="he"><label class="form-check-label" for="he">Tiene examen final</label></div>
           <div class="col-md-3"><label class="form-label small">Nota mínima (%)</label><input type="number" name="exam_pass_score" class="form-control" value="70"></div>
           <div class="col-md-3"><label class="form-label small">Intentos</label><input type="number" name="exam_attempts" class="form-control" value="3"></div>
-          <div class="col-md-3"><label class="form-label small">Estado ▼</label><select name="status" class="form-control"><option value="active">Activo</option><option value="inactive">Inactivo</option></select></div>
         </div>
-        <button class="btn btn-primary mt-3">💾 Guardar Curso</button>
+        <button class="btn btn-primary mt-3">💾 Guardar Curso (queda inactivo)</button>
       </form>
     </div>
   </div>
@@ -41,14 +41,26 @@ select.form-control, select.form-select { appearance: menulist !important; -webk
           <td>{% if c.price_levelone and c.price_levelone|int > 0 %}${{ "%.0f"|format(c.price_levelone) }}{% else %}Gratis{% endif %}</td>
           <td>{{ "Sí" if c.has_exam else "No" }}</td>
           <td class="small">{{ c.start_date or '-' }} → {{ c.end_date or '-' }}</td>
-          <td><span class="badge bg-{{ 'success' if c.status=='active' else 'secondary' }}">{{ c.status }}</span></td>
+          <td><span class="badge bg-{{ 'success' if c.status=='active' else 'secondary' }}">{{ 'Activo' if c.status=='active' else 'Inactivo' }}</span></td>
           <td>
-            <a href="/admin/cursos2/editar/{{ c.id }}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
-            <a href="/admin/cursos2/lecciones/{{ c.id }}" class="btn btn-sm btn-outline-info">Lecciones</a>
-            <a href="/admin/cursos2/preguntas/{{ c.id }}" class="btn btn-sm btn-outline-success">Examen Final</a>
-            <form method="POST" action="/admin/cursos2/eliminar/{{ c.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar curso y todo su contenido?');">
-              <button class="btn btn-sm btn-outline-danger">🗑️</button>
-            </form>
+            <div class="d-flex flex-wrap gap-1">
+              <a href="/curso/{{ c.id }}" target="_blank" class="btn btn-sm btn-outline-light" title="Ver como alumno">👁️ Previsualizar</a>
+              {% if c.status == 'active' %}
+              <form method="POST" action="/admin/cursos2/toggle/{{ c.id }}" class="d-inline" onsubmit="return confirm('⚠️ Vas a DESACTIVAR este curso. Los alumnos dejarán de verlo. ¿Continuar?');">
+                <button class="btn btn-sm btn-outline-secondary">🔴 Desactivar</button>
+              </form>
+              {% else %}
+              <form method="POST" action="/admin/cursos2/toggle/{{ c.id }}" class="d-inline">
+                <button class="btn btn-sm btn-outline-success">🟢 Activar</button>
+              </form>
+              {% endif %}
+              <a href="/admin/cursos2/editar/{{ c.id }}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
+              <a href="/admin/cursos2/lecciones/{{ c.id }}" class="btn btn-sm btn-outline-info">Lecciones</a>
+              <a href="/admin/cursos2/preguntas/{{ c.id }}" class="btn btn-sm btn-outline-success">Examen Final</a>
+              <form method="POST" action="/admin/cursos2/eliminar/{{ c.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar curso y todo su contenido?');">
+                <button class="btn btn-sm btn-outline-danger">🗑️</button>
+              </form>
+            </div>
           </td>
         </tr>
       {% else %}
