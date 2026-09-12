@@ -456,7 +456,9 @@ function copiarLink() {
 }
 function compartirWhatsApp() {
   const link = document.getElementById('referralLinkInput').value;
-  const msg = `🎟️ ¡Sumate a LevelONE!\n\nUna plataforma con capacitación, comunidad privada y oportunidad de generar ingresos reales.\n\n✨ Accedé con precio especial ($30.000) usando mi código de referido.\n\n🌐 Conocé la plataforma: https://levelone.uno\n\n👉 Adquirí tu licencia directamente con mi código:\n${link}\n\nHacé clic en el segundo link, completá tus datos y listo. ¡Te espero adentro! 🚀`;
+  // Construir el link directo al formulario a partir del link de la landing
+  const linkFormulario = link.replace('levelone.uno/?', 'levelone.uno/comprar?');
+  const msg = `🎟️ ¡Sumate a LevelONE!\n\nUna plataforma con capacitación, comunidad privada y oportunidad de generar ingresos reales.\n\n✨ Accedé con precio especial ($30.000) usando mi código de referido.\n\n🌐 Conocé la plataforma:\n${link}\n\n👉 Adquirí tu licencia directamente con mi código:\n${linkFormulario}\n\nHacé clic en el segundo link, completá tus datos y listo. ¡Te espero adentro! 🚀`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
