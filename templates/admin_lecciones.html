@@ -48,11 +48,14 @@ input[type="file"].form-control { height: auto !important; font-size: 1.05rem !i
           <td><span class="badge bg-info">{{ l.content_type }}</span></td>
           <td class="small">{{ l.pdf_filename or '-' }}</td>
           <td>
-            <a href="/admin/cursos2/lecciones/editar/{{ l.id }}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
-            <a href="/admin/cursos2/preguntas_leccion/{{ l.id }}" class="btn btn-sm btn-outline-success">📝 Agregar Examen</a>
-            <form method="POST" action="/admin/cursos2/lecciones/eliminar/{{ l.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar lección?');">
-              <button class="btn btn-sm btn-outline-danger">🗑️</button>
-            </form>
+            <div class="d-flex flex-wrap gap-1">
+              <a href="/curso/{{ curso.id }}/leccion/{{ l.id }}" target="_blank" class="btn btn-sm btn-outline-light" title="Ver como la verá el alumno">👁️ Vista previa</a>
+              <a href="/admin/cursos2/lecciones/editar/{{ l.id }}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
+              <a href="/admin/cursos2/preguntas_leccion/{{ l.id }}" class="btn btn-sm btn-outline-success">📝 Agregar Examen</a>
+              <form method="POST" action="/admin/cursos2/lecciones/eliminar/{{ l.id }}" class="d-inline" onsubmit="return confirm('¿Eliminar lección?');">
+                <button class="btn btn-sm btn-outline-danger">🗑️</button>
+              </form>
+            </div>
           </td>
         </tr>
       {% else %}
