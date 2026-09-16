@@ -78,6 +78,10 @@ def init_db_cursos():
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS exam_pass_score INTEGER DEFAULT 70",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS exam_attempts INTEGER DEFAULT 3",
         "ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS lesson_id INTEGER",
+        # --- NUEVOS CAMPOS (duración, nivel, certificado) ---
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS duration_text TEXT",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS level_text TEXT DEFAULT 'Inicial'",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS certificate BOOLEAN DEFAULT FALSE",
     ]
     for a in alters:
         try:
@@ -250,13 +254,18 @@ def admin_cursos2_crear():
     pl = _num(request.form.get("price_levelone"), 0) or 0
     disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
     # Los cursos NUEVOS se crean siempre INACTIVOS (revisión antes de publicar)
+    # Incluye los nuevos campos: duration_text, level_text, certificate
     cur.execute("""INSERT INTO courses (title, description, image_url, start_date, end_date,
-                   price, discount_pct, price_regular, price_levelone, has_exam, exam_pass_score, exam_attempts, status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'inactive')""",
+                   price, discount_pct, price_regular, price_levelone, has_exam, exam_pass_score, exam_attempts,
+                   duration_text, level_text, certificate, status)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'inactive')""",
         (request.form.get("title","").strip(), request.form.get("description","").strip(),
          request.form.get("image_url","").strip(), _fecha(request.form.get("start_date")), _fecha(request.form.get("end_date")),
          pr, disc, pr, pl, request.form.get("has_exam")=="on",
-         int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3)))
+         int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3),
+         request.form.get("duration_text","").strip(),
+         request.form.get("level_text","Inicial") or "Inicial",
+         request.form.get("certificate")=="on"))
     conn.commit(); conn.close()
     flash("✅ Curso creado como INACTIVO. Previsualizalo y activalo cuando esté listo.")
     return redirect("/admin/cursos2")
@@ -283,13 +292,18 @@ def admin_cursos2_editar(cid):
         pr = _num(request.form.get("price_regular"), 0) or 0
         pl = _num(request.form.get("price_levelone"), 0) or 0
         disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
+        # Incluye los nuevos campos: duration_text, level_text, certificate
         cur.execute("""UPDATE courses SET title=%s, description=%s, image_url=%s, start_date=%s, end_date=%s,
                        price=%s, discount_pct=%s, price_regular=%s, price_levelone=%s, has_exam=%s,
-                       exam_pass_score=%s, exam_attempts=%s, status=%s WHERE id=%s""",
+                       exam_pass_score=%s, exam_attempts=%s,
+                       duration_text=%s, level_text=%s, certificate=%s, status=%s WHERE id=%s""",
             (request.form.get("title","").strip(), request.form.get("description","").strip(),
              request.form.get("image_url","").strip(), _fecha(request.form.get("start_date")), _fecha(request.form.get("end_date")),
              pr, disc, pr, pl, request.form.get("has_exam")=="on",
              int(request.form.get("exam_pass_score") or 70), int(request.form.get("exam_attempts") or 3),
+             request.form.get("duration_text","").strip(),
+             request.form.get("level_text","Inicial") or "Inicial",
+             request.form.get("certificate")=="on",
              request.form.get("status","active"), cid))
         conn.commit(); conn.close()
         flash("✅ Curso actualizado.")
