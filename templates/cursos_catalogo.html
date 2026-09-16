@@ -17,12 +17,23 @@
         <div class="card-body d-flex flex-column">
           <h5 class="card-title text-white fw-bold">{{ c.title }}</h5>
           <p class="card-text text-muted small flex-grow-1">{{ c.description or '' }}</p>
+
+          <!-- NUEVA LÍNEA: duración y nivel -->
+          {% if c.duration_text or c.level_text %}
+          <p class="text-muted small mb-2">
+            {% if c.duration_text %}⏱️ {{ c.duration_text }}{% endif %}
+            {% if c.duration_text and c.level_text %} | {% endif %}
+            {% if c.level_text %}🎯 {{ c.level_text }}{% endif %}
+          </p>
+          {% endif %}
+
           <p class="mb-2">
             {% if c.es_gratis %}
               <span class="badge bg-success">GRATIS</span>
             {% else %}
               <span class="badge bg-warning text-dark">$ {{ "%.0f"|format(c.price_levelone or 0) }} (con licencia)</span>
             {% endif %}
+            {% if c.certificate %}<span class="badge bg-primary">🎓 Certificado</span>{% endif %}
             {% if c.inscrito %}
               <span class="badge bg-info">Inscripto</span>
             {% endif %}
