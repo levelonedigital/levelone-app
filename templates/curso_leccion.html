@@ -3,7 +3,11 @@
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="text-white fw-bold mb-0">{{ leccion.title }}</h4>
+    {% if es_admin %}
+    <a href="/admin/cursos2/lecciones/{{ cid }}" class="btn btn-outline-light btn-sm">← Volver a lecciones</a>
+    {% else %}
     <a href="/curso/{{ cid }}" class="btn btn-outline-light btn-sm">← Volver al curso</a>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -29,7 +33,13 @@
 
   <div class="d-flex justify-content-between mt-4">
     {% if prev %}<a href="/curso/{{ cid }}/leccion/{{ prev }}" class="btn btn-outline-light">← Anterior</a>{% else %}<span></span>{% endif %}
-    {% if nxt %}<a href="/curso/{{ cid }}/leccion/{{ nxt }}" class="btn btn-outline-light">Siguiente →</a>{% else %}<a href="/curso/{{ cid }}" class="btn btn-success">Finalizar lecciones ✔</a>{% endif %}
+    {% if nxt %}<a href="/curso/{{ cid }}/leccion/{{ nxt }}" class="btn btn-outline-light">Siguiente →</a>{% else %}
+      {% if es_admin %}
+        <a href="/admin/cursos2/lecciones/{{ cid }}" class="btn btn-success">Finalizar lecciones ✔</a>
+      {% else %}
+        <a href="/curso/{{ cid }}" class="btn btn-success">Finalizar lecciones ✔</a>
+      {% endif %}
+    {% endif %}
   </div>
 </div>
 {% endblock %}
