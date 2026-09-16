@@ -78,7 +78,6 @@ def init_db_cursos():
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS exam_pass_score INTEGER DEFAULT 70",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS exam_attempts INTEGER DEFAULT 3",
         "ALTER TABLE exam_questions ADD COLUMN IF NOT EXISTS lesson_id INTEGER",
-        # --- NUEVOS CAMPOS (duración, nivel, certificado) ---
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS duration_text TEXT",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS level_text TEXT DEFAULT 'Inicial'",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS certificate BOOLEAN DEFAULT FALSE",
@@ -208,7 +207,8 @@ def curso_inscribir(cid):
 @login_requerido
 def curso_leccion(cid, lid):
     conn = get_db(); cur = get_cur(conn)
-    if not (_inscripto(cur, session["user_id"], cid) or _es_admin(cur, session["user_id"])):
+    es_admin = _es_admin(cur, session["user_id"])
+    if not (_inscripto(cur, session["user_id"], cid) or es_admin):
         conn.close(); flash("⚠️ Debes inscribirte al curso primero."); return redirect(f"/curso/{cid}")
     cur.execute("SELECT * FROM courses WHERE id=%s", (cid,)); curso = cur.fetchone()
     cur.execute("SELECT * FROM lessons WHERE id=%s AND course_id=%s", (lid, cid)); leccion = cur.fetchone()
@@ -221,7 +221,7 @@ def curso_leccion(cid, lid):
     nxt  = todas[idx+1]["id"] if idx < len(todas)-1 else None
     leccion = dict(leccion)
     leccion["video_embed"] = _youtube_embed(leccion.get("content_url"))
-    return render_template("curso_leccion.html", curso=curso, leccion=leccion, prev=prev, nxt=nxt, cid=cid)
+    return render_template("curso_leccion.html", curso=curso, leccion=leccion, prev=prev, nxt=nxt, cid=cid, es_admin=es_admin)
 
 @cursos_bp.route("/curso/<int:cid>/leccion/<int:lid>/pdf")
 @login_requerido
@@ -253,8 +253,6 @@ def admin_cursos2_crear():
     pr = _num(request.form.get("price_regular"), 0) or 0
     pl = _num(request.form.get("price_levelone"), 0) or 0
     disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
-    # Los cursos NUEVOS se crean siempre INACTIVOS (revisión antes de publicar)
-    # Incluye los nuevos campos: duration_text, level_text, certificate
     cur.execute("""INSERT INTO courses (title, description, image_url, start_date, end_date,
                    price, discount_pct, price_regular, price_levelone, has_exam, exam_pass_score, exam_attempts,
                    duration_text, level_text, certificate, status)
@@ -292,7 +290,6 @@ def admin_cursos2_editar(cid):
         pr = _num(request.form.get("price_regular"), 0) or 0
         pl = _num(request.form.get("price_levelone"), 0) or 0
         disc = int(round((1 - pl/pr)*100)) if pr > 0 else 0
-        # Incluye los nuevos campos: duration_text, level_text, certificate
         cur.execute("""UPDATE courses SET title=%s, description=%s, image_url=%s, start_date=%s, end_date=%s,
                        price=%s, discount_pct=%s, price_regular=%s, price_levelone=%s, has_exam=%s,
                        exam_pass_score=%s, exam_attempts=%s,
