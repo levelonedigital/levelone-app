@@ -18,11 +18,23 @@ select.form-control, select.form-select { appearance: menulist !important; -webk
           <div class="col-md-6"><label class="form-label small">Nombre del curso *</label><input name="title" class="form-control" required></div>
           <div class="col-md-6"><label class="form-label small">Imagen (URL)</label><input name="image_url" class="form-control" placeholder="https://..."></div>
           <div class="col-12"><label class="form-label small">Descripción</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+          
+          <!-- NUEVOS CAMPOS: duración, nivel, certificado -->
+          <div class="col-md-4"><label class="form-label small">⏱️ Duración estimada</label><input name="duration_text" class="form-control" placeholder="Ej: 1 hora y media"></div>
+          <div class="col-md-4"><label class="form-label small">🎯 Nivel ▼</label>
+            <select name="level_text" class="form-control">
+              <option value="Inicial">Inicial</option>
+              <option value="Intermedio">Intermedio</option>
+              <option value="Avanzado">Avanzado</option>
+            </select>
+          </div>
+          <div class="col-md-4 form-check mt-4"><input type="checkbox" class="form-check-input" name="certificate" id="cert"><label class="form-check-label ms-2" for="cert">🎓 Se entrega certificado</label></div>
+
           <div class="col-md-3"><label class="form-label small">Fecha inicio</label><input type="date" name="start_date" class="form-control"></div>
           <div class="col-md-3"><label class="form-label small">Fecha fin</label><input type="date" name="end_date" class="form-control"></div>
           <div class="col-md-3"><label class="form-label small">Precio regular ($)</label><input type="number" step="0.01" name="price_regular" class="form-control" value="0"></div>
           <div class="col-md-3"><label class="form-label small">Precio con licencia ($)</label><input type="number" step="0.01" name="price_levelone" class="form-control" value="0"></div>
-          <div class="col-md-3 form-check mt-4"><input type="checkbox" class="form-check-input" name="has_exam" id="he"><label class="form-check-label" for="he">Tiene examen final</label></div>
+          <div class="col-md-3 form-check mt-4"><input type="checkbox" class="form-check-input" name="has_exam" id="he"><label class="form-check-label ms-2" for="he">Tiene examen final</label></div>
           <div class="col-md-3"><label class="form-label small">Nota mínima (%)</label><input type="number" name="exam_pass_score" class="form-control" value="70"></div>
           <div class="col-md-3"><label class="form-label small">Intentos</label><input type="number" name="exam_attempts" class="form-control" value="3"></div>
         </div>
