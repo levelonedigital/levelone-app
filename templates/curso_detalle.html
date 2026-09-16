@@ -12,10 +12,20 @@
     {% endif %}
     <div class="card-body">
       <p class="text-readable">{{ curso.description or '' }}</p>
+
+      <!-- NUEVO BLOQUE: información del curso -->
+      <div class="row g-2 small mb-3 p-3 rounded" style="background:rgba(255,255,255,0.05);">
+        <div class="col-md-6">⏱️ <strong>Duración total estimada:</strong> {{ curso.duration_text or 'A definir' }}</div>
+        <div class="col-md-6">🎯 <strong>Nivel:</strong> {{ curso.level_text or 'Inicial' }}</div>
+        <div class="col-md-6">📝 <strong>Examen final:</strong> {{ 'Sí' if curso.has_exam else 'No' }}</div>
+        <div class="col-md-6">🎓 <strong>Certificado:</strong> {{ 'Se entrega al aprobar el curso' if curso.certificate else 'No se entrega' }}</div>
+      </div>
+
       <p class="mb-2">
         {% if es_gratis %}<span class="badge bg-success">GRATIS con tu licencia</span>
         {% else %}<span class="badge bg-warning text-dark">$ {{ "%.0f"|format(curso.price_levelone or 0) }}</span>{% endif %}
         {% if curso.has_exam %}<span class="badge bg-info">Con examen final</span>{% endif %}
+        {% if curso.certificate %}<span class="badge bg-primary">🎓 Certificado incluido</span>{% endif %}
       </p>
     </div>
   </div>
